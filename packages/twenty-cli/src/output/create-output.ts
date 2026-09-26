@@ -5,6 +5,7 @@ import { formatFailureLine, formatWarningLine } from '@/output/style';
 import { type CliWarning } from '@/output/types/cli-warning.type';
 import { type OutputMode } from '@/output/types/output-mode.type';
 import { type Output } from '@/output/types/output.type';
+import { type PublicTarget } from '@/target/types/public-target.type';
 
 const writeLine = (stream: NodeJS.WriteStream, text: string) => {
   stream.write(text.endsWith('\n') ? text : `${text}\n`);
@@ -13,6 +14,9 @@ const writeLine = (stream: NodeJS.WriteStream, text: string) => {
 const writeJsonLine = (value: unknown) => {
   writeLine(process.stdout, JSON.stringify(value));
 };
+
+const withTarget = (target: PublicTarget | undefined) =>
+  isDefined(target) ? { target } : {};
 
 export const createOutput = ({
   mode,
@@ -51,12 +55,13 @@ export const createOutput = ({
 
       warnings.push(warning);
     },
-    succeed: ({ data, human }) => {
+    succeed: ({ data, human }, target) => {
       if (mode === 'json') {
         writeJsonLine({
           schemaVersion: JSON_SCHEMA_VERSION,
           ok: true,
           command,
+          ...withTarget(target),
           data,
           warnings,
         });
@@ -70,10 +75,15 @@ export const createOutput = ({
         return;
       }
 
-      writeLine(process.stdout, human ?? JSON.stringify(data, null, 2));
+      const humanText = human ?? JSON.stringify(data, null, 2);
+
+      if (humanText !== '') {
+        writeLine(process.stdout, humanText);
+      }
+
       writeHumanWarnings();
     },
-    fail: (error) => {
+    fail: (error, target) => {
       process.exitCode = error.exitCode;
 
       const errorPayload = {
@@ -88,6 +98,7 @@ export const createOutput = ({
           schemaVersion: JSON_SCHEMA_VERSION,
           ok: false,
           command,
+          ...withTarget(target),
           error: errorPayload,
           warnings,
         });

@@ -1,6 +1,7 @@
 import { Command, Option, type OutputConfiguration } from 'commander';
 
 import { COMMAND_CATALOG } from '@/catalog/command-catalog';
+import { COMMAND_TOPICS } from '@/catalog/command-topics';
 import { HELP_GROUP } from '@/catalog/constants/help-group.constant';
 import { CLI_VERSION } from '@/constants/cli-version.constant';
 import { OUTPUT_MODES } from '@/output/constants/output-modes.constant';
@@ -8,6 +9,7 @@ import { type OutputMode } from '@/output/types/output-mode.type';
 import { GLOBAL_FLAGS } from '@/program/constants/global-flags.constant';
 import { ROOT_COMMAND_NAME } from '@/program/constants/root-command-name.constant';
 import { registerCommand } from '@/program/register-command';
+import { registerTopic } from '@/program/register-topic';
 import { throwParseErrorOnExit } from '@/program/throw-parse-error-on-exit';
 
 export const createProgram = ({
@@ -36,6 +38,10 @@ export const createProgram = ({
     .configureOutput(outputConfiguration);
 
   throwParseErrorOnExit(program, ROOT_COMMAND_NAME);
+
+  for (const topic of COMMAND_TOPICS) {
+    registerTopic({ program, topic });
+  }
 
   for (const definition of COMMAND_CATALOG) {
     registerCommand({ program, definition, outputMode });

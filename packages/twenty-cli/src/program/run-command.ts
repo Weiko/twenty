@@ -81,5 +81,6 @@ export const runCommand = async ({
     );
   } finally {
     process.off('SIGINT', abortOnInterrupt);
+    abortController.abort();
   }
 };

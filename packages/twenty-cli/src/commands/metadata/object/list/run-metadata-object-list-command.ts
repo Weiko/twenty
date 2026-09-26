@@ -4,17 +4,17 @@ import { type TargetCommandContext } from '@/catalog/types/target-command-contex
 import { formatMetadataOwner } from '@/metadata/format-metadata-owner';
 import { METADATA_OWNER_KIND_ORDER } from '@/metadata/constants/metadata-owner-kind-order.constant';
 import { createMetadataOwnerResolver } from '@/metadata/resolve-metadata-owner';
+import { CliError } from '@/output/cli-error';
 import { formatTable } from '@/output/format-table';
 import { dimText } from '@/output/style';
 import { createMetadataClient } from '@/transport/metadata/create-metadata-client';
 
 const OBJECT_PAGE_SIZE = 1000;
 
-const fetchObjectsAndOwners = ({
-  target,
-  signal,
-}: Pick<TargetCommandContext, 'target' | 'signal'>) =>
-  createMetadataClient({ target, signal }).query({
+type MetadataClient = ReturnType<typeof createMetadataClient>;
+
+const fetchObjects = (client: MetadataClient) =>
+  client.query({
     objects: {
       __args: { paging: { first: OBJECT_PAGE_SIZE }, filter: {} },
       pageInfo: { hasNextPage: true },
@@ -30,16 +30,32 @@ const fetchObjectsAndOwners = ({
         },
       },
     },
-    findManyApplications: { id: true, name: true, universalIdentifier: true },
     currentWorkspace: { workspaceCustomApplicationId: true },
   });
+
+const fetchOwnerApplications = async (client: MetadataClient) => {
+  try {
+    const { findManyApplications } = await client.query({
+      findManyApplications: { id: true, name: true, universalIdentifier: true },
+    });
+
+    return { applications: findManyApplications, areOwnersNamed: true };
+  } catch (error) {
+    if (!(error instanceof CliError) || error.code !== 'PERMISSION_DENIED') {
+      throw error;
+    }
+
+    return { applications: [], areOwnersNamed: false };
+  }
+};
 
 export const runMetadataObjectListCommand: CommandRun<
   TargetCommandContext
 > = async ({ options, output, target, signal }) => {
   const includeSystemObjects = readBooleanOption(options, 'all');
-  const { objects, findManyApplications, currentWorkspace } =
-    await fetchObjectsAndOwners({ target, signal });
+  const client = createMetadataClient({ target, signal });
+  const [{ objects, currentWorkspace }, { applications, areOwnersNamed }] =
+    await Promise.all([fetchObjects(client), fetchOwnerApplications(client)]);
 
   if (objects.pageInfo.hasNextPage === true) {
     output.warn({
@@ -48,8 +64,16 @@ export const runMetadataObjectListCommand: CommandRun<
     });
   }
 
+  if (!areOwnersNamed) {
+    output.warn({
+      code: 'OWNERS_UNAVAILABLE',
+      message:
+        'Owners other than Custom show as unknown: listing apps needs the Applications permission.',
+    });
+  }
+
   const resolveOwner = createMetadataOwnerResolver({
-    applications: findManyApplications,
+    applications,
     workspaceCustomApplicationId: currentWorkspace.workspaceCustomApplicationId,
   });
   const allObjects = objects.edges.map(

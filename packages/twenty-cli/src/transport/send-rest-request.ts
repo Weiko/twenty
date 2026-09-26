@@ -36,6 +36,7 @@ export const sendRestRequest = async ({
   if (!response.ok) {
     throw createHttpStatusError({
       status: response.status,
+      headers: response.headers,
       body: responseBody,
       target,
     });

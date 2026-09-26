@@ -15,12 +15,19 @@ import { sendRestRequest } from '@/transport/send-rest-request';
 
 const DEFAULT_METHOD = 'GET';
 
-const readRequestBody = async (input: string | undefined) => {
+const readRequestBody = async (
+  input: string | undefined,
+  signal: AbortSignal,
+) => {
   if (!isDefined(input)) {
     return undefined;
   }
 
-  const text = await readInputValue({ value: input, optionName: '--input' });
+  const text = await readInputValue({
+    value: input,
+    optionName: '--input',
+    signal,
+  });
 
   parseJsonInput({ text, optionName: '--input' });
 
@@ -51,7 +58,7 @@ export const runApiRestCommand: CommandRun<TargetCommandContext> = async ({
     signal,
     method: method ?? DEFAULT_METHOD,
     path,
-    body: await readRequestBody(input),
+    body: await readRequestBody(input, signal),
   });
 
   return { data: response, human: formatBody(response.body) };

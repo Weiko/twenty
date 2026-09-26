@@ -9,6 +9,7 @@ export type CliErrorCode =
   | 'INTERNAL_ERROR'
   | 'INVALID_API_URL'
   | 'INVALID_INPUT'
+  | 'INVALID_RESPONSE'
   | 'INVALID_REQUEST_PATH'
   | 'NETWORK_ERROR'
   | 'NOT_FOUND'

@@ -4,6 +4,7 @@ import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 import { getAuthenticationHint } from '@/target/get-authentication-hint';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
+import { pickSafeResponseHeaders } from '@/transport/pick-safe-response-headers';
 import { isJsonObject } from '@/utils/is-json-object';
 
 const findServerMessage = (body: unknown) => {
@@ -22,15 +23,21 @@ const findServerMessage = (body: unknown) => {
 
 export const createHttpStatusError = ({
   status,
+  headers,
   body,
   target,
 }: {
   status: number;
+  headers: Headers;
   body: unknown;
   target: ResolvedTarget;
 }) => {
   const serverMessage = findServerMessage(body);
-  const details = { status, body };
+  const details = {
+    status,
+    headers: pickSafeResponseHeaders(headers),
+    body,
+  };
 
   if (status === 401) {
     return new CliError({

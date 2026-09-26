@@ -12,7 +12,10 @@ import { parseJsonObjectInput } from '@/input/parse-json-input';
 import { readInputValue } from '@/input/read-input-value';
 import { sendGraphqlRequest } from '@/transport/graphql/send-graphql-request';
 
-const readVariables = async (variablesOption: string | undefined) => {
+const readVariables = async (
+  variablesOption: string | undefined,
+  signal: AbortSignal,
+) => {
   if (!isDefined(variablesOption)) {
     return undefined;
   }
@@ -21,6 +24,7 @@ const readVariables = async (variablesOption: string | undefined) => {
     text: await readInputValue({
       value: variablesOption,
       optionName: '--variables',
+      signal,
     }),
     optionName: '--variables',
   });
@@ -42,8 +46,9 @@ export const runApiGraphqlCommand: CommandRun<TargetCommandContext> = async ({
   const query = await readInputValue({
     value: queryOption,
     optionName: '--query',
+    signal,
   });
-  const variables = await readVariables(variablesOption);
+  const variables = await readVariables(variablesOption, signal);
   const data = await sendGraphqlRequest({
     target,
     signal,

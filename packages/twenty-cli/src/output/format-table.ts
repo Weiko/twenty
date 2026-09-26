@@ -1,3 +1,5 @@
+import { stripVTControlCharacters } from 'node:util';
+
 import { dimText } from '@/output/style';
 
 type TableColumn<TRow> = {
@@ -8,6 +10,23 @@ type TableColumn<TRow> = {
 
 const COLUMN_GAP = '   ';
 const ROW_INDENT = '  ';
+
+const getVisibleLength = (text: string) =>
+  stripVTControlCharacters(text).length;
+
+const pad = ({
+  cell,
+  width,
+  align,
+}: {
+  cell: string;
+  width: number;
+  align: 'left' | 'right';
+}) => {
+  const padding = ' '.repeat(Math.max(0, width - getVisibleLength(cell)));
+
+  return align === 'right' ? `${padding}${cell}` : `${cell}${padding}`;
+};
 
 export const formatTable = <TRow>({
   rows,
@@ -20,16 +39,18 @@ export const formatTable = <TRow>({
   const widths = columns.map((column, columnIndex) =>
     Math.max(
       column.header.length,
-      ...cells.map((rowCells) => rowCells[columnIndex].length),
+      ...cells.map((rowCells) => getVisibleLength(rowCells[columnIndex])),
     ),
   );
 
   const formatRow = (rowCells: string[]) =>
     `${ROW_INDENT}${rowCells
       .map((cell, columnIndex) =>
-        columns[columnIndex].align === 'right'
-          ? cell.padStart(widths[columnIndex])
-          : cell.padEnd(widths[columnIndex]),
+        pad({
+          cell,
+          width: widths[columnIndex],
+          align: columns[columnIndex].align ?? 'left',
+        }),
       )
       .join(COLUMN_GAP)}`.trimEnd();
 

@@ -7,9 +7,6 @@ export const throwParseErrorOnExit = (command: Command, commandName: string) =>
     throw new CommandParseError({
       commanderError,
       commandName,
-      unknownCommandArguments:
-        commanderError.code === 'commander.unknownCommand'
-          ? command.args
-          : undefined,
+      operands: command.args,
     });
   });

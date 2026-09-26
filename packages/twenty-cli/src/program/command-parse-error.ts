@@ -3,21 +3,21 @@ import { type CommanderError } from 'commander';
 export class CommandParseError extends Error {
   readonly commanderError: CommanderError;
   readonly commandName: string;
-  readonly unknownCommandArguments?: string[];
+  readonly operands: string[];
 
   constructor({
     commanderError,
     commandName,
-    unknownCommandArguments,
+    operands,
   }: {
     commanderError: CommanderError;
     commandName: string;
-    unknownCommandArguments?: string[];
+    operands: string[];
   }) {
     super(commanderError.message);
     this.name = 'CommandParseError';
     this.commanderError = commanderError;
     this.commandName = commandName;
-    this.unknownCommandArguments = unknownCommandArguments;
+    this.operands = operands;
   }
 }

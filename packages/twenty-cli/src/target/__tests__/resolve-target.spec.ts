@@ -1,81 +1,165 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-import { type CliError } from '@/output/cli-error';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { type CliWarning } from '@/output/types/cli-warning.type';
 import { resolveTarget } from '@/target/resolve-target';
 
-const captureError = (environment: NodeJS.ProcessEnv) => {
-  try {
-    resolveTarget({ environment });
-  } catch (error) {
-    return error as CliError;
-  }
-
-  throw new Error('Expected resolveTarget to throw');
+const CONFIG = {
+  version: 1,
+  defaultRemote: 'prod',
+  remotes: {
+    prod: { apiUrl: 'https://acme.twenty.com/', apiKey: 'prod-key' },
+    staging: {
+      apiUrl: 'https://staging.twenty.com',
+      apiKey: 'staging-key',
+      twentyCLIAccessToken: 'staging-access-token',
+    },
+    signedOut: { apiUrl: 'https://old.twenty.com' },
+  },
 };
 
 describe('resolveTarget', () => {
-  it('uses the environment URL and API key together', () => {
-    expect(
-      resolveTarget({
-        environment: {
-          TWENTY_API_URL: 'https://Acme.Twenty.com/crm/',
-          TWENTY_API_KEY: 'secret',
-        },
+  let configPath: string;
+  let warnings: CliWarning[];
+
+  const resolve = (
+    environment: NodeJS.ProcessEnv,
+    remoteFlag?: string,
+    path = configPath,
+  ) =>
+    resolveTarget({
+      environment,
+      remoteFlag,
+      configPath: path,
+      warn: (warning) => warnings.push(warning),
+    });
+
+  beforeEach(async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'twenty-cli-target-'));
+
+    configPath = join(directory, 'config.json');
+    warnings = [];
+    await writeFile(configPath, JSON.stringify(CONFIG));
+  });
+
+  it('uses the environment pair without reading the config', async () => {
+    await writeFile(configPath, '{ broken');
+
+    await expect(
+      resolve({
+        TWENTY_API_URL: 'https://Acme.Twenty.com/crm/',
+        TWENTY_API_KEY: 'secret',
       }),
-    ).toEqual({
+    ).resolves.toEqual({
       apiUrl: 'https://acme.twenty.com/crm',
       bearerToken: 'secret',
+      credentialKind: 'apiKey',
       source: 'environment',
     });
   });
 
-  it('requires a target when nothing is set', () => {
-    expect(captureError({})).toMatchObject({
-      code: 'TARGET_REQUIRED',
-      exitCode: 2,
+  it('falls back to the saved default remote', async () => {
+    await expect(resolve({})).resolves.toEqual({
+      apiUrl: 'https://acme.twenty.com',
+      bearerToken: 'prod-key',
+      credentialKind: 'apiKey',
+      source: 'remote',
+      remoteName: 'prod',
     });
   });
 
-  it('treats empty values as unset', () => {
-    expect(captureError({ TWENTY_API_URL: ' ', TWENTY_API_KEY: '' }).code).toBe(
-      'TARGET_REQUIRED',
-    );
-  });
-
-  it('names the missing half of the environment pair', () => {
-    expect(
-      captureError({ TWENTY_API_URL: 'https://acme.twenty.com' }),
-    ).toMatchObject({
-      code: 'INCOMPLETE_TARGET',
-      exitCode: 2,
-      message: 'TWENTY_API_KEY is not set.',
+  it('selects a remote with TWENTY_REMOTE', async () => {
+    await expect(resolve({ TWENTY_REMOTE: 'staging' })).resolves.toMatchObject({
+      remoteName: 'staging',
     });
-    expect(captureError({ TWENTY_API_KEY: 'secret' }).message).toBe(
-      'TWENTY_API_URL is not set.',
-    );
   });
 
-  it('refuses TWENTY_REMOTE combined with environment credentials', () => {
-    expect(
-      captureError({ TWENTY_REMOTE: 'prod', TWENTY_API_KEY: 'secret' }),
-    ).toMatchObject({ code: 'CONFLICTING_TARGET', exitCode: 2 });
+  it('prefers a saved OAuth access token over an API key, like twenty-sdk', async () => {
+    await expect(resolve({}, 'staging')).resolves.toMatchObject({
+      bearerToken: 'staging-access-token',
+      credentialKind: 'oauth',
+    });
   });
 
-  it('does not accept TWENTY_REMOTE before saved remotes exist', () => {
-    expect(captureError({ TWENTY_REMOTE: 'prod' }).code).toBe(
-      'TARGET_REQUIRED',
-    );
+  it('lets --remote win over the environment and says so', async () => {
+    await expect(
+      resolve(
+        { TWENTY_API_URL: 'https://other.example.com', TWENTY_API_KEY: 'k' },
+        'staging',
+      ),
+    ).resolves.toMatchObject({ remoteName: 'staging' });
+    expect(warnings).toEqual([
+      {
+        code: 'ENVIRONMENT_TARGET_IGNORED',
+        message:
+          'Using remote staging. Ignoring TWENTY_API_URL and TWENTY_API_KEY.',
+      },
+    ]);
   });
 
   it.each([
-    'acme.twenty.com',
-    'ftp://acme.twenty.com',
-    'https://user:password@acme.twenty.com',
-    'https://acme.twenty.com?workspace=1',
-    'https://acme.twenty.com#fragment',
-  ])('rejects the API URL %s', (apiUrl) => {
-    expect(
-      captureError({ TWENTY_API_URL: apiUrl, TWENTY_API_KEY: 'secret' }),
-    ).toMatchObject({ code: 'INVALID_API_URL', exitCode: 2 });
-  });
+    [{}, undefined, 'TARGET_REQUIRED', 2, 'missing.json'],
+    [
+      { TWENTY_API_URL: ' ', TWENTY_API_KEY: '' },
+      undefined,
+      'TARGET_REQUIRED',
+      2,
+      'missing.json',
+    ],
+    [
+      { TWENTY_API_URL: 'https://acme.twenty.com' },
+      undefined,
+      'INCOMPLETE_TARGET',
+      2,
+      undefined,
+    ],
+    [
+      { TWENTY_REMOTE: 'prod', TWENTY_API_KEY: 'k' },
+      undefined,
+      'CONFLICTING_TARGET',
+      2,
+      undefined,
+    ],
+    [{}, 'nope', 'UNKNOWN_REMOTE', 2, undefined],
+    [{}, 'signedOut', 'AUTH_REQUIRED', 3, undefined],
+    [
+      { TWENTY_API_URL: 'acme.twenty.com', TWENTY_API_KEY: 'k' },
+      undefined,
+      'INVALID_API_URL',
+      2,
+      undefined,
+    ],
+    [
+      {
+        TWENTY_API_URL: 'https://user:pw@acme.twenty.com',
+        TWENTY_API_KEY: 'k',
+      },
+      undefined,
+      'INVALID_API_URL',
+      2,
+      undefined,
+    ],
+    [
+      { TWENTY_API_URL: 'https://acme.twenty.com?x=1', TWENTY_API_KEY: 'k' },
+      undefined,
+      'INVALID_API_URL',
+      2,
+      undefined,
+    ],
+  ] as const)(
+    'fails for %j with --remote %s as %s',
+    async (environment, remoteFlag, code, exitCode, configFileName) => {
+      const path =
+        configFileName === undefined
+          ? configPath
+          : join(configPath, '..', configFileName);
+
+      await expect(
+        resolve(environment, remoteFlag, path),
+      ).rejects.toMatchObject({ code, exitCode });
+    },
+  );
 });

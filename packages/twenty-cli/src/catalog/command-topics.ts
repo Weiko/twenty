@@ -22,6 +22,10 @@ export const COMMAND_TOPICS: CommandTopicDefinition[] = [
     description: 'Objects',
   },
   {
+    path: ['metadata', 'field'],
+    description: 'Fields',
+  },
+  {
     path: ['api'],
     description: 'Send raw REST and GraphQL requests',
     helpGroup: HELP_GROUP.WORKSPACE,

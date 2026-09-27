@@ -1,0 +1,59 @@
+import { isNonEmptyString } from '@sniptt/guards';
+
+import { METADATA_ITEM_LIMIT } from '@/metadata/constants/metadata-page.constant';
+import { CliError } from '@/output/cli-error';
+import { RESPONSE_BYTE_LIMIT } from '@/transport/constants/response-byte-limit.constant';
+
+type MetadataPage<TNode> = {
+  edges: { node: TNode }[];
+  pageInfo: { hasNextPage?: boolean; endCursor?: string };
+};
+
+export const collectMetadataNodes = async <TNode>(
+  fetchPage: (after?: string) => Promise<MetadataPage<TNode>>,
+) => {
+  const nodes: TNode[] = [];
+  const cursors = new Set<string>();
+  let after: string | undefined;
+  let bytes = 0;
+
+  while (true) {
+    const page = await fetchPage(after);
+
+    for (const { node } of page.edges) {
+      bytes += Buffer.byteLength(JSON.stringify(node), 'utf8');
+
+      if (nodes.length >= METADATA_ITEM_LIMIT || bytes > RESPONSE_BYTE_LIMIT) {
+        throw new CliError({
+          code: 'RESPONSE_LIMIT_EXCEEDED',
+          message:
+            'Metadata exceeds the 10,000-item or 16 MiB inspection limit.',
+          hint: 'Use api graphql to select and page the metadata you need.',
+        });
+      }
+
+      nodes.push(node);
+    }
+
+    if (page.pageInfo.hasNextPage === false) {
+      return nodes;
+    }
+
+    const cursor = page.pageInfo.endCursor;
+
+    if (
+      page.pageInfo.hasNextPage !== true ||
+      !isNonEmptyString(cursor) ||
+      cursors.has(cursor) ||
+      page.edges.length === 0
+    ) {
+      throw new CliError({
+        code: 'INVALID_RESPONSE',
+        message: 'The metadata server returned invalid pagination information.',
+      });
+    }
+
+    cursors.add(cursor);
+    after = cursor;
+  }
+};

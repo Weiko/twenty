@@ -1,4 +1,5 @@
 export type CliErrorCode =
+  | 'AMBIGUOUS_RESOURCE'
   | 'AUTH_REQUIRED'
   | 'CANCELLED'
   | 'CONFIG_LOCKED'

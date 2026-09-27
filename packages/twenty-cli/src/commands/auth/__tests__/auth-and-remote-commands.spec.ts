@@ -117,21 +117,6 @@ describe('auth and remote commands', () => {
     });
   });
 
-  it('refuses browser sign-in with --no-input', async () => {
-    const { envelope, exitCode } = await runJson([
-      'auth',
-      'login',
-      '--url',
-      server.url,
-      '--name',
-      'prod',
-      '--no-input',
-    ]);
-
-    expect(exitCode).toBe(2);
-    expect(envelope.error.code).toBe('USAGE');
-  });
-
   it('asks for --replace before pointing a remote at another URL', async () => {
     await login(['--url', server.url, '--name', 'prod']);
 

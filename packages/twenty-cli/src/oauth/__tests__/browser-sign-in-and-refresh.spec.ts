@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { Readable } from 'node:stream';
 
+import { isDefined } from 'twenty-shared/utils';
 import {
   afterAll,
   afterEach,
@@ -20,14 +22,24 @@ import {
 import { sendJson, startTestServer } from '@/__tests__/utils/start-test-server';
 import { openBrowser } from '@/oauth/open-browser';
 import { refreshOAuthSession } from '@/oauth/refresh-oauth-session';
+import { startCallbackServer } from '@/oauth/start-callback-server';
 
 vi.mock('@/oauth/open-browser', () => ({ openBrowser: vi.fn() }));
 
 const CLIENT_ID = 'cli-client';
 
 type Scenario = {
-  callback: 'approve' | 'decline' | 'wrongState' | 'wrongIssuer';
+  isDeclined?: boolean;
+  returnedState?: string;
+  returnedIssuer?: string | null;
+  advertisedIssuer?: string;
   tokenEndpointOrigin?: string;
+};
+
+type RefusalCase = {
+  args?: string[];
+  continuousIntegration?: string;
+  isTerminal?: boolean;
 };
 
 const encode = (value: unknown) =>
@@ -41,9 +53,10 @@ const createAccessToken = (expiresInSeconds: number, id: string) =>
   ].join('.');
 
 const state = {
-  scenario: { callback: 'approve' } as Scenario,
+  scenario: {} as Scenario,
   codeChallenge: '',
   isVerifierValid: false,
+  codeExchanges: 0,
   currentRefreshToken: 'refresh-1',
   refreshCalls: 0,
   validAccessTokens: new Set<string>(),
@@ -54,21 +67,26 @@ const server = await startTestServer((request, response) => {
 
   if (url.pathname === '/.well-known/oauth-authorization-server') {
     return sendJson(response, 200, {
-      issuer: server.url,
+      issuer: state.scenario.advertisedIssuer ?? server.url,
       authorization_endpoint: `${server.url}/authorize`,
       token_endpoint: `${state.scenario.tokenEndpointOrigin ?? server.url}/oauth/token`,
       cli_client_id: CLIENT_ID,
       code_challenge_methods_supported: ['S256'],
+      authorization_response_iss_parameter_supported: true,
     });
   }
 
   if (url.pathname === '/authorize') {
     const callback = new URL(url.searchParams.get('redirect_uri') ?? '');
-    const { callback: outcome } = state.scenario;
+    const {
+      isDeclined,
+      returnedState,
+      returnedIssuer = server.url,
+    } = state.scenario;
 
     state.codeChallenge = url.searchParams.get('code_challenge') ?? '';
 
-    if (outcome === 'decline') {
+    if (isDeclined === true) {
       callback.searchParams.set('error', 'access_denied');
     } else {
       callback.searchParams.set('code', 'authorization-code');
@@ -76,14 +94,13 @@ const server = await startTestServer((request, response) => {
 
     callback.searchParams.set(
       'state',
-      outcome === 'wrongState'
-        ? 'forged'
-        : (url.searchParams.get('state') ?? ''),
+      returnedState ?? url.searchParams.get('state') ?? '',
     );
-    callback.searchParams.set(
-      'iss',
-      outcome === 'wrongIssuer' ? 'https://elsewhere.example.com' : server.url,
-    );
+
+    if (isDefined(returnedIssuer)) {
+      callback.searchParams.set('iss', returnedIssuer);
+    }
+
     response.writeHead(302, { location: callback.href });
 
     return response.end();
@@ -93,6 +110,7 @@ const server = await startTestServer((request, response) => {
     const parameters = JSON.parse(request.body);
 
     if (parameters.grant_type === 'authorization_code') {
+      state.codeExchanges += 1;
       state.isVerifierValid =
         createHash('sha256')
           .update(parameters.code_verifier)
@@ -150,11 +168,39 @@ const runJson = async (args: string[]) => {
   return { envelope: parseSingleJsonLine(stdout), exitCode };
 };
 
+const signIn = (args: string[] = []) =>
+  runCliForTest([
+    'auth',
+    'login',
+    '--url',
+    server.url,
+    '--name',
+    'cloud',
+    ...args,
+  ]);
+
+const stubStandardInput = ({ isTerminal }: { isTerminal: boolean }) =>
+  vi.spyOn(process, 'stdin', 'get').mockReturnValue(
+    Object.assign(Readable.from([]), {
+      isTTY: isTerminal,
+    }) as unknown as typeof process.stdin,
+  );
+
+const countListeningServers = () =>
+  process
+    .getActiveResourcesInfo()
+    .filter((resource) => resource === 'TCPServerWrap').length;
+
 describe('browser sign-in and session refresh', () => {
   let configPath: string;
 
   const readConfigFile = async () =>
     JSON.parse(await readFile(configPath, 'utf8'));
+
+  const expectNothingSaved = () =>
+    expect(readFile(configPath, 'utf8')).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
 
   const writeSession = async (accessToken: string, refreshToken: string) => {
     await mkdir(dirname(configPath), { recursive: true });
@@ -184,22 +230,23 @@ describe('browser sign-in and session refresh', () => {
     vi.stubEnv('TWENTY_API_URL', '');
     vi.stubEnv('TWENTY_API_KEY', '');
     vi.stubEnv('TWENTY_REMOTE', '');
+    stubStandardInput({ isTerminal: true });
     Object.assign(state, {
-      scenario: { callback: 'approve' },
+      scenario: {},
       codeChallenge: '',
       isVerifierValid: false,
+      codeExchanges: 0,
       currentRefreshToken: 'refresh-1',
       refreshCalls: 0,
     });
-    vi.mocked(openBrowser).mockImplementation(async (url) => {
-      await fetch(url);
-
-      return true;
+    vi.mocked(openBrowser).mockImplementation((url) => {
+      fetch(url).catch(() => undefined);
     });
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
     vi.mocked(openBrowser).mockReset();
   });
 
@@ -208,25 +255,14 @@ describe('browser sign-in and session refresh', () => {
   });
 
   it('signs in with the browser using PKCE and saves the session', async () => {
-    const { envelope, exitCode } = await runJson([
-      'auth',
-      'login',
-      '--url',
-      server.url,
-      '--name',
-      'cloud',
-    ]);
+    const { stdout, stderr, exitCode } = await signIn();
 
     expect(exitCode).toBe(0);
     expect(state.isVerifierValid).toBe(true);
-    expect(envelope.data).toEqual({
-      remote: 'cloud',
-      apiUrl: server.url,
-      credentials: 'oauth',
-      workspaceName: 'Cloud',
-      email: 'jane@acme.com',
-      isDefault: true,
-    });
+    expect(stderr).toContain(
+      `If nothing opens, visit: ${server.url}/authorize?`,
+    );
+    expect(stdout).toContain('jane@acme.com');
 
     const { remotes } = await readConfigFile();
 
@@ -239,67 +275,119 @@ describe('browser sign-in and session refresh', () => {
     expect(remotes.cloud).not.toHaveProperty('apiKey');
   });
 
-  it.each([
-    ['decline', 'Sign-in was declined in the browser.'],
-    ['wrongState', 'The sign-in response does not match this login attempt.'],
-    ['wrongIssuer', 'came from https://elsewhere.example.com'],
-  ] as const)(
-    'saves nothing when the callback is %s',
-    async (callback, message) => {
-      state.scenario = { callback };
+  it.each<[string, Scenario, string]>([
+    ['declines', { isDeclined: true }, 'Sign-in was declined in the browser.'],
+    [
+      'answers another login attempt',
+      { returnedState: 'forged' },
+      'The sign-in response does not match this login attempt.',
+    ],
+    [
+      'answers for another server',
+      { returnedIssuer: 'https://elsewhere.example.com' },
+      `The sign-in response came from https://elsewhere.example.com instead of ${server.url}.`,
+    ],
+    [
+      'answers without the issuer the server promised',
+      { returnedIssuer: null },
+      'The sign-in response does not say which server sent it.',
+    ],
+    [
+      'declines without the issuer the server promised',
+      { isDeclined: true, returnedIssuer: null },
+      'The sign-in response does not say which server sent it.',
+    ],
+    [
+      'declines another login attempt',
+      { isDeclined: true, returnedState: 'forged' },
+      'The sign-in response does not match this login attempt.',
+    ],
+  ])('saves nothing when the browser %s', async (_, scenario, message) => {
+    state.scenario = scenario;
 
-      const { envelope, exitCode } = await runJson([
-        'auth',
-        'login',
-        '--url',
-        server.url,
-        '--name',
-        'cloud',
-      ]);
+    const { stderr, exitCode } = await signIn();
 
-      expect(exitCode).toBe(1);
-      expect(envelope.error.code).toBe('OAUTH_FAILED');
-      expect(envelope.error.message).toContain(message);
-      await expect(readFile(configPath, 'utf8')).rejects.toMatchObject({
-        code: 'ENOENT',
-      });
-    },
-  );
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain(message);
+    expect(state.codeExchanges).toBe(0);
+    await expectNothingSaved();
+  });
 
-  it('never sends the authorization code to another server', async () => {
-    state.scenario = {
-      callback: 'approve',
-      tokenEndpointOrigin: 'https://elsewhere.example.com',
-    };
+  it.each<[string, Scenario, string]>([
+    [
+      'its token endpoint is on another server',
+      { tokenEndpointOrigin: 'https://elsewhere.example.com' },
+      'its token endpoint https://elsewhere.example.com is on another server.',
+    ],
+    [
+      'it identifies itself as another server',
+      { advertisedIssuer: 'https://foreign.example.com' },
+      'it identifies itself as https://foreign.example.com.',
+    ],
+  ])('does not open the browser when %s', async (_, scenario, message) => {
+    state.scenario = scenario;
 
-    const { envelope } = await runJson([
-      'auth',
-      'login',
-      '--url',
-      server.url,
-      '--name',
-      'cloud',
-    ]);
+    const { stderr, exitCode } = await signIn();
 
-    expect(envelope.error.code).toBe('OAUTH_UNAVAILABLE');
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain(message);
     expect(openBrowser).not.toHaveBeenCalled();
   });
 
-  it('refuses browser sign-in in CI', async () => {
-    vi.stubEnv('CI', 'true');
+  it.each<[string, RefusalCase]>([
+    ['with --no-input', { args: ['--no-input'] }],
+    ['with --json', { args: ['--json'] }],
+    ['in CI', { continuousIntegration: 'true' }],
+    ['when stdin is not a terminal', { isTerminal: false }],
+  ])(
+    'refuses browser sign-in %s',
+    async (_, { args = [], continuousIntegration = '', isTerminal = true }) => {
+      vi.stubEnv('CI', continuousIntegration);
+      stubStandardInput({ isTerminal });
 
-    const { envelope, exitCode } = await runJson([
-      'auth',
-      'login',
-      '--url',
-      server.url,
-      '--name',
-      'cloud',
-    ]);
+      const { stdout, stderr, exitCode } = await signIn(args);
 
-    expect(exitCode).toBe(2);
-    expect(envelope.error.code).toBe('USAGE');
-    expect(openBrowser).not.toHaveBeenCalled();
+      expect(exitCode).toBe(2);
+      expect(`${stdout}${stderr}`).toContain(
+        'Browser sign-in only runs in an interactive terminal',
+      );
+      expect(openBrowser).not.toHaveBeenCalled();
+    },
+  );
+
+  it('stops waiting for the browser on Ctrl+C and closes the callback server', async () => {
+    let authorizationUrl = '';
+
+    vi.mocked(openBrowser).mockImplementation((url) => {
+      authorizationUrl = url;
+      setImmediate(() => process.emit('SIGINT'));
+    });
+
+    const { stderr, exitCode } = await signIn();
+    const redirectUri = new URL(authorizationUrl).searchParams.get(
+      'redirect_uri',
+    );
+
+    expect(exitCode).toBe(130);
+    expect(stderr).toContain('Cancelled.');
+    await expect(fetch(redirectUri ?? '')).rejects.toThrow();
+    await expectNothingSaved();
+  });
+
+  it('does not leave a callback server listening when already cancelled', async () => {
+    const listeningServersBefore = countListeningServers();
+
+    await expect(
+      startCallbackServer({
+        state: 'state',
+        issuer: server.url,
+        isIssuerInResponse: true,
+        signal: AbortSignal.abort(),
+      }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    await vi.waitFor(() =>
+      expect(countListeningServers()).toBe(listeningServersBefore),
+    );
   });
 
   it('refreshes an expiring session and keeps the rotated tokens', async () => {

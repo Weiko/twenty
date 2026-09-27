@@ -60,6 +60,18 @@ export const discoverOAuthServer = async ({
     throw createUnavailableError(apiUrl, 'its OAuth metadata is incomplete.');
   }
 
+  const issuer = URL.parse(metadata.issuer);
+
+  if (
+    !isDefined(issuer) ||
+    `${issuer.origin}${issuer.pathname.replace(/\/+$/, '')}` !== apiUrl
+  ) {
+    throw createUnavailableError(
+      apiUrl,
+      `it identifies itself as ${metadata.issuer}.`,
+    );
+  }
+
   try {
     assertUrlWithinTarget({
       url: tokenEndpoint,
@@ -75,6 +87,8 @@ export const discoverOAuthServer = async ({
 
   return {
     issuer: metadata.issuer,
+    isIssuerInResponse:
+      metadata.authorization_response_iss_parameter_supported === true,
     authorizationEndpoint: authorizationEndpoint.href,
     tokenEndpoint: tokenEndpoint.href,
     clientId: metadata.cli_client_id,

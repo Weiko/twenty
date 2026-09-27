@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { spawn } from 'node:child_process';
 
 const getOpenCommand = (url: string): [string, string[]] => {
   if (process.platform === 'darwin') {
@@ -6,15 +6,20 @@ const getOpenCommand = (url: string): [string, string[]] => {
   }
 
   if (process.platform === 'win32') {
-    return ['cmd', ['/c', 'start', '', url]];
+    return ['rundll32', ['url.dll,FileProtocolHandler', url]];
   }
 
   return ['xdg-open', [url]];
 };
 
-export const openBrowser = (url: string) =>
-  new Promise<boolean>((resolve) => {
-    const [command, args] = getOpenCommand(url);
-
-    execFile(command, args, (error) => resolve(error === null));
+export const openBrowser = (url: string) => {
+  const [command, args] = getOpenCommand(url);
+  const browserProcess = spawn(command, args, {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
   });
+
+  browserProcess.on('error', () => undefined);
+  browserProcess.unref();
+};

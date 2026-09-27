@@ -22,6 +22,7 @@ export const signInWithBrowser = async ({
   const callbackServer = await startCallbackServer({
     state,
     issuer: oauthServer.issuer,
+    isIssuerInResponse: oauthServer.isIssuerInResponse,
     signal,
   });
 
@@ -42,11 +43,8 @@ export const signInWithBrowser = async ({
       `Opening your browser to sign in to ${new URL(apiUrl).host}…`,
     );
 
-    const isBrowserOpened = await openBrowser(authorizationUrl.href);
-
-    output.progress(
-      `${isBrowserOpened ? 'If nothing opens, visit' : 'Open this link to sign in'}: ${authorizationUrl.href}`,
-    );
+    openBrowser(authorizationUrl.href);
+    output.progress(`If nothing opens, visit: ${authorizationUrl.href}`);
     output.progress(
       'Waiting for you to approve in the browser. Press Ctrl+C to cancel.',
     );

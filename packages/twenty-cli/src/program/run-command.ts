@@ -55,6 +55,7 @@ export const runCommand = async ({
       arguments: commandArguments,
       options,
       output,
+      outputMode,
       signal: abortController.signal,
     };
 

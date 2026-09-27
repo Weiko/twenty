@@ -23,20 +23,24 @@ const readAuthorizationCode = ({
   url,
   state,
   issuer,
+  isIssuerInResponse,
 }: {
   url: URL;
   state: string;
   issuer: string;
+  isIssuerInResponse: boolean;
 }) => {
-  const error = url.searchParams.get('error');
   const returnedIssuer = url.searchParams.get('iss');
-  const code = url.searchParams.get('code');
 
-  if (isNonEmptyString(error)) {
+  if (isIssuerInResponse && !isDefined(returnedIssuer)) {
     throw createSignInError(
-      error === 'access_denied'
-        ? 'Sign-in was declined in the browser.'
-        : `Sign-in failed: ${url.searchParams.get('error_description') ?? error}`,
+      'The sign-in response does not say which server sent it.',
+    );
+  }
+
+  if (isDefined(returnedIssuer) && returnedIssuer !== issuer) {
+    throw createSignInError(
+      `The sign-in response came from ${returnedIssuer} instead of ${issuer}.`,
     );
   }
 
@@ -46,11 +50,17 @@ const readAuthorizationCode = ({
     );
   }
 
-  if (isDefined(returnedIssuer) && returnedIssuer !== issuer) {
+  const error = url.searchParams.get('error');
+
+  if (isNonEmptyString(error)) {
     throw createSignInError(
-      `The sign-in response came from ${returnedIssuer} instead of ${issuer}.`,
+      error === 'access_denied'
+        ? 'Sign-in was declined in the browser.'
+        : `Sign-in failed: ${url.searchParams.get('error_description') ?? error}`,
     );
   }
+
+  const code = url.searchParams.get('code');
 
   if (!isNonEmptyString(code)) {
     throw createSignInError('The sign-in response has no authorization code.');
@@ -62,10 +72,12 @@ const readAuthorizationCode = ({
 export const startCallbackServer = async ({
   state,
   issuer,
+  isIssuerInResponse,
   signal,
 }: {
   state: string;
   issuer: string;
+  isIssuerInResponse: boolean;
   signal: AbortSignal;
 }) => {
   const {
@@ -86,7 +98,12 @@ export const startCallbackServer = async ({
     }
 
     try {
-      const code = readAuthorizationCode({ url, state, issuer });
+      const code = readAuthorizationCode({
+        url,
+        state,
+        issuer,
+        isIssuerInResponse,
+      });
 
       response
         .writeHead(200, {
@@ -132,17 +149,23 @@ export const startCallbackServer = async ({
     OAUTH_TIMING.SIGN_IN_TIMEOUT_MILLISECONDS,
   );
   const rejectOnAbort = () => reject(signal.reason);
+  const close = () => {
+    clearTimeout(timeout);
+    signal.removeEventListener('abort', rejectOnAbort);
+    server.closeAllConnections();
+    server.close();
+  };
+
+  if (signal.aborted) {
+    close();
+    signal.throwIfAborted();
+  }
 
   signal.addEventListener('abort', rejectOnAbort, { once: true });
 
   return {
     redirectUri: `http://127.0.0.1:${port}${CALLBACK_PATH}`,
     waitForCode: () => codePromise,
-    close: () => {
-      clearTimeout(timeout);
-      signal.removeEventListener('abort', rejectOnAbort);
-      server.closeAllConnections();
-      server.close();
-    },
+    close,
   };
 };

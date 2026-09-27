@@ -19,6 +19,7 @@ import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 import { dimText, formatSuccessLine } from '@/output/style';
 import { parseApiUrl } from '@/target/parse-api-url';
 import { signInWithBrowser } from '@/oauth/sign-in-with-browser';
+import { type OutputMode } from '@/output/types/output-mode.type';
 import { type Output } from '@/output/types/output.type';
 import { isInteractionAllowed } from '@/program/is-interaction-allowed';
 import { fetchSignedInIdentity } from '@/transport/metadata/fetch-signed-in-identity';
@@ -85,11 +86,13 @@ const obtainCredentials = async ({
   options,
   apiUrl,
   output,
+  outputMode,
   signal,
 }: {
   options: Record<string, unknown>;
   apiUrl: string;
   output: Output;
+  outputMode: OutputMode;
   signal: AbortSignal;
 }): Promise<SignInCredentials> => {
   if (readBooleanOption(options, 'withToken')) {
@@ -99,11 +102,12 @@ const obtainCredentials = async ({
     };
   }
 
-  if (!isInteractionAllowed(options)) {
+  if (!isInteractionAllowed({ options, outputMode })) {
     throw new CliError({
       code: 'USAGE',
       exitCode: EXIT_CODE.USAGE,
-      message: 'Browser sign-in needs someone at the keyboard.',
+      message:
+        'Browser sign-in only runs in an interactive terminal, not with --no-input, JSON output, redirected stdin or in CI.',
       hint: `In scripts and CI, pipe an API key: printf '%s' "$TWENTY_API_KEY" | twenty auth login --with-token --url ${apiUrl} --name <name>`,
     });
   }
@@ -148,6 +152,7 @@ const formatSignedIn = ({
 export const runAuthLoginCommand: CommandRun = async ({
   options,
   output,
+  outputMode,
   signal,
 }) => {
   const remoteName = readRemoteName(options);
@@ -181,6 +186,7 @@ export const runAuthLoginCommand: CommandRun = async ({
     options,
     apiUrl,
     output,
+    outputMode,
     signal,
   });
   const identity = await fetchSignedInIdentity({

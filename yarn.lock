@@ -50658,6 +50658,16 @@ __metadata:
 "twenty@workspace:packages/twenty-cli":
   version: 0.0.0-use.local
   resolution: "twenty@workspace:packages/twenty-cli"
+  dependencies:
+    "@sniptt/guards": "npm:^0.2.0"
+    "@types/node": "npm:^24.0.0"
+    commander: "npm:^14.0.3"
+    twenty-client-sdk: "workspace:*"
+    twenty-shared: "workspace:*"
+    vite: "npm:^8.0.0"
+    vitest: "npm:^4.1.0"
+  bin:
+    twenty: dist/cli.cjs
   languageName: unknown
   linkType: soft
 

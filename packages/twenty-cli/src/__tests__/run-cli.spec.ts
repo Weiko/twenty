@@ -158,12 +158,21 @@ describe('runCli', () => {
     const { error } = parseSingleJsonLine(stdout);
 
     expect(exitCode).toBe(2);
-    expect(error.details).toMatchObject({
+    expect(error.details).toEqual({
       legacyCommand: 'remote add',
       replacement: 'auth login',
+      replacementAvailable: true,
     });
-    expect(error.hint).toContain(
-      'yarn twenty remote add --url https://example.com',
+    expect(error.hint).toBe('Use: twenty auth login --url https://example.com');
+  });
+
+  it('keeps pointing unported twenty-sdk commands at twenty-sdk', async () => {
+    const { stdout, exitCode } = await runCliForTest(['app:publish', '--json']);
+    const { error } = parseSingleJsonLine(stdout);
+
+    expect(exitCode).toBe(2);
+    expect(error.hint).toBe(
+      'In your app project, keep using: yarn twenty app:publish',
     );
   });
 });

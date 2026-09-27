@@ -1,8 +1,10 @@
 import { isDefined } from 'twenty-shared/utils';
 
 import { getCommandName } from '@/catalog/get-command-name';
+import { readStringOption } from '@/catalog/read-command-values';
 import { type CommandContext } from '@/catalog/types/command-context.type';
 import { type CommandDefinition } from '@/catalog/types/command-definition.type';
+import { getConfigPath } from '@/config/get-config-path';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 import { createOutput } from '@/output/create-output';
@@ -64,7 +66,12 @@ export const runCommand = async ({
       return;
     }
 
-    const resolvedTarget = resolveTarget({ environment: process.env });
+    const resolvedTarget = await resolveTarget({
+      environment: process.env,
+      remoteFlag: readStringOption(options, 'remote'),
+      configPath: getConfigPath(),
+      warn: output.warn,
+    });
 
     target = resolvedTarget;
 

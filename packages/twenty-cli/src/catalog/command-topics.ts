@@ -3,6 +3,16 @@ import { type CommandTopicDefinition } from '@/catalog/types/command-topic-defin
 
 export const COMMAND_TOPICS: CommandTopicDefinition[] = [
   {
+    path: ['auth'],
+    description: 'Sign in and manage credentials',
+    helpGroup: HELP_GROUP.WORKSPACE,
+  },
+  {
+    path: ['remote'],
+    description: 'Manage saved workspace connections',
+    helpGroup: HELP_GROUP.WORKSPACE,
+  },
+  {
     path: ['metadata'],
     description: 'Inspect the data model',
     helpGroup: HELP_GROUP.WORKSPACE,

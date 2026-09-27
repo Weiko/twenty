@@ -6,10 +6,13 @@ export const dimText = (
 ) => styleText('dim', text, { stream });
 
 export const colorText = (
-  color: 'cyan' | 'magenta' | 'yellow',
+  color: 'cyan' | 'green' | 'magenta' | 'yellow',
   text: string,
   stream: NodeJS.WriteStream = process.stdout,
 ) => styleText(color, text, { stream });
+
+export const formatSuccessLine = (message: string) =>
+  `${styleText('green', '✓', { stream: process.stdout })} ${message}`;
 
 export const formatFailureLine = (message: string) =>
   `${styleText('red', '✗', { stream: process.stderr })} ${message}`;

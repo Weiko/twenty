@@ -91,6 +91,7 @@ describe('auth and remote commands', () => {
       apiUrl: server.url,
       credentials: 'apiKey',
       workspaceName: 'Acme',
+      email: null,
       isDefault: true,
     });
     expect(await readConfigFile()).toEqual({
@@ -116,7 +117,7 @@ describe('auth and remote commands', () => {
     });
   });
 
-  it('requires --with-token until browser sign-in exists', async () => {
+  it('refuses browser sign-in with --no-input', async () => {
     const { envelope, exitCode } = await runJson([
       'auth',
       'login',
@@ -124,6 +125,7 @@ describe('auth and remote commands', () => {
       server.url,
       '--name',
       'prod',
+      '--no-input',
     ]);
 
     expect(exitCode).toBe(2);

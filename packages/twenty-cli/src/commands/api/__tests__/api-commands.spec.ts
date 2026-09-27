@@ -225,7 +225,7 @@ describe('api commands', () => {
       '/rest/companies',
       '--method',
       'POST',
-      '--input',
+      '--body',
       `@${inputPath}`,
     ]);
 
@@ -235,8 +235,8 @@ describe('api commands', () => {
   });
 
   it.each([
-    [['--input', '{"name":"Linear"}'], 'USAGE'],
-    [['--method', 'POST', '--input', '{broken'], 'INVALID_INPUT'],
+    [['--body', '{"name":"Linear"}'], 'USAGE'],
+    [['--method', 'POST', '--body', '{broken'], 'INVALID_INPUT'],
   ])(
     'rejects the body options %j before sending anything',
     async (options, code) => {

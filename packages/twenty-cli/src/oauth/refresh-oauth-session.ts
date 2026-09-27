@@ -1,13 +1,15 @@
 import { isNonEmptyString } from '@sniptt/guards';
 
+import { getCredentialKind } from '@/config/get-credential-kind';
 import { readConfig } from '@/config/read-config';
+import { type ConfigFile } from '@/config/types/config-file.type';
 import { withConfigLock } from '@/config/with-config-lock';
 import { writeConfigAtomically } from '@/config/write-config-atomically';
 import { isAccessTokenExpiring } from '@/oauth/is-access-token-expiring';
 import { requestOAuthTokens } from '@/oauth/request-oauth-tokens';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
-import { findRemote } from '@/target/find-remote';
+import { parseApiUrl } from '@/target/parse-api-url';
 import { resolveRequestUrl } from '@/transport/resolve-request-url';
 
 const OAUTH_TOKEN_PATH = '/oauth/token';
@@ -20,6 +22,55 @@ const createSessionExpiredError = (remoteName: string, details?: unknown) =>
     hint: `Sign in again: twenty auth login --remote ${remoteName}`,
     details: { remote: remoteName, refresh: details ?? null },
   });
+
+const createChangedRemoteError = (remoteName: string, change: string) =>
+  new CliError({
+    code: 'CONFLICT',
+    exitCode: EXIT_CODE.CONFLICT,
+    message: `Remote ${remoteName} ${change} while this command was waiting to refresh its session. Nothing was sent.`,
+    hint: 'Run the command again.',
+    details: { remote: remoteName },
+  });
+
+const readUnchangedRemote = ({
+  config,
+  remoteName,
+  apiUrl,
+}: {
+  config: ConfigFile;
+  remoteName: string;
+  apiUrl: string;
+}) => {
+  if (!Object.hasOwn(config.remotes, remoteName)) {
+    throw createChangedRemoteError(remoteName, 'was renamed or removed');
+  }
+
+  const remote = config.remotes[remoteName];
+
+  if (
+    parseApiUrl({ rawUrl: remote.apiUrl, sourceName: remoteName }) !== apiUrl
+  ) {
+    throw createChangedRemoteError(remoteName, 'was pointed at another server');
+  }
+
+  const credentialKind = getCredentialKind(remote);
+
+  if (credentialKind === 'apiKey') {
+    throw createChangedRemoteError(remoteName, 'switched to an API key');
+  }
+
+  if (credentialKind === 'none') {
+    throw new CliError({
+      code: 'AUTH_REQUIRED',
+      exitCode: EXIT_CODE.AUTHENTICATION,
+      message: `Remote ${remoteName} was signed out while this command was waiting.`,
+      hint: `Sign in again: twenty auth login --remote ${remoteName}`,
+      details: { remote: remoteName },
+    });
+  }
+
+  return remote;
+};
 
 export const refreshOAuthSession = ({
   configPath,
@@ -37,7 +88,7 @@ export const refreshOAuthSession = ({
     signal,
     operation: async () => {
       const config = await readConfig(configPath);
-      const remote = findRemote(config, remoteName);
+      const remote = readUnchangedRemote({ config, remoteName, apiUrl });
       const {
         twentyCLIAccessToken: accessToken,
         twentyCLIRefreshToken: refreshToken,

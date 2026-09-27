@@ -76,6 +76,11 @@
       "import": "./dist/application.mjs",
       "require": "./dist/application.cjs"
     },
+    "./cli": {
+      "types": "./dist/cli/index.d.ts",
+      "import": "./dist/cli.mjs",
+      "require": "./dist/cli.cjs"
+    },
     "./constants": {
       "types": "./dist/constants/index.d.ts",
       "import": "./dist/constants.mjs",
@@ -146,6 +151,7 @@
     "dist",
     "ai",
     "application",
+    "cli",
     "constants",
     "database-events",
     "i18n",
@@ -167,6 +173,9 @@
       ],
       "application": [
         "dist/application/index.d.ts"
+      ],
+      "cli": [
+        "dist/cli/index.d.ts"
       ],
       "constants": [
         "dist/constants/index.d.ts"

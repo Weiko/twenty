@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { basename } from 'node:path';
 import { registerCommands } from '@/cli/commands';
 import { ConfigService } from '@/cli/utilities/config/config-service';
 import chalk from 'chalk';
@@ -11,7 +12,9 @@ inspect.defaultOptions.depth = 10;
 const program = new Command();
 
 program
-  .name('twenty')
+  .name(
+    basename(process.argv[1] ?? '') === 'twenty-sdk' ? 'twenty-sdk' : 'twenty',
+  )
   .description('CLI for Twenty application development')
   .version(packageJson.version);
 

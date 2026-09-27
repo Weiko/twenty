@@ -3,13 +3,15 @@
   "version": "2.44.0",
   "sideEffects": false,
   "bin": {
-    "twenty": "dist/cli.cjs"
+    "twenty": "dist/cli.cjs",
+    "twenty-sdk": "dist/cli.cjs"
   },
   "files": [
     "dist",
     "README.md",
     "CHANGELOG.md",
-    "package.json"
+    "package.json",
+    "docs/tooling.md"
   ],
   "scripts": {
     "build": "npx rimraf dist && npx vite build"
@@ -62,7 +64,13 @@
       "types": "./dist/front-component-renderer/build/index.d.ts",
       "import": "./dist/front-component-renderer/build.mjs",
       "require": "./dist/front-component-renderer/build.cjs"
-    }
+    },
+    "./tooling": {
+      "types": "./dist/tooling/index.d.ts",
+      "import": "./dist/tooling.mjs",
+      "require": "./dist/tooling.cjs"
+    },
+    "./tooling/descriptor.json": "./dist/tooling/descriptor.json"
   },
   "license": "MIT",
   "dependencies": {
@@ -136,6 +144,9 @@
       ],
       "front-component-renderer/build": [
         "dist/front-component-renderer/build/index.d.ts"
+      ],
+      "tooling": [
+        "dist/tooling/index.d.ts"
       ]
     }
   }

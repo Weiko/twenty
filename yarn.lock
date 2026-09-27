@@ -50236,6 +50236,7 @@ __metadata:
     wait-on: "npm:^9.0.10"
   bin:
     twenty: dist/cli.cjs
+    twenty-sdk: dist/cli.cjs
   languageName: unknown
   linkType: soft
 

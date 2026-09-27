@@ -34,6 +34,7 @@ Full documentation is available at **[docs.twenty.com/developers/extend/apps](ht
 
 Guides in this repository:
 
+- [Local tooling protocol](./docs/tooling.md), the versioned SDK boundary for CLI builds and typechecking
 - [Logic function inputs](./docs/logic-function-inputs.md) — input schema inference, record-typed inputs, and the id contract
 
 ## Manual installation

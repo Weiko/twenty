@@ -26,17 +26,22 @@ export const readBoundedBody = async (
     return new Uint8Array();
   }
 
+  const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
   let receivedBytes = 0;
+  let readResult = await reader.read();
 
-  for await (const chunk of response.body) {
-    receivedBytes += chunk.byteLength;
+  while (!readResult.done) {
+    receivedBytes += readResult.value.byteLength;
 
     if (receivedBytes > byteLimit) {
+      await reader.cancel();
+
       throw createResponseLimitError(byteLimit);
     }
 
-    chunks.push(chunk);
+    chunks.push(readResult.value);
+    readResult = await reader.read();
   }
 
   return Buffer.concat(chunks);

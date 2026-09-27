@@ -50664,6 +50664,7 @@ __metadata:
     twenty-client-sdk: "workspace:*"
     twenty-shared: "workspace:*"
     vite: "npm:^8.0.0"
+    vitest: "npm:^4.1.0"
   bin:
     twenty: dist/cli.cjs
   languageName: unknown

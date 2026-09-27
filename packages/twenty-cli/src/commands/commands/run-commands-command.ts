@@ -9,9 +9,15 @@ export const runCommandsCommand: CommandRun = async () => {
   const commands = COMMAND_CATALOG.map((definition) => ({
     name: getCommandName(definition),
     description: definition.description,
+    arguments: (definition.arguments ?? []).map(({ name, required }) => ({
+      name,
+      required,
+    })),
+    flags: (definition.options ?? []).map(({ flags }) => flags),
     outputs: definition.outputModes,
     writes: definition.writes,
     needsProject: definition.needsProject,
+    needsTarget: definition.needsTarget,
   })).sort((first, second) => first.name.localeCompare(second.name));
 
   return {

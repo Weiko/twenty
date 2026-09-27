@@ -1,10 +1,30 @@
+import { isDefined } from 'twenty-shared/utils';
+
 import { getCommandName } from '@/catalog/get-command-name';
+import { type CommandContext } from '@/catalog/types/command-context.type';
 import { type CommandDefinition } from '@/catalog/types/command-definition.type';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 import { createOutput } from '@/output/create-output';
 import { toCliError } from '@/output/to-cli-error';
 import { type OutputMode } from '@/output/types/output-mode.type';
+import { resolveTarget } from '@/target/resolve-target';
+import { toPublicTarget } from '@/target/to-public-target';
+import { type ResolvedTarget } from '@/target/types/resolved-target.type';
+
+const assertOutputModeSupported = (
+  definition: CommandDefinition,
+  outputMode: OutputMode,
+) => {
+  if (!definition.outputModes.includes(outputMode)) {
+    throw new CliError({
+      code: 'USAGE',
+      exitCode: EXIT_CODE.USAGE,
+      message: `twenty ${getCommandName(definition)} does not support ${outputMode} output.`,
+      hint: `Supported: ${definition.outputModes.join(', ')}`,
+    });
+  }
+};
 
 export const runCommand = async ({
   definition,
@@ -21,33 +41,46 @@ export const runCommand = async ({
   const output = createOutput({ mode: outputMode, command });
   const abortController = new AbortController();
   const abortOnInterrupt = () => abortController.abort();
+  let target: ResolvedTarget | undefined;
 
   process.once('SIGINT', abortOnInterrupt);
 
   try {
-    if (!definition.outputModes.includes(outputMode)) {
-      throw new CliError({
-        code: 'USAGE',
-        exitCode: EXIT_CODE.USAGE,
-        message: `twenty ${command} does not support ${outputMode} output.`,
-        hint: `Supported: ${definition.outputModes.join(', ')}`,
-      });
+    assertOutputModeSupported(definition, outputMode);
+
+    const context: CommandContext = {
+      command,
+      arguments: commandArguments,
+      options,
+      output,
+      signal: abortController.signal,
+    };
+
+    if (!definition.needsTarget) {
+      const run = await definition.load();
+
+      output.succeed(await run(context));
+
+      return;
     }
+
+    const resolvedTarget = resolveTarget({ environment: process.env });
+
+    target = resolvedTarget;
 
     const run = await definition.load();
 
     output.succeed(
-      await run({
-        command,
-        arguments: commandArguments,
-        options,
-        output,
-        signal: abortController.signal,
-      }),
+      await run({ ...context, target: resolvedTarget }),
+      toPublicTarget(resolvedTarget),
     );
   } catch (error) {
-    output.fail(toCliError(error, abortController.signal));
+    output.fail(
+      toCliError(error, abortController.signal),
+      isDefined(target) ? toPublicTarget(target) : undefined,
+    );
   } finally {
     process.off('SIGINT', abortOnInterrupt);
+    abortController.abort();
   }
 };

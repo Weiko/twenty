@@ -1,27 +1,36 @@
-import { type Command } from 'commander';
+import { Option, type Command } from 'commander';
+import { isNonEmptyArray } from '@sniptt/guards';
 import { isDefined } from 'twenty-shared/utils';
 
 import { getCommandName } from '@/catalog/get-command-name';
 import { type CommandDefinition } from '@/catalog/types/command-definition.type';
+import { type CommandOptionDefinition } from '@/catalog/types/command-option-definition.type';
 import { type OutputMode } from '@/output/types/output-mode.type';
+import { getCommandByPath } from '@/program/find-command-by-path';
 import { runCommand } from '@/program/run-command';
 import { throwParseErrorOnExit } from '@/program/throw-parse-error-on-exit';
 
-const findOrCreateTopic = (
-  parent: Command,
-  topicName: string,
-  topicPath: string,
-) => {
-  const existingTopic = parent.commands.find(
-    (command) => command.name() === topicName,
-  );
+const createOption = ({
+  flags,
+  description,
+  choices,
+  required,
+}: CommandOptionDefinition) => {
+  const option = new Option(flags, description);
 
-  if (isDefined(existingTopic)) {
-    return existingTopic;
+  if (isDefined(choices)) {
+    option.choices(choices);
   }
 
-  return throwParseErrorOnExit(parent.command(topicName), topicPath);
+  if (required === true) {
+    option.makeOptionMandatory();
+  }
+
+  return option;
 };
+
+const formatExamples = (examples: string[]) =>
+  `\nExamples:\n${examples.map((example) => `  ${example}`).join('\n')}\n`;
 
 export const registerCommand = ({
   program,
@@ -32,22 +41,28 @@ export const registerCommand = ({
   definition: CommandDefinition;
   outputMode: OutputMode;
 }) => {
-  const topicNames = definition.path.slice(0, -1);
-  const parent = topicNames.reduce(
-    (currentParent, topicName, topicIndex) =>
-      findOrCreateTopic(
-        currentParent,
-        topicName,
-        topicNames.slice(0, topicIndex + 1).join(' '),
-      ),
-    program,
-  );
+  const parent = getCommandByPath(program, definition.path.slice(0, -1));
   const command = parent
     .command(definition.path[definition.path.length - 1])
     .description(definition.description);
 
   if (isDefined(definition.helpGroup)) {
     command.helpGroup(definition.helpGroup);
+  }
+
+  for (const argument of definition.arguments ?? []) {
+    command.argument(
+      argument.required ? `<${argument.name}>` : `[${argument.name}]`,
+      argument.description,
+    );
+  }
+
+  for (const optionDefinition of definition.options ?? []) {
+    command.addOption(createOption(optionDefinition));
+  }
+
+  if (isNonEmptyArray(definition.examples)) {
+    command.addHelpText('after', formatExamples(definition.examples));
   }
 
   throwParseErrorOnExit(command, getCommandName(definition));

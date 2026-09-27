@@ -1,10 +1,13 @@
 import { readFile } from 'node:fs/promises';
+
+import { isNumber } from '@sniptt/guards';
 import { isDefined } from 'twenty-shared/utils';
 
 import { normalizeConfig } from '@/config/normalize-config';
 import { type ConfigFile } from '@/config/types/config-file.type';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
+import { isJsonObject } from '@/utils/is-json-object';
 
 const EMPTY_CONFIG: ConfigFile = { version: 1, remotes: {} };
 
@@ -16,6 +19,19 @@ const createInvalidConfigError = (configPath: string, reason: string) =>
     hint: 'Fix or move the file. It is never overwritten while it is invalid.',
     details: { configPath },
   });
+
+const JSON_ERROR_LOCATION_PATTERN = /line (\d+) column (\d+)/;
+
+const describeJsonSyntaxError = (error: unknown) => {
+  const location =
+    error instanceof Error
+      ? JSON_ERROR_LOCATION_PATTERN.exec(error.message)
+      : null;
+
+  return isDefined(location)
+    ? `invalid JSON at line ${location[1]}, column ${location[2]}.`
+    : 'invalid JSON.';
+};
 
 const readConfigText = async (configPath: string) => {
   try {
@@ -49,9 +65,13 @@ export const readConfig = async (configPath: string): Promise<ConfigFile> => {
   try {
     raw = JSON.parse(text);
   } catch (error) {
+    throw createInvalidConfigError(configPath, describeJsonSyntaxError(error));
+  }
+
+  if (isJsonObject(raw) && isDefined(raw.version) && raw.version !== 1) {
     throw createInvalidConfigError(
       configPath,
-      error instanceof Error ? error.message : String(error),
+      `version ${isNumber(raw.version) ? raw.version : 'unknown'} is not supported by this CLI.`,
     );
   }
 

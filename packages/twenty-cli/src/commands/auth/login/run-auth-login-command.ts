@@ -130,45 +130,49 @@ export const runAuthLoginCommand: CommandRun = async ({ options, signal }) => {
     throw error;
   });
 
-  const isDefault = await updateConfig(configPath, (config) => {
-    const latestRemote = findExistingRemote(config, remoteName);
+  const isDefault = await updateConfig({
+    configPath,
+    signal,
+    update: (config) => {
+      const latestRemote = findExistingRemote(config, remoteName);
 
-    assertSameUrlOrReplace({
-      existingRemote: latestRemote,
-      remoteName,
-      apiUrl,
-      replace,
-    });
+      assertSameUrlOrReplace({
+        existingRemote: latestRemote,
+        remoteName,
+        apiUrl,
+        replace,
+      });
 
-    const {
-      twentyCLIAccessToken: _accessToken,
-      twentyCLIRefreshToken: _refreshToken,
-      ...preservedFields
-    } = latestRemote ?? { apiUrl };
-    const hasUsableDefault =
-      isDefined(config.defaultRemote) &&
-      Object.hasOwn(config.remotes, config.defaultRemote);
-    const defaultRemote =
-      readBooleanOption(options, 'use') || !hasUsableDefault
-        ? remoteName
-        : config.defaultRemote;
+      const {
+        twentyCLIAccessToken: _accessToken,
+        twentyCLIRefreshToken: _refreshToken,
+        ...preservedFields
+      } = latestRemote ?? { apiUrl };
+      const hasUsableDefault =
+        isDefined(config.defaultRemote) &&
+        Object.hasOwn(config.remotes, config.defaultRemote);
+      const defaultRemote =
+        readBooleanOption(options, 'use') || !hasUsableDefault
+          ? remoteName
+          : config.defaultRemote;
 
-    return {
-      result: defaultRemote === remoteName,
-      config: {
-        ...config,
-        defaultRemote,
-        remotes: {
-          ...config.remotes,
-          [remoteName]: {
-            ...preservedFields,
-            apiUrl,
-            apiKey,
-            ...(isDefined(workspaceName) ? { workspaceName } : {}),
+      return {
+        result: defaultRemote === remoteName,
+        config: {
+          ...config,
+          defaultRemote,
+          remotes: {
+            ...config.remotes,
+            [remoteName]: {
+              ...preservedFields,
+              apiUrl,
+              apiKey,
+              ...(isDefined(workspaceName) ? { workspaceName } : {}),
+            },
           },
         },
-      },
-    };
+      };
+    },
   });
 
   return {

@@ -51,9 +51,6 @@ const toRemoteEntry = (value: unknown): RemoteEntry | undefined => {
   return { ...fieldsWithoutAliases, apiUrl: value.apiUrl, ...aliasedFields };
 };
 
-const toRemoteName = (name: string) =>
-  name === LEGACY_DEFAULT_PROFILE_NAME ? LEGACY_REMOTE_NAME : name;
-
 const normalizeRemotes = (
   value: unknown,
 ): Record<string, RemoteEntry> | undefined => {
@@ -70,10 +67,27 @@ const normalizeRemotes = (
       return undefined;
     }
 
-    remotes[toRemoteName(name)] = remote;
+    remotes[name] = remote;
   }
 
   return remotes;
+};
+
+const renameLegacyDefaultRemote = (remotes: Record<string, RemoteEntry>) => {
+  if (
+    !Object.hasOwn(remotes, LEGACY_DEFAULT_PROFILE_NAME) ||
+    Object.hasOwn(remotes, LEGACY_REMOTE_NAME)
+  ) {
+    return { remotes, isRenamed: false };
+  }
+
+  const { [LEGACY_DEFAULT_PROFILE_NAME]: defaultProfile, ...otherRemotes } =
+    remotes;
+
+  return {
+    remotes: { ...otherRemotes, [LEGACY_REMOTE_NAME]: defaultProfile },
+    isRenamed: true,
+  };
 };
 
 const normalizeLegacyConfig = (
@@ -100,19 +114,28 @@ const normalizeLegacyConfig = (
         !['profiles', 'remotes', 'defaultWorkspace', 'version'].includes(field),
     ),
   );
-  const remotes = { ...profileRemotes, ...currentRemotes };
+  const { remotes, isRenamed } = renameLegacyDefaultRemote({
+    ...profileRemotes,
+    ...currentRemotes,
+  });
 
-  if (isDefined(topLevelRemote) && !(LEGACY_REMOTE_NAME in remotes)) {
+  if (
+    isDefined(topLevelRemote) &&
+    !Object.hasOwn(remotes, LEGACY_REMOTE_NAME)
+  ) {
     remotes[LEGACY_REMOTE_NAME] = topLevelRemote;
   }
+
+  const defaultRemote =
+    isRenamed && raw.defaultWorkspace === LEGACY_DEFAULT_PROFILE_NAME
+      ? LEGACY_REMOTE_NAME
+      : raw.defaultWorkspace;
 
   return {
     ...otherFields,
     version: 1,
     remotes,
-    ...(isString(raw.defaultWorkspace)
-      ? { defaultRemote: toRemoteName(raw.defaultWorkspace) }
-      : {}),
+    ...(isString(defaultRemote) ? { defaultRemote } : {}),
   };
 };
 
@@ -121,7 +144,7 @@ export const normalizeConfig = (raw: unknown): ConfigFile | undefined => {
     return undefined;
   }
 
-  if (raw.version !== 1 && ('profiles' in raw || 'apiUrl' in raw)) {
+  if (!isDefined(raw.version) && ('profiles' in raw || 'apiUrl' in raw)) {
     return normalizeLegacyConfig(raw);
   }
 

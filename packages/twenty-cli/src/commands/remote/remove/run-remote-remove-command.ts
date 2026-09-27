@@ -7,23 +7,28 @@ import { findRemote } from '@/target/find-remote';
 
 export const runRemoteRemoveCommand: CommandRun = async ({
   arguments: commandArguments,
+  signal,
 }) => {
   const remoteName = readStringArgument(commandArguments, 0) ?? '';
 
-  const wasDefault = await updateConfig(getConfigPath(), (config) => {
-    findRemote(config, remoteName);
+  const wasDefault = await updateConfig({
+    configPath: getConfigPath(),
+    signal,
+    update: (config) => {
+      findRemote(config, remoteName);
 
-    const { [remoteName]: _removedRemote, ...remotes } = config.remotes;
-    const { defaultRemote, ...configWithoutDefault } = config;
-    const isRemovingDefault = defaultRemote === remoteName;
+      const { [remoteName]: _removedRemote, ...remotes } = config.remotes;
+      const { defaultRemote, ...configWithoutDefault } = config;
+      const isRemovingDefault = defaultRemote === remoteName;
 
-    return {
-      result: isRemovingDefault,
-      config: {
-        ...(isRemovingDefault ? configWithoutDefault : config),
-        remotes,
-      },
-    };
+      return {
+        result: isRemovingDefault,
+        config: {
+          ...(isRemovingDefault ? configWithoutDefault : config),
+          remotes,
+        },
+      };
+    },
   });
 
   return {

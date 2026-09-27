@@ -11,7 +11,11 @@ import { TARGET_ENVIRONMENT_VARIABLE } from '@/target/constants/target-environme
 import { findRemote } from '@/target/find-remote';
 import { selectTarget } from '@/target/select-target';
 
-export const runAuthLogoutCommand: CommandRun = async ({ options, output }) => {
+export const runAuthLogoutCommand: CommandRun = async ({
+  options,
+  output,
+  signal,
+}) => {
   const configPath = getConfigPath();
   const selection = await selectTarget({
     environment: process.env,
@@ -30,22 +34,29 @@ export const runAuthLogoutCommand: CommandRun = async ({ options, output }) => {
   }
 
   const { remoteName } = selection;
-  const hadCredentials = await updateConfig(configPath, (config) => {
-    const remote = findRemote(config, remoteName);
-    const {
-      apiKey: _apiKey,
-      twentyCLIAccessToken: _accessToken,
-      twentyCLIRefreshToken: _refreshToken,
-      ...remoteWithoutCredentials
-    } = remote;
+  const hadCredentials = await updateConfig({
+    configPath,
+    signal,
+    update: (config) => {
+      const remote = findRemote(config, remoteName);
+      const {
+        apiKey: _apiKey,
+        twentyCLIAccessToken: _accessToken,
+        twentyCLIRefreshToken: _refreshToken,
+        ...remoteWithoutCredentials
+      } = remote;
 
-    return {
-      result: getCredentialKind(remote) !== 'none',
-      config: {
-        ...config,
-        remotes: { ...config.remotes, [remoteName]: remoteWithoutCredentials },
-      },
-    };
+      return {
+        result: getCredentialKind(remote) !== 'none',
+        config: {
+          ...config,
+          remotes: {
+            ...config.remotes,
+            [remoteName]: remoteWithoutCredentials,
+          },
+        },
+      };
+    },
   });
 
   return {

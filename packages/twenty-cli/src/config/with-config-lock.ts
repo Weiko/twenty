@@ -39,11 +39,13 @@ const removeStaleLock = async (lockPath: string) => {
   }
 };
 
-const acquireLock = async (lockPath: string) => {
+const acquireLock = async (lockPath: string, signal: AbortSignal) => {
   const deadline = Date.now() + CONFIG_LOCK.TIMEOUT_MILLISECONDS;
   let lock = await tryCreateLock(lockPath);
 
   while (!isDefined(lock)) {
+    signal.throwIfAborted();
+
     if (Date.now() > deadline) {
       throw new CliError({
         code: 'CONFIG_LOCKED',
@@ -54,17 +56,22 @@ const acquireLock = async (lockPath: string) => {
     }
 
     await removeStaleLock(lockPath);
-    await sleep(CONFIG_LOCK.RETRY_MILLISECONDS);
+    await sleep(CONFIG_LOCK.RETRY_MILLISECONDS, undefined, { signal });
     lock = await tryCreateLock(lockPath);
   }
 
   return lock;
 };
 
-export const withConfigLock = async <TResult>(
-  configPath: string,
-  operation: () => Promise<TResult>,
-) => {
+export const withConfigLock = async <TResult>({
+  configPath,
+  signal,
+  operation,
+}: {
+  configPath: string;
+  signal: AbortSignal;
+  operation: () => Promise<TResult>;
+}) => {
   const lockPath = `${configPath}.lock`;
 
   await mkdir(dirname(configPath), {
@@ -72,7 +79,7 @@ export const withConfigLock = async <TResult>(
     mode: PRIVATE_DIRECTORY_MODE,
   });
 
-  const lock = await acquireLock(lockPath);
+  const lock = await acquireLock(lockPath, signal);
 
   try {
     return await operation();

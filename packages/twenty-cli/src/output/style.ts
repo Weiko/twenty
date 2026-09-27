@@ -5,6 +5,12 @@ export const dimText = (
   stream: NodeJS.WriteStream = process.stdout,
 ) => styleText('dim', text, { stream });
 
+export const colorText = (
+  color: 'cyan' | 'magenta' | 'yellow',
+  text: string,
+  stream: NodeJS.WriteStream = process.stdout,
+) => styleText(color, text, { stream });
+
 export const formatFailureLine = (message: string) =>
   `${styleText('red', '✗', { stream: process.stderr })} ${message}`;
 

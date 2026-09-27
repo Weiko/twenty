@@ -356,4 +356,83 @@ describe('browser sign-in and session refresh', () => {
     expect(state.refreshCalls).toBe(1);
     expect(firstAccessToken).toBe(secondAccessToken);
   });
+
+  describe('when the remote changes while a refresh waits for the lock', () => {
+    const otherServerUrl = () => server.url.replace('127.0.0.1', 'localhost');
+
+    const writeRemote = async (remote: Record<string, unknown>) => {
+      await mkdir(dirname(configPath), { recursive: true });
+      await writeFile(
+        configPath,
+        JSON.stringify({ version: 1, remotes: { cloud: remote } }),
+      );
+    };
+
+    const refreshSelectedServer = () =>
+      refreshOAuthSession({
+        configPath,
+        remoteName: 'cloud',
+        apiUrl: server.url,
+        signal: new AbortController().signal,
+      });
+
+    it.each([
+      [
+        'pointed at another server',
+        () => ({
+          apiUrl: otherServerUrl(),
+          twentyCLIAccessToken: createAccessToken(10, 'other-server'),
+          twentyCLIRefreshToken: 'refresh-1',
+          twentyCLIRegistrationClientId: CLIENT_ID,
+        }),
+      ],
+      [
+        'switched to an API key',
+        () => ({ apiUrl: server.url, apiKey: 'api-key' }),
+      ],
+    ])(
+      'refuses when the remote was %s, and sends nothing',
+      async (_, remote) => {
+        await writeRemote(remote());
+
+        await expect(refreshSelectedServer()).rejects.toMatchObject({
+          code: 'CONFLICT',
+          exitCode: 6,
+        });
+        expect(state.refreshCalls).toBe(0);
+      },
+    );
+
+    it('refuses when the remote was removed', async () => {
+      await mkdir(dirname(configPath), { recursive: true });
+      await writeFile(configPath, JSON.stringify({ version: 1, remotes: {} }));
+
+      await expect(refreshSelectedServer()).rejects.toMatchObject({
+        code: 'CONFLICT',
+      });
+    });
+
+    it('asks to sign in again when the remote was signed out', async () => {
+      await writeRemote({ apiUrl: server.url });
+
+      await expect(refreshSelectedServer()).rejects.toMatchObject({
+        code: 'AUTH_REQUIRED',
+        message: 'Remote cloud was signed out while this command was waiting.',
+      });
+    });
+
+    it('uses a session signed in again on the same server', async () => {
+      const freshAccessToken = createAccessToken(3600, 'signed-in-again');
+
+      await writeRemote({
+        apiUrl: server.url,
+        twentyCLIAccessToken: freshAccessToken,
+        twentyCLIRefreshToken: 'refresh-1',
+        twentyCLIRegistrationClientId: CLIENT_ID,
+      });
+
+      await expect(refreshSelectedServer()).resolves.toBe(freshAccessToken);
+      expect(state.refreshCalls).toBe(0);
+    });
+  });
 });

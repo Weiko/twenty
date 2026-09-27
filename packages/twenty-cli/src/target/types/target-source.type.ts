@@ -1,1 +1,1 @@
-export type TargetSource = 'environment';
+export type TargetSource = 'environment' | 'remote';

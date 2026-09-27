@@ -1,85 +1,75 @@
 import { isNonEmptyString } from '@sniptt/guards';
-import { isDefined } from 'twenty-shared/utils';
 
+import { readConfig } from '@/config/read-config';
+import { type RemoteEntry } from '@/config/types/config-file.type';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
+import { type CliWarning } from '@/output/types/cli-warning.type';
 import { TARGET_ENVIRONMENT_VARIABLE } from '@/target/constants/target-environment-variable.constant';
 import { parseApiUrl } from '@/target/parse-api-url';
+import { selectTarget } from '@/target/select-target';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
 
-const readEnvironmentValue = (
-  environment: NodeJS.ProcessEnv,
-  variableName: string,
-) => {
-  const value = environment[variableName]?.trim();
+const toRemoteTarget = (
+  remoteName: string,
+  remote: RemoteEntry,
+): ResolvedTarget => {
+  const accessToken = remote.twentyCLIAccessToken;
+  const bearerToken = isNonEmptyString(accessToken)
+    ? accessToken
+    : remote.apiKey;
 
-  return isNonEmptyString(value) ? value : undefined;
+  if (!isNonEmptyString(bearerToken)) {
+    throw new CliError({
+      code: 'AUTH_REQUIRED',
+      exitCode: EXIT_CODE.AUTHENTICATION,
+      message: `Remote ${remoteName} has no saved credentials.`,
+      hint: `Sign in: twenty auth login --remote ${remoteName} --with-token`,
+      details: { remote: remoteName },
+    });
+  }
+
+  return {
+    apiUrl: parseApiUrl({
+      rawUrl: remote.apiUrl,
+      sourceName: `The URL of remote ${remoteName}`,
+    }),
+    bearerToken,
+    credentialKind: isNonEmptyString(accessToken) ? 'oauth' : 'apiKey',
+    source: 'remote',
+    remoteName,
+  };
 };
 
-export const resolveTarget = ({
+export const resolveTarget = async ({
   environment,
+  remoteFlag,
+  configPath,
+  warn,
 }: {
   environment: NodeJS.ProcessEnv;
-}): ResolvedTarget => {
-  const remoteName = readEnvironmentValue(
+  remoteFlag: string | undefined;
+  configPath: string;
+  warn: (warning: CliWarning) => void;
+}): Promise<ResolvedTarget> => {
+  const selection = await selectTarget({
     environment,
-    TARGET_ENVIRONMENT_VARIABLE.REMOTE,
-  );
-  const apiUrl = readEnvironmentValue(
-    environment,
-    TARGET_ENVIRONMENT_VARIABLE.API_URL,
-  );
-  const apiKey = readEnvironmentValue(
-    environment,
-    TARGET_ENVIRONMENT_VARIABLE.API_KEY,
-  );
-
-  if (isDefined(remoteName) && (isDefined(apiUrl) || isDefined(apiKey))) {
-    throw new CliError({
-      code: 'CONFLICTING_TARGET',
-      exitCode: EXIT_CODE.USAGE,
-      message: `${TARGET_ENVIRONMENT_VARIABLE.REMOTE} cannot be combined with ${TARGET_ENVIRONMENT_VARIABLE.API_URL} or ${TARGET_ENVIRONMENT_VARIABLE.API_KEY}.`,
-      hint: 'Unset one of them.',
-    });
-  }
-
-  if (isDefined(remoteName)) {
-    throw new CliError({
-      code: 'TARGET_REQUIRED',
-      exitCode: EXIT_CODE.USAGE,
-      message: `${TARGET_ENVIRONMENT_VARIABLE.REMOTE} is set, but saved remotes are not available yet.`,
-      hint: `Set ${TARGET_ENVIRONMENT_VARIABLE.API_URL} and ${TARGET_ENVIRONMENT_VARIABLE.API_KEY} instead.`,
-    });
-  }
-
-  if (isDefined(apiUrl) !== isDefined(apiKey)) {
-    const missingVariable = isDefined(apiUrl)
-      ? TARGET_ENVIRONMENT_VARIABLE.API_KEY
-      : TARGET_ENVIRONMENT_VARIABLE.API_URL;
-
-    throw new CliError({
-      code: 'INCOMPLETE_TARGET',
-      exitCode: EXIT_CODE.USAGE,
-      message: `${missingVariable} is not set.`,
-      hint: `Set both ${TARGET_ENVIRONMENT_VARIABLE.API_URL} and ${TARGET_ENVIRONMENT_VARIABLE.API_KEY}, or neither.`,
-    });
-  }
-
-  if (isDefined(apiUrl) && isDefined(apiKey)) {
-    return {
-      apiUrl: parseApiUrl({
-        rawUrl: apiUrl,
-        sourceName: TARGET_ENVIRONMENT_VARIABLE.API_URL,
-      }),
-      bearerToken: apiKey,
-      source: 'environment',
-    };
-  }
-
-  throw new CliError({
-    code: 'TARGET_REQUIRED',
-    exitCode: EXIT_CODE.USAGE,
-    message: 'No workspace selected.',
-    hint: `Set ${TARGET_ENVIRONMENT_VARIABLE.API_URL} and ${TARGET_ENVIRONMENT_VARIABLE.API_KEY}.`,
+    remoteFlag,
+    loadConfig: () => readConfig(configPath),
+    warn,
   });
+
+  if (selection.source === 'remote') {
+    return toRemoteTarget(selection.remoteName, selection.remote);
+  }
+
+  return {
+    apiUrl: parseApiUrl({
+      rawUrl: selection.apiUrl,
+      sourceName: TARGET_ENVIRONMENT_VARIABLE.API_URL,
+    }),
+    bearerToken: selection.apiKey,
+    credentialKind: 'apiKey',
+    source: 'environment',
+  };
 };

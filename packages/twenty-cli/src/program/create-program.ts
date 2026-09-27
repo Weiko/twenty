@@ -31,6 +31,7 @@ export const createProgram = ({
     .addOption(
       new Option(GLOBAL_FLAGS.FORMAT, 'Output format').choices(OUTPUT_MODES),
     )
+    .option(GLOBAL_FLAGS.REMOTE, 'Saved remote to use for this command')
     .helpOption(GLOBAL_FLAGS.HELP, 'Show help')
     .commandsGroup(HELP_GROUP.TOOLS)
     .helpCommand('help [command]', 'Show help for a command')

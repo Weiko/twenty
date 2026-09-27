@@ -50663,6 +50663,7 @@ __metadata:
     commander: "npm:^14.0.3"
     twenty-shared: "workspace:*"
     vite: "npm:^8.0.0"
+    vitest: "npm:^4.1.0"
   bin:
     twenty: dist/cli.cjs
   languageName: unknown

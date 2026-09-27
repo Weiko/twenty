@@ -7,17 +7,7 @@ import { createCommanderOutputCapture } from '@/program/create-commander-output-
 import { createProgram } from '@/program/create-program';
 import { handleParseError } from '@/program/handle-parse-error';
 
-const exitWhenStdoutCloses = (error: NodeJS.ErrnoException) => {
-  if (error.code !== 'EPIPE') {
-    throw error;
-  }
-
-  process.exit();
-};
-
 export const runCli = async (args: string[]) => {
-  process.stdout.on('error', exitWhenStdoutCloses);
-
   const outputMode = detectOutputMode(args);
   const commanderOutput = createCommanderOutputCapture();
   const program = createProgram({

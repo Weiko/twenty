@@ -18,14 +18,14 @@ export const API_REST_COMMAND_DEFINITION: TargetCommandDefinition = {
       choices: REST_METHODS,
     },
     {
-      flags: '--input <json>',
+      flags: '--body <json>',
       description: 'Request body: JSON, @file.json, or - for standard input',
     },
   ],
   examples: [
     "twenty api rest '/rest/companies?limit=5'",
-    'twenty api rest /rest/companies --method POST --input \'{"name":"Linear"}\'',
-    'twenty api rest /rest/companies/<id> --method PATCH --input @changes.json',
+    'twenty api rest /rest/companies --method POST --body \'{"name":"Linear"}\'',
+    'twenty api rest /rest/companies/<id> --method PATCH --body @changes.json',
   ],
   outputModes: ['human', 'json'],
   writes: true,

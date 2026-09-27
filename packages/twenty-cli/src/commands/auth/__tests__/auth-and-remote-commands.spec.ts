@@ -91,6 +91,7 @@ describe('auth and remote commands', () => {
       apiUrl: server.url,
       credentials: 'apiKey',
       workspaceName: 'Acme',
+      email: null,
       isDefault: true,
     });
     expect(await readConfigFile()).toEqual({
@@ -114,20 +115,6 @@ describe('auth and remote commands', () => {
     await expect(readFile(configPath, 'utf8')).rejects.toMatchObject({
       code: 'ENOENT',
     });
-  });
-
-  it('requires --with-token until browser sign-in exists', async () => {
-    const { envelope, exitCode } = await runJson([
-      'auth',
-      'login',
-      '--url',
-      server.url,
-      '--name',
-      'prod',
-    ]);
-
-    expect(exitCode).toBe(2);
-    expect(envelope.error.code).toBe('USAGE');
   });
 
   it('asks for --replace before pointing a remote at another URL', async () => {

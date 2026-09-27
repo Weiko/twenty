@@ -55,6 +55,7 @@ export const runCommand = async ({
       arguments: commandArguments,
       options,
       output,
+      outputMode,
       signal: abortController.signal,
     };
 
@@ -70,6 +71,7 @@ export const runCommand = async ({
       environment: process.env,
       remoteFlag: readStringOption(options, 'remote'),
       configPath: getConfigPath(),
+      signal: abortController.signal,
       warn: output.warn,
     });
 

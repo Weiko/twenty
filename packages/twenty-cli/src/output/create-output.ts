@@ -46,6 +46,15 @@ export const createOutput = ({
   };
 
   return {
+    progress: (message) => {
+      if (mode === 'ndjson') {
+        writeEvent('progress', { message });
+
+        return;
+      }
+
+      writeLine(process.stderr, message);
+    },
     warn: (warning) => {
       if (mode === 'ndjson') {
         writeEvent('warning', warning);

@@ -34,6 +34,7 @@ describe('resolveTarget', () => {
       environment,
       remoteFlag,
       configPath: path,
+      signal: new AbortController().signal,
       warn: (warning) => warnings.push(warning),
     });
 

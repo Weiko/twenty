@@ -2,7 +2,7 @@ import { type LocalCommandDefinition } from '@/catalog/types/command-definition.
 
 export const AUTH_LOGIN_COMMAND_DEFINITION: LocalCommandDefinition = {
   path: ['auth', 'login'],
-  description: 'Check credentials and save them as a remote',
+  description: 'Sign in with your browser or an API key, and save the remote',
   options: [
     {
       flags: '--with-token',
@@ -20,6 +20,7 @@ export const AUTH_LOGIN_COMMAND_DEFINITION: LocalCommandDefinition = {
     },
   ],
   examples: [
+    'twenty auth login --url https://acme.twenty.com --name prod',
     'printf \'%s\' "$TWENTY_API_KEY" | twenty auth login --with-token --url https://acme.twenty.com --name prod',
     'twenty auth login --with-token --remote prod < api-key.txt',
   ],

@@ -3,10 +3,14 @@ import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { type ConfigFile } from '@/config/types/config-file.type';
 import { updateConfig } from '@/config/update-config';
+
+vi.mock('@/config/constants/config-lock.constant', () => ({
+  CONFIG_LOCK: { TIMEOUT_MILLISECONDS: 500, RETRY_MILLISECONDS: 10 },
+}));
 
 const INITIAL_CONFIG = {
   version: 1,
@@ -81,7 +85,7 @@ describe('updateConfig', () => {
     expect(await readFile(configPath, 'utf8')).toBe('{ broken');
   });
 
-  it('does not take a lock whose owner is still running', async () => {
+  it('waits for a lock held by a running command, then says who holds it', async () => {
     await updateConfig({
       configPath,
       signal: new AbortController().signal,
@@ -92,22 +96,21 @@ describe('updateConfig', () => {
 
     await writeFile(`${configPath}.lock`, heldLock);
 
-    const abortController = new AbortController();
-
-    setTimeout(() => abortController.abort(), 300);
-
     await expect(
       updateConfig({
         configPath,
-        signal: abortController.signal,
+        signal: new AbortController().signal,
         update: (config) => addRemote(config, 'blocked'),
       }),
-    ).rejects.toMatchObject({ name: 'AbortError' });
+    ).rejects.toMatchObject({
+      code: 'CONFIG_LOCKED',
+      details: { ownerPid: process.pid },
+    });
     expect(await readFile(`${configPath}.lock`, 'utf8')).toBe(heldLock);
     expect(Object.keys((await readConfigFile()).remotes)).toEqual(['dev']);
   });
 
-  it('clears a lock left by a process that exited', async () => {
+  it('never breaks a lock left by an exited command, and explains how to recover', async () => {
     await updateConfig({
       configPath,
       signal: new AbortController().signal,
@@ -115,21 +118,46 @@ describe('updateConfig', () => {
     });
 
     const exitedProcess = spawnSync(process.execPath, ['-e', 'process.pid']);
+    const abandonedLock = JSON.stringify({
+      pid: exitedProcess.pid,
+      token: 'abandoned',
+    });
 
-    await writeFile(
-      `${configPath}.lock`,
-      JSON.stringify({ pid: exitedProcess.pid, token: 'abandoned' }),
-    );
+    await writeFile(`${configPath}.lock`, abandonedLock);
 
-    await updateConfig({
+    const error = await updateConfig({
       configPath,
       signal: new AbortController().signal,
       update: (config) => addRemote(config, 'after-crash'),
-    });
+    }).catch((caught) => caught);
 
-    expect(Object.keys((await readConfigFile()).remotes)).toEqual([
-      'dev',
-      'after-crash',
-    ]);
+    expect(error).toMatchObject({ code: 'CONFIG_LOCKED' });
+    expect(error.hint).toBe(`Delete ${configPath}.lock and try again.`);
+    expect(await readFile(`${configPath}.lock`, 'utf8')).toBe(abandonedLock);
+  });
+
+  it('stops waiting for the lock when the command is cancelled', async () => {
+    await updateConfig({
+      configPath,
+      signal: new AbortController().signal,
+      update: () => ({ result: null, config: INITIAL_CONFIG as ConfigFile }),
+    });
+    await writeFile(
+      `${configPath}.lock`,
+      JSON.stringify({ pid: process.pid, token: 'held' }),
+    );
+
+    const abortController = new AbortController();
+
+    setTimeout(() => abortController.abort(), 50);
+
+    await expect(
+      updateConfig({
+        configPath,
+        signal: abortController.signal,
+        update: (config) => addRemote(config, 'cancelled'),
+      }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(Object.keys((await readConfigFile()).remotes)).toEqual(['dev']);
   });
 });

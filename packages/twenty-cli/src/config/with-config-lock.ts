@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, open, readFile, rm, stat } from 'node:fs/promises';
+import { mkdir, open, readFile, rm } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
@@ -40,31 +40,20 @@ const isProcessAlive = (pid: number) => {
   }
 };
 
-const isAbandoned = async (lockPath: string, owner: LockOwner | undefined) => {
-  if (isDefined(owner)) {
-    return !isProcessAlive(owner.pid);
-  }
-
-  const lockStats = await stat(lockPath).catch(() => undefined);
-
-  return (
-    isDefined(lockStats) &&
-    Date.now() - lockStats.mtimeMs > CONFIG_LOCK.STALE_AFTER_MILLISECONDS
-  );
-};
-
-const removeAbandonedLock = async (lockPath: string) => {
+const createLockedError = async (lockPath: string) => {
   const owner = await readLockOwner(lockPath);
+  const isOwnerGone = isDefined(owner) && !isProcessAlive(owner.pid);
 
-  if (!(await isAbandoned(lockPath, owner))) {
-    return;
-  }
-
-  const currentOwner = await readLockOwner(lockPath);
-
-  if (currentOwner?.token === owner?.token) {
-    await rm(lockPath, { force: true });
-  }
+  return new CliError({
+    code: 'CONFIG_LOCKED',
+    message: isOwnerGone
+      ? `A twenty command (pid ${owner.pid}) stopped without releasing ${lockPath}.`
+      : `Another twenty command${isDefined(owner) ? ` (pid ${owner.pid})` : ''} is changing ${dirname(lockPath)}.`,
+    hint: isOwnerGone
+      ? `Delete ${lockPath} and try again.`
+      : `Try again when it finishes. If no twenty command is running, delete ${lockPath}.`,
+    details: { lockPath, ownerPid: owner?.pid ?? null },
+  });
 };
 
 const tryCreateLock = async (lockPath: string, token: string) => {
@@ -100,15 +89,9 @@ const acquireLock = async ({
     signal.throwIfAborted();
 
     if (Date.now() > deadline) {
-      throw new CliError({
-        code: 'CONFIG_LOCKED',
-        message: `Another twenty command is changing ${dirname(lockPath)}.`,
-        hint: `Try again. If no other command is running, delete ${lockPath}.`,
-        details: { lockPath },
-      });
+      throw await createLockedError(lockPath);
     }
 
-    await removeAbandonedLock(lockPath);
     await sleep(CONFIG_LOCK.RETRY_MILLISECONDS, undefined, { signal });
     isAcquired = await tryCreateLock(lockPath, token);
   }

@@ -5,5 +5,5 @@ import { type ResolvedTarget } from '@/target/types/resolved-target.type';
 
 export const getAuthenticationHint = (target: ResolvedTarget) =>
   isDefined(target.remoteName)
-    ? `Sign in again: twenty auth login --remote ${target.remoteName} --with-token`
+    ? `Sign in again: twenty auth login --remote ${target.remoteName}${target.credentialKind === 'apiKey' ? ' --with-token' : ''}`
     : `Check ${TARGET_ENVIRONMENT_VARIABLE.API_KEY}.`;

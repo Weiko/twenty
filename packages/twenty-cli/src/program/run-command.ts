@@ -70,6 +70,7 @@ export const runCommand = async ({
       environment: process.env,
       remoteFlag: readStringOption(options, 'remote'),
       configPath: getConfigPath(),
+      signal: abortController.signal,
       warn: output.warn,
     });
 

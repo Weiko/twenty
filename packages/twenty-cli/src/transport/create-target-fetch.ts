@@ -68,26 +68,26 @@ const createRedirectError = (response: Response, url: URL) => {
   });
 };
 
-export const createTargetFetch =
+export const createBoundedFetch =
   ({
-    target,
+    apiUrl,
+    bearerToken,
     signal,
   }: {
-    target: ResolvedTarget;
+    apiUrl: string;
+    bearerToken?: string;
     signal: AbortSignal;
   }): typeof fetch =>
   async (input, init = {}) => {
     const url = new URL(input instanceof Request ? input.url : input);
 
-    assertUrlWithinTarget({
-      url,
-      apiUrl: target.apiUrl,
-      requestedPath: url.pathname,
-    });
+    assertUrlWithinTarget({ url, apiUrl, requestedPath: url.pathname });
 
     const headers = new Headers(init.headers);
 
-    headers.set('Authorization', `Bearer ${target.bearerToken}`);
+    if (isDefined(bearerToken)) {
+      headers.set('Authorization', `Bearer ${bearerToken}`);
+    }
 
     try {
       const response = await fetch(url, {
@@ -120,3 +120,16 @@ export const createTargetFetch =
       throw toTransportError({ error, signal, url });
     }
   };
+
+export const createTargetFetch = ({
+  target,
+  signal,
+}: {
+  target: ResolvedTarget;
+  signal: AbortSignal;
+}) =>
+  createBoundedFetch({
+    apiUrl: target.apiUrl,
+    bearerToken: target.bearerToken,
+    signal,
+  });

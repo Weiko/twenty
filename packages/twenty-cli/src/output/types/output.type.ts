@@ -5,6 +5,7 @@ import { type PublicTarget } from '@/target/types/public-target.type';
 
 export type Output = {
   warn: (warning: CliWarning) => void;
+  progress: (message: string) => void;
   succeed: (result: CommandResult, target?: PublicTarget) => void;
   fail: (error: CliError, target?: PublicTarget) => void;
 };

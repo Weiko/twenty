@@ -16,20 +16,20 @@ import { sendRestRequest } from '@/transport/send-rest-request';
 const DEFAULT_METHOD = 'GET';
 
 const readRequestBody = async (
-  input: string | undefined,
+  body: string | undefined,
   signal: AbortSignal,
 ) => {
-  if (!isDefined(input)) {
+  if (!isDefined(body)) {
     return undefined;
   }
 
   const text = await readInputValue({
-    value: input,
-    optionName: '--input',
+    value: body,
+    optionName: '--body',
     signal,
   });
 
-  parseJsonInput({ text, optionName: '--input' });
+  parseJsonInput({ text, optionName: '--body' });
 
   return text;
 };
@@ -42,9 +42,9 @@ export const runApiRestCommand: CommandRun<TargetCommandContext> = async ({
 }) => {
   const path = readStringArgument(commandArguments, 0) ?? '';
   const method = readStringOption(options, 'method');
-  const input = readStringOption(options, 'input');
+  const body = readStringOption(options, 'body');
 
-  if (isDefined(input) && !isDefined(method)) {
+  if (isDefined(body) && !isDefined(method)) {
     throw new CliError({
       code: 'USAGE',
       exitCode: EXIT_CODE.USAGE,
@@ -58,7 +58,7 @@ export const runApiRestCommand: CommandRun<TargetCommandContext> = async ({
     signal,
     method: method ?? DEFAULT_METHOD,
     path,
-    body: await readRequestBody(input, signal),
+    body: await readRequestBody(body, signal),
   });
 
   return { data: response, human: formatBody(response.body) };

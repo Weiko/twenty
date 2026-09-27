@@ -1,0 +1,82 @@
+import { isNonEmptyString } from '@sniptt/guards';
+import { isDefined } from 'twenty-shared/utils';
+
+import { type OAuthServer } from '@/oauth/types/oauth-server.type';
+import { CliError } from '@/output/cli-error';
+import { assertUrlWithinTarget } from '@/transport/assert-url-within-target';
+import { createBoundedFetch } from '@/transport/create-target-fetch';
+import { parseResponseBody } from '@/transport/parse-response-body';
+import { resolveRequestUrl } from '@/transport/resolve-request-url';
+import { isJsonObject } from '@/utils/is-json-object';
+
+const DISCOVERY_PATH = '/.well-known/oauth-authorization-server';
+
+const createUnavailableError = (apiUrl: string, reason: string) =>
+  new CliError({
+    code: 'OAUTH_UNAVAILABLE',
+    message: `Browser sign-in is not available on ${apiUrl}: ${reason}`,
+    hint: `Use an API key instead: printf '%s' "$TWENTY_API_KEY" | twenty auth login --with-token --url ${apiUrl} --name <name>`,
+  });
+
+const parseHttpUrl = (value: unknown) => {
+  const url = isNonEmptyString(value) ? URL.parse(value) : null;
+
+  return url?.protocol === 'https:' || url?.protocol === 'http:'
+    ? url
+    : undefined;
+};
+
+export const discoverOAuthServer = async ({
+  apiUrl,
+  signal,
+}: {
+  apiUrl: string;
+  signal: AbortSignal;
+}): Promise<OAuthServer> => {
+  const response = await createBoundedFetch({ apiUrl, signal })(
+    resolveRequestUrl({ apiUrl, path: DISCOVERY_PATH }),
+    { headers: { Accept: 'application/json' } },
+  );
+  const metadata = await parseResponseBody(response);
+
+  if (!response.ok || !isJsonObject(metadata)) {
+    throw createUnavailableError(
+      apiUrl,
+      `the server answered ${response.status}.`,
+    );
+  }
+
+  const authorizationEndpoint = parseHttpUrl(metadata.authorization_endpoint);
+  const tokenEndpoint = parseHttpUrl(metadata.token_endpoint);
+  const challengeMethods = metadata.code_challenge_methods_supported;
+
+  if (
+    !isNonEmptyString(metadata.issuer) ||
+    !isNonEmptyString(metadata.cli_client_id) ||
+    !isDefined(authorizationEndpoint) ||
+    !isDefined(tokenEndpoint) ||
+    (Array.isArray(challengeMethods) && !challengeMethods.includes('S256'))
+  ) {
+    throw createUnavailableError(apiUrl, 'its OAuth metadata is incomplete.');
+  }
+
+  try {
+    assertUrlWithinTarget({
+      url: tokenEndpoint,
+      apiUrl,
+      requestedPath: tokenEndpoint.href,
+    });
+  } catch {
+    throw createUnavailableError(
+      apiUrl,
+      `its token endpoint ${tokenEndpoint.origin} is on another server.`,
+    );
+  }
+
+  return {
+    issuer: metadata.issuer,
+    authorizationEndpoint: authorizationEndpoint.href,
+    tokenEndpoint: tokenEndpoint.href,
+    clientId: metadata.cli_client_id,
+  };
+};

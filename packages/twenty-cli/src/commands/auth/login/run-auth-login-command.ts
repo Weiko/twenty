@@ -18,7 +18,10 @@ import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 import { dimText, formatSuccessLine } from '@/output/style';
 import { parseApiUrl } from '@/target/parse-api-url';
-import { fetchWorkspaceName } from '@/transport/metadata/fetch-workspace-name';
+import { signInWithBrowser } from '@/oauth/sign-in-with-browser';
+import { type Output } from '@/output/types/output.type';
+import { isInteractionAllowed } from '@/program/is-interaction-allowed';
+import { fetchSignedInIdentity } from '@/transport/metadata/fetch-signed-in-identity';
 
 const findExistingRemote = (config: ConfigFile, remoteName: string) =>
   Object.hasOwn(config.remotes, remoteName)
@@ -69,16 +72,84 @@ const readRemoteName = (options: Record<string, unknown>) => {
   return validateRemoteName(remoteName);
 };
 
-export const runAuthLoginCommand: CommandRun = async ({ options, signal }) => {
-  if (!readBooleanOption(options, 'withToken')) {
+type SignInCredentials =
+  | { kind: 'apiKey'; apiKey: string }
+  | {
+      kind: 'oauth';
+      accessToken: string;
+      refreshToken?: string;
+      clientId: string;
+    };
+
+const obtainCredentials = async ({
+  options,
+  apiUrl,
+  output,
+  signal,
+}: {
+  options: Record<string, unknown>;
+  apiUrl: string;
+  output: Output;
+  signal: AbortSignal;
+}): Promise<SignInCredentials> => {
+  if (readBooleanOption(options, 'withToken')) {
+    return {
+      kind: 'apiKey',
+      apiKey: await readApiKeyFromStandardInput(signal),
+    };
+  }
+
+  if (!isInteractionAllowed(options)) {
     throw new CliError({
       code: 'USAGE',
       exitCode: EXIT_CODE.USAGE,
-      message: 'Browser sign-in is not available yet.',
-      hint: `Pipe an API key instead: printf '%s' "$TWENTY_API_KEY" | twenty auth login --with-token --url <url> --name <name>`,
+      message: 'Browser sign-in needs someone at the keyboard.',
+      hint: `In scripts and CI, pipe an API key: printf '%s' "$TWENTY_API_KEY" | twenty auth login --with-token --url ${apiUrl} --name <name>`,
     });
   }
 
+  return {
+    kind: 'oauth',
+    ...(await signInWithBrowser({ apiUrl, output, signal })),
+  };
+};
+
+const toCredentialFields = (credentials: SignInCredentials) =>
+  credentials.kind === 'apiKey'
+    ? { apiKey: credentials.apiKey }
+    : {
+        twentyCLIAccessToken: credentials.accessToken,
+        twentyCLIRegistrationClientId: credentials.clientId,
+        ...(isDefined(credentials.refreshToken)
+          ? { twentyCLIRefreshToken: credentials.refreshToken }
+          : {}),
+      };
+
+const formatSignedIn = ({
+  remoteName,
+  apiUrl,
+  credentials,
+  identity,
+}: {
+  remoteName: string;
+  apiUrl: string;
+  credentials: SignInCredentials;
+  identity: { workspaceName: string | null; email: string | null };
+}) => {
+  const workspace = isDefined(identity.workspaceName)
+    ? ` · workspace ${identity.workspaceName}`
+    : '';
+
+  return credentials.kind === 'apiKey'
+    ? `Saved remote ${remoteName} ${dimText(`(${apiUrl}) · API key${workspace}`)}`
+    : `Signed in to ${remoteName}${isDefined(identity.email) ? ` as ${identity.email}` : ''}${dimText(workspace)}`;
+};
+
+export const runAuthLoginCommand: CommandRun = async ({
+  options,
+  output,
+  signal,
+}) => {
   const remoteName = readRemoteName(options);
   const replace = readBooleanOption(options, 'replace');
   const configPath = getConfigPath();
@@ -106,12 +177,20 @@ export const runAuthLoginCommand: CommandRun = async ({ options, signal }) => {
 
   assertSameUrlOrReplace({ existingRemote, remoteName, apiUrl, replace });
 
-  const apiKey = await readApiKeyFromStandardInput(signal);
-  const workspaceName = await fetchWorkspaceName({
+  const credentials = await obtainCredentials({
+    options,
+    apiUrl,
+    output,
+    signal,
+  });
+  const identity = await fetchSignedInIdentity({
     target: {
       apiUrl,
-      bearerToken: apiKey,
-      credentialKind: 'apiKey',
+      bearerToken:
+        credentials.kind === 'apiKey'
+          ? credentials.apiKey
+          : credentials.accessToken,
+      credentialKind: credentials.kind,
       source: 'remote',
       remoteName,
     },
@@ -121,8 +200,11 @@ export const runAuthLoginCommand: CommandRun = async ({ options, signal }) => {
       throw new CliError({
         code: 'AUTH_REQUIRED',
         exitCode: EXIT_CODE.AUTHENTICATION,
-        message: `${apiUrl} rejected this API key. Nothing was saved.`,
-        hint: 'Check the key and that it belongs to a workspace on this server.',
+        message: `${apiUrl} rejected ${credentials.kind === 'apiKey' ? 'this API key' : 'the new session'}. Nothing was saved.`,
+        hint:
+          credentials.kind === 'apiKey'
+            ? 'Check the key and that it belongs to a workspace on this server.'
+            : 'Run twenty auth login again.',
         details: error.details,
       });
     }
@@ -144,8 +226,10 @@ export const runAuthLoginCommand: CommandRun = async ({ options, signal }) => {
       });
 
       const {
+        apiKey: _apiKey,
         twentyCLIAccessToken: _accessToken,
         twentyCLIRefreshToken: _refreshToken,
+        twentyCLIRegistrationClientId: _clientId,
         ...preservedFields
       } = latestRemote ?? { apiUrl };
       const hasUsableDefault =
@@ -166,8 +250,10 @@ export const runAuthLoginCommand: CommandRun = async ({ options, signal }) => {
             [remoteName]: {
               ...preservedFields,
               apiUrl,
-              apiKey,
-              ...(isDefined(workspaceName) ? { workspaceName } : {}),
+              ...toCredentialFields(credentials),
+              ...(isDefined(identity.workspaceName)
+                ? { workspaceName: identity.workspaceName }
+                : {}),
             },
           },
         },
@@ -179,13 +265,14 @@ export const runAuthLoginCommand: CommandRun = async ({ options, signal }) => {
     data: {
       remote: remoteName,
       apiUrl,
-      credentials: 'apiKey',
-      workspaceName,
+      credentials: credentials.kind,
+      workspaceName: identity.workspaceName,
+      email: identity.email,
       isDefault,
     },
     human: [
       formatSuccessLine(
-        `Saved remote ${remoteName} ${dimText(`(${apiUrl}) · API key${isDefined(workspaceName) ? ` · workspace ${workspaceName}` : ''}`)}`,
+        formatSignedIn({ remoteName, apiUrl, credentials, identity }),
       ),
       ...(isDefault
         ? [dimText(`  ${remoteName} is your default remote.`)]

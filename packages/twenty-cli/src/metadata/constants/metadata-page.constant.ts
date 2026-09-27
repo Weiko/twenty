@@ -1,0 +1,2 @@
+export const METADATA_PAGE_SIZE = 1000;
+export const METADATA_ITEM_LIMIT = 10000;

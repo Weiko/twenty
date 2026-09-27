@@ -4,7 +4,7 @@ import { type TargetCommandContext } from '@/catalog/types/target-command-contex
 import { formatMetadataOwner } from '@/metadata/format-metadata-owner';
 import { METADATA_OWNER_KIND_ORDER } from '@/metadata/constants/metadata-owner-kind-order.constant';
 import { createMetadataOwnerResolver } from '@/metadata/resolve-metadata-owner';
-import { CliError } from '@/output/cli-error';
+import { fetchOwnerApplications } from '@/metadata/fetch-owner-applications';
 import { formatTable } from '@/output/format-table';
 import { dimText } from '@/output/style';
 import { createMetadataClient } from '@/transport/metadata/create-metadata-client';
@@ -32,22 +32,6 @@ const fetchObjects = (client: MetadataClient) =>
     },
     currentWorkspace: { workspaceCustomApplicationId: true },
   });
-
-const fetchOwnerApplications = async (client: MetadataClient) => {
-  try {
-    const { findManyApplications } = await client.query({
-      findManyApplications: { id: true, name: true, universalIdentifier: true },
-    });
-
-    return { applications: findManyApplications, areOwnersNamed: true };
-  } catch (error) {
-    if (!(error instanceof CliError) || error.code !== 'PERMISSION_DENIED') {
-      throw error;
-    }
-
-    return { applications: [], areOwnersNamed: false };
-  }
-};
 
 export const runMetadataObjectListCommand: CommandRun<
   TargetCommandContext

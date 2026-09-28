@@ -133,6 +133,19 @@ export const runDataListCommand: CommandRun<TargetCommandContext> = async ({
   }
 
   const page = { records, pageInfo, totalCount };
+  const absentFields =
+    outputMode === 'human' && records.length > 0
+      ? (listOptions.fields ?? []).filter(
+          (field) => !records.some((record) => Object.hasOwn(record, field)),
+        )
+      : [];
+
+  if (absentFields.length > 0) {
+    output.warn({
+      code: 'FIELDS_NOT_RETURNED',
+      message: `No returned record has ${absentFields.join(', ')}; see twenty metadata field list ${object.namePlural}.`,
+    });
+  }
 
   return {
     data: page,

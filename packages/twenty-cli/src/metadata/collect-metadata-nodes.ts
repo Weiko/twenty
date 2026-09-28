@@ -16,8 +16,9 @@ export const collectMetadataNodes = async <TNode>(
   const cursors = new Set<string>();
   let after: string | undefined;
   let bytes = 0;
+  let hasNextPage = true;
 
-  while (true) {
+  while (hasNextPage) {
     const page = await fetchPage(after);
 
     for (const { node } of page.edges) {
@@ -35,25 +36,28 @@ export const collectMetadataNodes = async <TNode>(
       nodes.push(node);
     }
 
-    if (page.pageInfo.hasNextPage === false) {
-      return nodes;
+    hasNextPage = page.pageInfo.hasNextPage !== false;
+
+    if (hasNextPage) {
+      const cursor = page.pageInfo.endCursor;
+
+      if (
+        page.pageInfo.hasNextPage !== true ||
+        !isNonEmptyString(cursor) ||
+        cursors.has(cursor) ||
+        page.edges.length === 0
+      ) {
+        throw new CliError({
+          code: 'INVALID_RESPONSE',
+          message:
+            'The metadata server returned invalid pagination information.',
+        });
+      }
+
+      cursors.add(cursor);
+      after = cursor;
     }
-
-    const cursor = page.pageInfo.endCursor;
-
-    if (
-      page.pageInfo.hasNextPage !== true ||
-      !isNonEmptyString(cursor) ||
-      cursors.has(cursor) ||
-      page.edges.length === 0
-    ) {
-      throw new CliError({
-        code: 'INVALID_RESPONSE',
-        message: 'The metadata server returned invalid pagination information.',
-      });
-    }
-
-    cursors.add(cursor);
-    after = cursor;
   }
+
+  return nodes;
 };

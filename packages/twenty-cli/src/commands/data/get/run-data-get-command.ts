@@ -1,7 +1,7 @@
 import { readStringArgument } from '@/catalog/read-command-values';
 import { type CommandRun } from '@/catalog/types/command-run.type';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';
-import { formatDataCell, formatDataValue } from '@/data/format-data-value';
+import { formatDataCell, formatDataDetail } from '@/data/format-data-value';
 import { parseDataRecord } from '@/data/parse-data-response';
 import { resolveMetadataObject } from '@/metadata/resolve-metadata-object';
 import { CliError } from '@/output/cli-error';
@@ -45,7 +45,7 @@ export const runDataGetCommand: CommandRun<TargetCommandContext> = async ({
           human: formatDetails(
             Object.entries(record).map(([name, value]) => [
               formatDataCell(name),
-              formatDataValue(value),
+              formatDataDetail(value),
             ]),
           ),
         }

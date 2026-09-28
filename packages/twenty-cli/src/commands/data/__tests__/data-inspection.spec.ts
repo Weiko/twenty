@@ -353,6 +353,86 @@ describe('data inspection commands', () => {
     expect(human.stdout).toContain('false');
   });
 
+  it('summarizes returned related records and bounds detail values in human output', async () => {
+    record = {
+      id: '1',
+      name: 'Acme',
+      people: [
+        {
+          id: 'p1',
+          name: { firstName: 'Jane', lastName: 'Cooper' },
+          notes: 'x'.repeat(5_000),
+        },
+        { id: 'p2', name: { firstName: 'Ann', lastName: 'Lee' } },
+        { id: 'p3', title: 'Buyer' },
+        { id: 'p4' },
+      ],
+      manager: { id: 'm1', title: 'Head of sales' },
+      taskTargets: [],
+      workPolicy: ['REMOTE_WORK', 'HYBRID'],
+      tagline: 'y'.repeat(5_000),
+    };
+
+    const human = await runCliForTest(['data', 'get', 'companies', '1']);
+    const lines = human.stdout.split('\n');
+
+    expect(human.exitCode).toBe(0);
+    expect(human.stdout).toContain(
+      '4 records returned · Jane Cooper, Ann Lee, Buyer, …',
+    );
+    expect(human.stdout).toContain('Head of sales (m1)');
+    expect(human.stdout).toContain('REMOTE_WORK, HYBRID');
+    expect(lines.find((line) => line.includes('taskTargets'))).toMatch(
+      /taskTargets\s+-$/,
+    );
+    expect(human.stdout).toContain(`${'y'.repeat(119)}…`);
+    expect(human.stdout).not.toContain('x'.repeat(100));
+    expect(Math.max(...lines.map((line) => line.length))).toBeLessThan(160);
+    expect((await runJson(['get', 'companies', '1'])).envelope.data).toEqual(
+      record,
+    );
+  });
+
+  it('warns once in human output when no returned record has a requested field', async () => {
+    const human = await runCliForTest([
+      'data',
+      'list',
+      'companies',
+      '--fields',
+      'name,nope',
+    ]);
+    const all = await runCliForTest([
+      'data',
+      'list',
+      'companies',
+      '--all',
+      '--limit',
+      '1',
+      '--fields',
+      'nope',
+    ]);
+    const json = await runJson(['list', 'companies', '--fields', 'nope']);
+
+    records = [];
+
+    const empty = await runCliForTest([
+      'data',
+      'list',
+      'companies',
+      '--fields',
+      'nope',
+    ]);
+
+    expect(human.exitCode).toBe(0);
+    expect(human.stdout).toContain('Acme');
+    expect(human.stderr).toContain(
+      'No returned record has nope; see twenty metadata field list companies.',
+    );
+    expect(all.stderr.match(/No returned record has nope/g)).toHaveLength(1);
+    expect(json.envelope.warnings).toEqual([]);
+    expect(empty.stderr).not.toContain('No returned record');
+  });
+
   it('escapes record control characters in human tables without altering JSON', async () => {
     records = [{ id: '1', name: 'Acme\n\u001b[31m' }];
     const result = await runCliForTest([

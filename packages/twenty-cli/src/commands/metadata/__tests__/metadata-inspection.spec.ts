@@ -542,25 +542,69 @@ describe('metadata inspection commands', () => {
     expect(envelope.data.object.id).toBe('company-id');
   });
 
-  it('shows polymorphic relationship targets', async () => {
-    fields = [
-      createField('related', {
-        type: 'MORPH_RELATION',
-        morphRelations: [RELATION],
+  it('shows only the target of each polymorphic relation field', async () => {
+    const createMorphRelation = (
+      fieldName: string,
+      target: { id: string; nameSingular: string; namePlural: string },
+    ) => ({
+      type: 'MANY_TO_ONE',
+      sourceObjectMetadata: {
+        id: 'company-id',
+        nameSingular: 'company',
+        namePlural: 'companies',
+      },
+      targetObjectMetadata: target,
+      sourceFieldMetadata: { id: `${fieldName}-id`, name: 'target' },
+      targetFieldMetadata: {
+        id: `${target.namePlural}-companies-id`,
+        name: 'companies',
+      },
+    });
+    const morphRelations = [
+      createMorphRelation('targetInvoice', {
+        id: 'invoice-id',
+        nameSingular: 'invoice',
+        namePlural: 'invoices',
+      }),
+      createMorphRelation('targetPerson', {
+        id: 'person-id',
+        nameSingular: 'person',
+        namePlural: 'people',
       }),
     ];
 
-    const { stdout, exitCode } = await runCliForTest([
+    fields = [
+      createField('targetInvoice', { type: 'MORPH_RELATION', morphRelations }),
+      createField('targetPerson', { type: 'MORPH_RELATION', morphRelations }),
+    ];
+
+    const described = await runCliForTest([
       'metadata',
       'field',
       'describe',
       'companies',
-      'related',
+      'targetInvoice',
     ]);
+    const listed = await runCliForTest([
+      'metadata',
+      'field',
+      'list',
+      'companies',
+    ]);
+    const personLine = listed.stdout
+      .split('\n')
+      .find((line) => line.includes('targetPerson'));
 
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain('MORPH_RELATION');
-    expect(stdout).toContain('invoices.company');
+    expect(described.exitCode).toBe(0);
+    expect(described.stdout).toContain('MORPH_RELATION');
+    expect(described.stdout).toContain('many-to-one · invoices.companies');
+    expect(described.stdout).not.toContain('people.companies');
+    expect(personLine).toContain('many-to-one · people.companies');
+    expect(personLine).not.toContain('invoices.companies');
+    expect(
+      (await runJson(['field', 'describe', 'companies', 'targetInvoice']))
+        .envelope.data.field.morphRelations,
+    ).toEqual(morphRelations);
   });
 
   it('handles missing arguments and help without a configured target', async () => {

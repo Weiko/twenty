@@ -1,0 +1,123 @@
+import { isNumber, isString } from '@sniptt/guards';
+import { isDefined } from 'twenty-shared/utils';
+
+import {
+  type ToolingArtifact,
+  type ToolingBuild,
+  type ToolingDiagnostic,
+  type ToolingResult,
+} from '@/app/types/tooling-result.type';
+import { CliError } from '@/output/cli-error';
+import { isJsonObject } from '@/utils/is-json-object';
+
+const isOptionalString = (value: unknown) =>
+  !isDefined(value) || isString(value);
+
+const isOptionalNumber = (value: unknown) =>
+  !isDefined(value) || isNumber(value);
+
+const isToolingDiagnostic = (value: unknown): value is ToolingDiagnostic =>
+  isJsonObject(value) &&
+  (value.severity === 'error' || value.severity === 'warning') &&
+  isString(value.code) &&
+  isString(value.message) &&
+  isOptionalString(value.file) &&
+  isOptionalNumber(value.line) &&
+  isOptionalNumber(value.column);
+
+const isToolingArtifact = (value: unknown): value is ToolingArtifact =>
+  isJsonObject(value) &&
+  isString(value.path) &&
+  isString(value.role) &&
+  isString(value.sourcePath) &&
+  isNumber(value.size) &&
+  isString(value.sha256);
+
+const createInvalidResultError = () =>
+  new CliError({
+    code: 'WORKER_FAILED',
+    message: 'twenty-sdk returned a build result this CLI cannot read.',
+    hint: 'Check that the app and the CLI use compatible versions.',
+  });
+
+export const parseBuildData = (
+  value: unknown,
+): { data: ToolingBuild } | undefined => {
+  if (
+    !isJsonObject(value) ||
+    !isString(value.buildId) ||
+    !isString(value.contentHash) ||
+    !isJsonObject(value.application) ||
+    !isString(value.application.universalIdentifier) ||
+    !isString(value.application.name) ||
+    !isString(value.application.displayName) ||
+    !isString(value.manifestFormat) ||
+    !isJsonObject(value.manifest) ||
+    !Array.isArray(value.files) ||
+    !value.files.every(isToolingArtifact)
+  ) {
+    return undefined;
+  }
+
+  return {
+    data: {
+      buildId: value.buildId,
+      contentHash: value.contentHash,
+      application: {
+        universalIdentifier: value.application.universalIdentifier,
+        name: value.application.name,
+        displayName: value.application.displayName,
+      },
+      manifestFormat: value.manifestFormat,
+      manifest: value.manifest,
+      files: value.files,
+    },
+  };
+};
+
+export const parseTypecheckData = (
+  value: unknown,
+): { data: null } | undefined => (value === null ? { data: null } : undefined);
+
+export const parseToolingResult = <TData>({
+  value,
+  parseData,
+}: {
+  value: unknown;
+  parseData: (data: unknown) => { data: TData } | undefined;
+}): ToolingResult<TData> => {
+  if (
+    !isJsonObject(value) ||
+    !Array.isArray(value.diagnostics) ||
+    !value.diagnostics.every(isToolingDiagnostic)
+  ) {
+    throw createInvalidResultError();
+  }
+
+  const diagnostics = value.diagnostics;
+
+  if (value.success === true) {
+    const parsed = parseData(value.data);
+
+    if (!isDefined(parsed)) {
+      throw createInvalidResultError();
+    }
+
+    return { success: true, data: parsed.data, diagnostics };
+  }
+
+  if (
+    value.success === false &&
+    isJsonObject(value.error) &&
+    isString(value.error.code) &&
+    isString(value.error.message)
+  ) {
+    return {
+      success: false,
+      error: { code: value.error.code, message: value.error.message },
+      diagnostics,
+    };
+  }
+
+  throw createInvalidResultError();
+};

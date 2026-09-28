@@ -20,7 +20,10 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'node24',
     lib: {
-      entry: { cli: 'src/cli.ts' },
+      entry: {
+        cli: 'src/cli.ts',
+        'app-worker': 'src/app/worker/app-worker.ts',
+      },
       formats: ['cjs'],
     },
     rollupOptions: {

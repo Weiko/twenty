@@ -1,5 +1,5 @@
-import { isNumber, isString } from '@sniptt/guards';
-import { isDefined } from 'twenty-shared/utils';
+import { isArray, isNull, isNumber, isString } from '@sniptt/guards';
+import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import {
   type ToolingArtifact,
@@ -8,7 +8,6 @@ import {
   type ToolingResult,
 } from '@/app/types/tooling-result.type';
 import { CliError } from '@/output/cli-error';
-import { isJsonObject } from '@/utils/is-json-object';
 
 const isOptionalString = (value: unknown) =>
   !isDefined(value) || isString(value);
@@ -17,7 +16,7 @@ const isOptionalNumber = (value: unknown) =>
   !isDefined(value) || isNumber(value);
 
 const isToolingDiagnostic = (value: unknown): value is ToolingDiagnostic =>
-  isJsonObject(value) &&
+  isPlainObject(value) &&
   (value.severity === 'error' || value.severity === 'warning') &&
   isString(value.code) &&
   isString(value.message) &&
@@ -26,7 +25,7 @@ const isToolingDiagnostic = (value: unknown): value is ToolingDiagnostic =>
   isOptionalNumber(value.column);
 
 const isToolingArtifact = (value: unknown): value is ToolingArtifact =>
-  isJsonObject(value) &&
+  isPlainObject(value) &&
   isString(value.path) &&
   isString(value.role) &&
   isString(value.sourcePath) &&
@@ -44,16 +43,16 @@ export const parseBuildData = (
   value: unknown,
 ): { data: ToolingBuild } | undefined => {
   if (
-    !isJsonObject(value) ||
+    !isPlainObject(value) ||
     !isString(value.buildId) ||
     !isString(value.contentHash) ||
-    !isJsonObject(value.application) ||
+    !isPlainObject(value.application) ||
     !isString(value.application.universalIdentifier) ||
     !isString(value.application.name) ||
     !isString(value.application.displayName) ||
     !isString(value.manifestFormat) ||
-    !isJsonObject(value.manifest) ||
-    !Array.isArray(value.files) ||
+    !isPlainObject(value.manifest) ||
+    !isArray(value.files) ||
     !value.files.every(isToolingArtifact)
   ) {
     return undefined;
@@ -77,7 +76,7 @@ export const parseBuildData = (
 
 export const parseTypecheckData = (
   value: unknown,
-): { data: null } | undefined => (value === null ? { data: null } : undefined);
+): { data: null } | undefined => (isNull(value) ? { data: null } : undefined);
 
 export const parseToolingResult = <TData>({
   value,
@@ -87,8 +86,8 @@ export const parseToolingResult = <TData>({
   parseData: (data: unknown) => { data: TData } | undefined;
 }): ToolingResult<TData> => {
   if (
-    !isJsonObject(value) ||
-    !Array.isArray(value.diagnostics) ||
+    !isPlainObject(value) ||
+    !isArray(value.diagnostics) ||
     !value.diagnostics.every(isToolingDiagnostic)
   ) {
     throw createInvalidResultError();
@@ -108,7 +107,7 @@ export const parseToolingResult = <TData>({
 
   if (
     value.success === false &&
-    isJsonObject(value.error) &&
+    isPlainObject(value.error) &&
     isString(value.error.code) &&
     isString(value.error.message)
   ) {

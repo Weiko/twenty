@@ -1,14 +1,32 @@
-import { access, mkdir, mkdtemp, readdir, writeFile } from 'node:fs/promises';
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
+import Module from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { isFunction } from '@sniptt/guards';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   parseSingleJsonLine,
   runCliForTest,
 } from '@/__tests__/utils/run-cli-for-test';
+
+const initializeModulePaths = () => {
+  if (!('_initPaths' in Module) || !isFunction(Module._initPaths)) {
+    throw new Error('node:module does not expose _initPaths.');
+  }
+
+  Module._initPaths();
+};
 
 vi.mock('@/app/get-app-worker-launch', () => ({
   getAppWorkerLaunch: () => ({
@@ -75,6 +93,11 @@ const writeFakeSdk = async ({
   hasBuildApi = true,
   build = SUCCESSFUL_BUILD,
   typecheck = SUCCESSFUL_TYPECHECK,
+  exportedFunctions = [
+    'buildAppSnapshot',
+    'typecheckApp',
+    'releaseAppSnapshot',
+  ],
 }: {
   appPath: string;
   version?: string;
@@ -82,7 +105,16 @@ const writeFakeSdk = async ({
   hasBuildApi?: boolean;
   build?: string;
   typecheck?: string;
+  exportedFunctions?: string[];
 }) => {
+  const functionSources: Record<string, string> = {
+    buildAppSnapshot: `async ({ signal }) => { ${build} }`,
+    typecheckApp: `async ({ signal }) => { ${typecheck} }`,
+    releaseAppSnapshot: `async ({ buildId }) => {
+    mark('released.txt', buildId);
+    return { success: true, data: null, diagnostics: [] };
+  }`,
+  };
   const sdkPath = join(appPath, 'node_modules', 'twenty-sdk');
 
   await mkdir(join(sdkPath, 'dist', 'build'), { recursive: true });
@@ -120,12 +152,7 @@ const appPath = path.resolve(__dirname, '../../..');
 const mark = (name, content = '') => fs.writeFileSync(path.join(appPath, name), content);
 mark('loaded.txt');
 module.exports = {
-  buildAppSnapshot: async ({ signal }) => { ${build} },
-  typecheckApp: async ({ signal }) => { ${typecheck} },
-  releaseAppSnapshot: async ({ buildId }) => {
-    mark('released.txt', buildId);
-    return { success: true, data: null, diagnostics: [] };
-  },
+${exportedFunctions.map((name) => `  ${name}: ${functionSources[name]},`).join('\n')}
 };`,
   );
 };
@@ -187,9 +214,37 @@ describe('app build and typecheck', () => {
     expect(stderr).toContain('Building fake-app with twenty-sdk 9.9.9');
     expect(stderr).toContain('A deprecated option is used.');
     expect(stdout).toContain('Built Fake App with twenty-sdk 9.9.9');
-    expect(stdout).toContain('2 files · 1.5 kB');
+    expect(stdout).toContain('2 files · 1.5 KB');
     expect(stdout).toContain('1 logic function · 1 source file');
     expect(stdout).toContain('Nothing was uploaded.');
+  });
+
+  it('typechecks with an SDK that only supports typecheck', async () => {
+    const { appPath } = await createApp();
+
+    await writeFakeSdk({
+      appPath,
+      descriptor: { capabilities: ['typecheck'] },
+      exportedFunctions: ['typecheckApp'],
+    });
+
+    const typecheck = await runJson(['app', 'typecheck', '--path', appPath]);
+
+    expect(typecheck.exitCode).toBe(0);
+    expect(typecheck.envelope.ok).toBe(true);
+
+    await rm(join(appPath, 'loaded.txt'));
+
+    const build = await runJson(['app', 'build', '--path', appPath]);
+
+    expect(build.exitCode).toBe(1);
+    expect(build.envelope.error).toMatchObject({
+      code: 'TOOLING_UNSUPPORTED',
+      message: expect.stringContaining(
+        'does not support build, releaseSnapshot',
+      ),
+    });
+    expect(await exists(join(appPath, 'loaded.txt'))).toBe(false);
   });
 
   it('finds the app from a nested folder', async () => {
@@ -347,13 +402,9 @@ describe('app build and typecheck', () => {
     it('never uses an SDK found only through global module paths', async () => {
       const { appPath } = await createApp();
       const globalRoot = await mkdtemp(join(tmpdir(), 'twenty-cli-global-'));
-      const nodeModule = (await import('node:module')).default as unknown as {
-        _initPaths: () => void;
-      };
-
       await writeFakeSdk({ appPath: globalRoot });
       vi.stubEnv('NODE_PATH', join(globalRoot, 'node_modules'));
-      nodeModule._initPaths();
+      initializeModulePaths();
 
       try {
         const { envelope, exitCode } = await runJson([
@@ -368,7 +419,7 @@ describe('app build and typecheck', () => {
         expect(await exists(join(globalRoot, 'loaded.txt'))).toBe(false);
       } finally {
         vi.unstubAllEnvs();
-        nodeModule._initPaths();
+        initializeModulePaths();
       }
     });
 
@@ -481,8 +532,7 @@ describe('app build and typecheck', () => {
       });
 
       const { exitCode } = await runJson(['app', 'build', '--path', appPath]);
-      const { readFile } = await import('node:fs/promises');
-      const visibleVariables = JSON.parse(
+      const visibleVariables: unknown = JSON.parse(
         await readFile(join(appPath, 'environment.json'), 'utf8'),
       );
 
@@ -547,6 +597,42 @@ describe('app build and typecheck', () => {
       expect(human.stderr).toContain('src/hello.ts:3:7');
       expect(human.stderr).toContain('TS2322');
     });
+
+    it.each([
+      [
+        'build',
+        ['typecheckApp'],
+        'must export buildAppSnapshot and releaseAppSnapshot to build the app',
+      ],
+      [
+        'build',
+        ['buildAppSnapshot', 'typecheckApp'],
+        'must export buildAppSnapshot and releaseAppSnapshot to build the app',
+      ],
+      [
+        'typecheck',
+        ['buildAppSnapshot', 'releaseAppSnapshot'],
+        'must export typecheckApp to typecheck the app',
+      ],
+    ])(
+      'reports an export the descriptor promised for %s but the SDK lacks (%j)',
+      async (operation, exportedFunctions, message) => {
+        const { appPath } = await createApp();
+
+        await writeFakeSdk({ appPath, exportedFunctions });
+
+        const { envelope, exitCode } = await runJson([
+          'app',
+          operation,
+          '--path',
+          appPath,
+        ]);
+
+        expect(exitCode).toBe(1);
+        expect(envelope.error.code).toBe('WORKER_FAILED');
+        expect(envelope.error.message).toContain(message);
+      },
+    );
 
     it('rejects a result it cannot read', async () => {
       const { appPath } = await createApp();

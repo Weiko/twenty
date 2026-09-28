@@ -1,5 +1,6 @@
 import { type CommanderError } from 'commander';
-import { isDefined } from 'twenty-shared/utils';
+import { isNonEmptyString } from '@sniptt/guards';
+import { capitalize, isDefined, isNonEmptyArray } from 'twenty-shared/utils';
 
 import { VERSION_COMMAND_DEFINITION } from '@/commands/version/version.command-definition';
 import { createLegacyCommandError } from '@/legacy/create-legacy-command-error';
@@ -21,7 +22,7 @@ const formatCommanderMessage = (message: string) => {
     .replace(/\s*\n\s*/g, ' ')
     .trim();
 
-  return `${flattenedMessage.charAt(0).toUpperCase()}${flattenedMessage.slice(1)}`;
+  return capitalize(flattenedMessage);
 };
 
 const getFullCommandName = (commandName: string) =>
@@ -49,7 +50,7 @@ const createUsageError = ({
 const isHelpDisplay = (commanderError: CommanderError, operands: string[]) =>
   commanderError.code === 'commander.helpDisplayed' ||
   (commanderError.code === 'commander.help' &&
-    (commanderError.exitCode === 0 || operands.length === 0));
+    (commanderError.exitCode === 0 || !isNonEmptyArray(operands)));
 
 const getUnknownHelpTarget = (operands: string[]) =>
   (operands[0] === HELP_COMMAND_NAME ? operands.slice(1) : operands).join(' ');
@@ -74,7 +75,7 @@ export const handleParseError = async ({
 }: {
   error: CommandParseError;
   outputMode: OutputMode;
-  capturedOutput: { out: string; err: string };
+  capturedOutput: { standardOutput: string; standardError: string };
 }) => {
   const { commanderError, commandName, operands } = error;
 
@@ -92,7 +93,9 @@ export const handleParseError = async ({
   const output = createOutput({ mode: outputMode, command: commandName });
 
   if (isHelpDisplay(commanderError, operands)) {
-    const help = capturedOutput.out || capturedOutput.err;
+    const help = isNonEmptyString(capturedOutput.standardOutput)
+      ? capturedOutput.standardOutput
+      : capturedOutput.standardError;
 
     output.succeed({ data: { help }, human: help });
 

@@ -2,6 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { isString } from '@sniptt/guards';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { readConfig } from '@/config/read-config';
@@ -12,7 +13,7 @@ describe('readConfig', () => {
   const writeConfig = (content: unknown) =>
     writeFile(
       configPath,
-      typeof content === 'string' ? content : JSON.stringify(content),
+      isString(content) ? content : JSON.stringify(content),
     );
 
   beforeEach(async () => {
@@ -120,11 +121,13 @@ describe('readConfig', () => {
   it('reports invalid JSON without quoting the file', async () => {
     await writeConfig('{"apiKey": SECRET_SENTINEL_TOKEN_12345}');
 
-    const error = await readConfig(configPath).catch((caught) => caught);
+    const error = await readConfig(configPath).catch(
+      (caught: unknown) => caught,
+    );
 
     expect(error).toMatchObject({ code: 'INVALID_CONFIG', exitCode: 2 });
-    expect(JSON.stringify(error.details)).not.toContain('SECRET');
-    expect(error.message).not.toContain('SECRET');
+    expect(JSON.stringify(error)).not.toContain('SECRET');
+    expect(String(error)).not.toContain('SECRET');
   });
 
   it.each([

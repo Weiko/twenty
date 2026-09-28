@@ -1,6 +1,7 @@
+import { isPlainObject } from 'twenty-shared/utils';
+
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
-import { isJsonObject } from '@/utils/is-json-object';
 
 const createInvalidJsonError = (optionName: string, reason: string) =>
   new CliError({
@@ -35,7 +36,7 @@ export const parseJsonObjectInput = ({
 }) => {
   const value = parseJsonInput({ text, optionName });
 
-  if (!isJsonObject(value)) {
+  if (!isPlainObject(value)) {
     throw createInvalidJsonError(optionName, 'expected a JSON object.');
   }
 

@@ -1,5 +1,6 @@
 import { stripVTControlCharacters } from 'node:util';
 
+import { TABLE_LAYOUT } from '@/output/constants/table-layout.constant';
 import { dimText } from '@/output/style';
 
 type TableColumn<TRow> = {
@@ -7,9 +8,6 @@ type TableColumn<TRow> = {
   value: (row: TRow) => string;
   align?: 'left' | 'right';
 };
-
-const COLUMN_GAP = '   ';
-const ROW_INDENT = '  ';
 
 const getVisibleLength = (text: string) =>
   stripVTControlCharacters(text).length;
@@ -44,7 +42,7 @@ export const formatTable = <TRow>({
   );
 
   const formatRow = (rowCells: string[]) =>
-    `${ROW_INDENT}${rowCells
+    `${TABLE_LAYOUT.ROW_INDENT}${rowCells
       .map((cell, columnIndex) =>
         pad({
           cell,
@@ -52,7 +50,7 @@ export const formatTable = <TRow>({
           align: columns[columnIndex].align ?? 'left',
         }),
       )
-      .join(COLUMN_GAP)}`.trimEnd();
+      .join(TABLE_LAYOUT.COLUMN_GAP)}`.trimEnd();
 
   return [
     dimText(formatRow(columns.map((column) => column.header))),

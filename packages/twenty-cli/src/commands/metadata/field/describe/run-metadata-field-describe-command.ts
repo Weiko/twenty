@@ -1,4 +1,5 @@
-import { isDefined } from 'twenty-shared/utils';
+import { isNonEmptyString } from '@sniptt/guards';
+import { isDefined, isNonEmptyArray } from 'twenty-shared/utils';
 
 import { readStringArgument } from '@/catalog/read-command-values';
 import { type CommandRun } from '@/catalog/types/command-run.type';
@@ -6,11 +7,11 @@ import { type TargetCommandContext } from '@/catalog/types/target-command-contex
 import { fetchMetadataInspection } from '@/metadata/fetch-metadata-inspection';
 import { formatMetadataRelations } from '@/metadata/format-metadata-fields';
 import { formatMetadataOwner } from '@/metadata/format-metadata-owner';
+import { getFieldOptions } from '@/metadata/get-field-options';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 import { formatDetails } from '@/output/format-details';
 import { formatTable } from '@/output/format-table';
-import { isJsonObject } from '@/utils/is-json-object';
 
 const formatBoolean = (value?: boolean) =>
   isDefined(value) ? String(value) : 'unknown';
@@ -46,8 +47,7 @@ export const runMetadataFieldDescribeCommand: CommandRun<
     });
   }
 
-  const options: unknown = field.options;
-  const optionRows = Array.isArray(options) ? options.filter(isJsonObject) : [];
+  const optionRows = getFieldOptions(field);
 
   return {
     data: { object, field },
@@ -65,7 +65,7 @@ export const runMetadataFieldDescribeCommand: CommandRun<
       ]),
       field.description ?? '',
       formatMetadataRelations(field),
-      optionRows.length > 0
+      isNonEmptyArray(optionRows)
         ? formatTable({
             rows: optionRows,
             columns: [
@@ -85,7 +85,7 @@ export const runMetadataFieldDescribeCommand: CommandRun<
           })
         : '',
     ]
-      .filter(Boolean)
+      .filter(isNonEmptyString)
       .join('\n\n'),
   };
 };

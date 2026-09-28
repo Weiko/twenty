@@ -1,4 +1,6 @@
-import { type AppWorkerOutput } from '@/app/run-app-worker';
+import { isNonEmptyString } from '@sniptt/guards';
+
+import { type AppWorkerOutput } from '@/app/types/app-worker-output.type';
 import { type ToolingDiagnostic } from '@/app/types/tooling-result.type';
 
 export const toWorkerOutputDiagnostics = (
@@ -10,7 +12,7 @@ export const toWorkerOutputDiagnostics = (
       ['stderr', output.stderr],
     ] as const
   )
-    .filter(([, text]) => text.trim() !== '')
+    .filter(([, text]) => isNonEmptyString(text.trim()))
     .map(([stream, text]) => ({
       severity: 'warning',
       code: 'PROJECT_OUTPUT',

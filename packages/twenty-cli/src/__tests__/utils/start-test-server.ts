@@ -3,7 +3,8 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from 'node:http';
-import { type AddressInfo } from 'node:net';
+
+import { getListeningPort } from '@/utils/get-listening-port';
 
 export type RecordedRequest = {
   method: string;
@@ -40,7 +41,7 @@ export const startTestServer = async (handler: TestServerHandler) => {
 
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
 
-  const { port } = server.address() as AddressInfo;
+  const port = getListeningPort(server);
 
   return {
     url: `http://127.0.0.1:${port}`,

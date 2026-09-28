@@ -1,11 +1,11 @@
 import { createServer } from 'node:http';
-import { type AddressInfo } from 'node:net';
 
 import { isNonEmptyString } from '@sniptt/guards';
 import { isDefined } from 'twenty-shared/utils';
 
 import { OAUTH_TIMING } from '@/oauth/constants/oauth-timing.constant';
 import { CliError } from '@/output/cli-error';
+import { getListeningPort } from '@/utils/get-listening-port';
 
 const CALLBACK_PATH = '/callback';
 
@@ -136,7 +136,7 @@ export const startCallbackServer = async ({
     server.listen(0, '127.0.0.1', () => listening());
   });
 
-  const { port } = server.address() as AddressInfo;
+  const port = getListeningPort(server);
   const timeout = setTimeout(
     () =>
       reject(

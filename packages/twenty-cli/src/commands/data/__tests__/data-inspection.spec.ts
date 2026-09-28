@@ -1,5 +1,11 @@
 import { setImmediate } from 'node:timers/promises';
 
+import { isNonEmptyString } from '@sniptt/guards';
+import {
+  assertIsDefinedOrThrow,
+  isDefined,
+  isNonEmptyArray,
+} from 'twenty-shared/utils';
 import {
   afterAll,
   afterEach,
@@ -61,13 +67,13 @@ const server = await startTestServer((request, response) => {
   restRequests += 1;
   const cursor = url.searchParams.get('starting_after');
 
-  if (status !== 200 || (failPageAfter && cursor)) {
+  if (status !== 200 || (failPageAfter && isNonEmptyString(cursor))) {
     return sendJson(response, status !== 200 ? status : 403, {
       message: 'Request denied',
     });
   }
 
-  if (invalidPayload !== undefined) {
+  if (isDefined(invalidPayload)) {
     return sendJson(response, 200, invalidPayload);
   }
 
@@ -75,7 +81,9 @@ const server = await startTestServer((request, response) => {
     url.pathname.startsWith(`/rest/${candidate.namePlural}`),
   );
 
-  if (!object) return sendJson(response, 404, {});
+  if (!isDefined(object)) {
+    return sendJson(response, 404, {});
+  }
 
   if (url.pathname !== `/rest/${object.namePlural}`) {
     return sendJson(response, 200, { data: { [object.nameSingular]: record } });
@@ -84,24 +92,38 @@ const server = await startTestServer((request, response) => {
   const offset = Number(cursor ?? 0);
   const limit = Number(url.searchParams.get('limit'));
   const nextOffset = offset + limit;
-  const pageRecords = cursorCycle
+  const pageRecords = isDefined(cursorCycle)
     ? records.slice(0, limit)
     : records.slice(offset, nextOffset);
+  const getEndCursor = () => {
+    if (isDefined(cursorCycle)) {
+      return cursorCycle[(restRequests - 1) % cursorCycle.length];
+    }
+
+    return isNonEmptyArray(pageRecords)
+      ? String(Math.min(nextOffset, records.length))
+      : null;
+  };
+
   return sendJson(response, 200, {
     data: { [object.namePlural]: pageRecords },
     totalCount: records.length,
     pageInfo: {
       hasPreviousPage: offset > 0,
-      hasNextPage: cursorCycle ? true : nextOffset < records.length,
-      startCursor: pageRecords.length ? String(offset) : null,
-      endCursor: cursorCycle
-        ? cursorCycle[(restRequests - 1) % cursorCycle.length]
-        : pageRecords.length
-          ? String(Math.min(nextOffset, records.length))
-          : null,
+      hasNextPage: isDefined(cursorCycle) || nextOffset < records.length,
+      startCursor: isNonEmptyArray(pageRecords) ? String(offset) : null,
+      endCursor: getEndCursor(),
     },
   });
 });
+
+const getLastRequest = () => {
+  const lastRequest = server.requests.at(-1);
+
+  assertIsDefinedOrThrow(lastRequest);
+
+  return lastRequest;
+};
 
 const runJson = async (args: string[]) => {
   const result = await runCliForTest(['data', ...args, '--json']);
@@ -172,10 +194,11 @@ describe('data inspection commands', () => {
       pageInfo: { hasNextPage: true, endCursor: '50' },
     });
     expect(restRequests).toBe(1);
-    const request = server.requests.at(-1)!;
-    expect(request.path).toBe('/rest/companies?limit=50');
-    expect(request.method).toBe('GET');
-    expect(request.headers.authorization).toBe('Bearer fixture-data-key');
+    expect(getLastRequest()).toMatchObject({
+      path: '/rest/companies?limit=50',
+      method: 'GET',
+      headers: { authorization: 'Bearer fixture-data-key' },
+    });
   });
 
   it('preserves REST filters, ordering and opaque cursor contents without interpreting them', async () => {
@@ -193,7 +216,7 @@ describe('data inspection commands', () => {
       '--cursor',
       '1',
     ]);
-    const url = new URL(server.requests.at(-1)!.path, server.url);
+    const url = new URL(getLastRequest().path, server.url);
     expect(Object.fromEntries(url.searchParams)).toEqual({
       limit: '2',
       starting_after: '1',
@@ -202,7 +225,7 @@ describe('data inspection commands', () => {
     });
     await runJson(['list', 'companies', '--cursor', 'opaque+/=&?']);
     expect(
-      new URL(server.requests.at(-1)!.path, server.url).searchParams.get(
+      new URL(getLastRequest().path, server.url).searchParams.get(
         'starting_after',
       ),
     ).toBe('opaque+/=&?');
@@ -217,7 +240,7 @@ describe('data inspection commands', () => {
     );
     const result = await runJson(['get', 'invoices', '1']);
     expect(result.envelope.data).toEqual(record);
-    expect(server.requests.at(-1)!.path).toBe('/rest/invoices/1?depth=1');
+    expect(getLastRequest().path).toBe('/rest/invoices/1?depth=1');
   });
 
   it('rejects ambiguous aliases before sending a REST request', async () => {
@@ -448,19 +471,20 @@ describe('data inspection commands', () => {
     ).toEqual(records);
   });
 
-  it.each([401, 403, 404, 429, 500])(
-    'preserves HTTP %s failures',
-    async (responseStatus) => {
-      status = responseStatus;
-      const result = await runJson(['get', 'companies', '1']);
-      expect(result.envelope.ok).toBe(false);
-      expect(result.envelope.error.details.status).toBe(responseStatus);
-      expect(result.exitCode).toBe(
-        responseStatus === 404 ? 4 : responseStatus < 404 ? 3 : 1,
-      );
-      expect(restRequests).toBe(1);
-    },
-  );
+  it.each([
+    [401, 3],
+    [403, 3],
+    [404, 4],
+    [429, 1],
+    [500, 1],
+  ])('preserves HTTP %s failures', async (responseStatus, expectedExitCode) => {
+    status = responseStatus;
+    const result = await runJson(['get', 'companies', '1']);
+    expect(result.envelope.ok).toBe(false);
+    expect(result.envelope.error.details.status).toBe(responseStatus);
+    expect(result.exitCode).toBe(expectedExitCode);
+    expect(restRequests).toBe(1);
+  });
 
   it('bounds table cell widths and treats absent columns as absent values', async () => {
     records = [
@@ -523,11 +547,12 @@ describe('data inspection commands', () => {
 
   it('encodes record ids as one path segment and rejects traversal segments', async () => {
     await runJson(['get', 'companies', 'a/b?c=d#e']);
-    expect(server.requests.at(-1)!.path).toBe(
+    expect(getLastRequest().path).toBe(
       '/rest/companies/a%2Fb%3Fc%3Dd%23e?depth=1',
     );
-    for (const id of ['.', '..'])
+    for (const id of ['.', '..']) {
       expect((await runJson(['get', 'companies', id])).exitCode).toBe(2);
+    }
     expect(restRequests).toBe(1);
   });
 
@@ -773,8 +798,11 @@ describe('data inspection commands', () => {
         await setImmediate();
         await setImmediate();
         expect(restRequests).toBe(1);
-        if (cancel) process.emit('SIGINT');
-        else process.stdout.emit('drain');
+        if (cancel) {
+          process.emit('SIGINT');
+        } else {
+          process.stdout.emit('drain');
+        }
         await pending;
         const events = stdout
           .trimEnd()

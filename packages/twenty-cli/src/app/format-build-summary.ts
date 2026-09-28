@@ -1,3 +1,5 @@
+import { formatBytes } from 'twenty-shared/utils';
+
 import { formatAppDuration } from '@/app/format-app-duration';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
 import { dimText, formatSuccessLine } from '@/output/style';
@@ -8,16 +10,6 @@ const ROLE_LABELS: Record<string, [singular: string, plural: string]> = {
   source: ['source file', 'source files'],
   dependencies: ['dependency file', 'dependency files'],
   'public-asset': ['asset', 'assets'],
-};
-
-const formatBytes = (bytes: number) => {
-  if (bytes < 1000) {
-    return `${bytes} B`;
-  }
-
-  return bytes < 1_000_000
-    ? `${(bytes / 1000).toFixed(1)} kB`
-    : `${(bytes / 1_000_000).toFixed(1)} MB`;
 };
 
 const ROLE_ORDER = Object.keys(ROLE_LABELS);

@@ -1,7 +1,8 @@
+import { isNull } from '@sniptt/guards';
 import satisfies from 'semver/functions/satisfies';
 import validRange from 'semver/ranges/valid';
 
-export type NodeRequirementCheck = 'satisfied' | 'unsatisfied' | 'invalid';
+type NodeRequirementCheck = 'satisfied' | 'unsatisfied' | 'invalid';
 
 export const checkNodeRequirement = ({
   version,
@@ -10,7 +11,7 @@ export const checkNodeRequirement = ({
   version: string;
   range: string;
 }): NodeRequirementCheck => {
-  if (validRange(range) === null) {
+  if (isNull(validRange(range))) {
     return 'invalid';
   }
 

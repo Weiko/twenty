@@ -39,16 +39,20 @@ export const createLegacyCommandError = ({
   remainingArguments: string[];
 }) => {
   const { isKnownLegacyCommand, replacement } = findReplacement(legacyCommand);
-  const replacementAvailable =
+  const isReplacementAvailable =
     isDefined(replacement) && isAvailable(replacement);
 
-  if (replacementAvailable) {
+  if (isReplacementAvailable) {
     return new CliError({
       code: 'USAGE',
       exitCode: EXIT_CODE.USAGE,
       message: `twenty ${legacyCommand} is the old twenty-sdk spelling.`,
       hint: `Use: twenty ${[replacement, ...remainingArguments].join(' ')}`,
-      details: { legacyCommand, replacement, replacementAvailable },
+      details: {
+        legacyCommand,
+        replacement,
+        replacementAvailable: isReplacementAvailable,
+      },
     });
   }
 
@@ -63,6 +67,10 @@ export const createLegacyCommandError = ({
       ? `twenty ${legacyCommand} is a twenty-sdk command. Its replacement, twenty ${replacement}, is not available yet.`
       : `twenty ${legacyCommand} is a twenty-sdk command with no equivalent here yet.`,
     hint: `In your app project, keep using: yarn twenty ${[legacyCommand, ...remainingArguments].join(' ')}`,
-    details: { legacyCommand, replacement, replacementAvailable },
+    details: {
+      legacyCommand,
+      replacement,
+      replacementAvailable: isReplacementAvailable,
+    },
   });
 };

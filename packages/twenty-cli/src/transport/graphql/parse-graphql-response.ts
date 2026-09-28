@@ -1,14 +1,12 @@
 import { isNonEmptyArray } from '@sniptt/guards';
-import { isDefined } from 'twenty-shared/utils';
+import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
 import { createHttpStatusError } from '@/transport/create-http-status-error';
 import { createGraphqlError } from '@/transport/graphql/create-graphql-error';
-import { type GraphqlPayload } from '@/transport/graphql/types/graphql-payload.type';
 import { parseResponseBody } from '@/transport/parse-response-body';
 import { pickSafeResponseHeaders } from '@/transport/pick-safe-response-headers';
-import { isJsonObject } from '@/utils/is-json-object';
 
 export const parseGraphqlResponse = async ({
   response,
@@ -18,7 +16,7 @@ export const parseGraphqlResponse = async ({
   target: ResolvedTarget;
 }) => {
   const body = await parseResponseBody(response);
-  const payload = isJsonObject(body) ? (body as GraphqlPayload) : undefined;
+  const payload = isPlainObject(body) ? body : undefined;
 
   if (isNonEmptyArray(payload?.errors)) {
     throw createGraphqlError({
@@ -51,5 +49,5 @@ export const parseGraphqlResponse = async ({
     });
   }
 
-  return payload;
+  return { data: isPlainObject(payload.data) ? payload.data : null };
 };

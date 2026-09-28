@@ -1,11 +1,10 @@
 import { isString } from '@sniptt/guards';
-import { isDefined } from 'twenty-shared/utils';
+import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import {
   type ConfigFile,
   type RemoteEntry,
 } from '@/config/types/config-file.type';
-import { isJsonObject } from '@/utils/is-json-object';
 
 const LEGACY_DEFAULT_PROFILE_NAME = 'default';
 
@@ -28,7 +27,7 @@ const LEGACY_TOP_LEVEL_REMOTE_FIELDS = [
 ];
 
 const toRemoteEntry = (value: unknown): RemoteEntry | undefined => {
-  if (!isJsonObject(value) || !isString(value.apiUrl)) {
+  if (!isPlainObject(value) || !isString(value.apiUrl)) {
     return undefined;
   }
 
@@ -54,7 +53,7 @@ const toRemoteEntry = (value: unknown): RemoteEntry | undefined => {
 const normalizeRemotes = (
   value: unknown,
 ): Record<string, RemoteEntry> | undefined => {
-  if (!isJsonObject(value)) {
+  if (!isPlainObject(value)) {
     return undefined;
   }
 
@@ -140,7 +139,7 @@ const normalizeLegacyConfig = (
 };
 
 export const normalizeConfig = (raw: unknown): ConfigFile | undefined => {
-  if (!isJsonObject(raw)) {
+  if (!isPlainObject(raw)) {
     return undefined;
   }
 

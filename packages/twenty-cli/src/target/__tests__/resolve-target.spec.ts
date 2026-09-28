@@ -2,6 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { isDefined } from 'twenty-shared/utils';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { type CliWarning } from '@/output/types/cli-warning.type';
@@ -153,10 +154,9 @@ describe('resolveTarget', () => {
   ] as const)(
     'fails for %j with --remote %s as %s',
     async (environment, remoteFlag, code, exitCode, configFileName) => {
-      const path =
-        configFileName === undefined
-          ? configPath
-          : join(configPath, '..', configFileName);
+      const path = isDefined(configFileName)
+        ? join(configPath, '..', configFileName)
+        : configPath;
 
       await expect(
         resolve(environment, remoteFlag, path),

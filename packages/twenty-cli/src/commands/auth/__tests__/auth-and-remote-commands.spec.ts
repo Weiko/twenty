@@ -1,7 +1,6 @@
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Readable } from 'node:stream';
 
 import {
   afterAll,
@@ -17,6 +16,7 @@ import {
   parseSingleJsonLine,
   runCliForTest,
 } from '@/__tests__/utils/run-cli-for-test';
+import { createStandardInputStub } from '@/__tests__/utils/create-standard-input-stub';
 import { sendJson, startTestServer } from '@/__tests__/utils/start-test-server';
 
 const VALID_KEY = 'valid-key';
@@ -46,7 +46,7 @@ const runJson = async (args: string[]) => {
 
 const login = (args: string[], apiKey = VALID_KEY) => {
   vi.spyOn(process, 'stdin', 'get').mockReturnValue(
-    Readable.from([`${apiKey}\n`]) as unknown as typeof process.stdin,
+    createStandardInputStub({ content: `${apiKey}\n` }),
   );
 
   return runJson(['auth', 'login', '--with-token', ...args]);

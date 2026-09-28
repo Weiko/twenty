@@ -2,8 +2,8 @@ import { access, realpath } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
-import { isNumber, isString } from '@sniptt/guards';
-import { isDefined } from 'twenty-shared/utils';
+import { isArray, isNonEmptyString, isNumber, isString } from '@sniptt/guards';
+import { isDefined, isNonEmptyArray, isPlainObject } from 'twenty-shared/utils';
 
 import { checkNodeRequirement } from '@/app/check-node-requirement';
 import { SUPPORTED_BUILD_PROTOCOL_VERSIONS } from '@/app/constants/app-build-protocol.constant';
@@ -13,9 +13,6 @@ import { readJsonObject } from '@/app/read-json-object';
 import { type AppOperation } from '@/app/types/app-operation.type';
 import { type ProjectSdk } from '@/app/types/project-sdk.type';
 import { CliError } from '@/output/cli-error';
-import { isJsonObject } from '@/utils/is-json-object';
-
-type Resolution = { path: string } | { errorCode?: string };
 
 const UPGRADE_SDK_HINT =
   'Upgrade twenty-sdk in this app to a release that includes twenty-sdk/build, then install its dependencies again.';
@@ -23,13 +20,11 @@ const UPGRADE_SDK_HINT =
 const tryResolve = (
   resolveFromApp: NodeJS.RequireResolve,
   specifier: string,
-): Resolution => {
+) => {
   try {
-    return { path: resolveFromApp(specifier) };
-  } catch (error) {
-    return isJsonObject(error) && isString(error.code)
-      ? { errorCode: error.code }
-      : {};
+    return resolveFromApp(specifier);
+  } catch {
+    return undefined;
   }
 };
 
@@ -47,7 +42,7 @@ const findInstalledSdk = async (appPath: string) => {
 
     const packageJson = await readJsonObject(join(packagePath, 'package.json'));
 
-    if (packageJson?.name !== 'twenty-sdk') {
+    if (!isDefined(packageJson) || packageJson.name !== 'twenty-sdk') {
       throw new CliError({
         code: 'TOOLING_UNSUPPORTED',
         message: `The twenty-sdk installation at ${packagePath} is incomplete: it has no readable twenty-sdk package.json.`,
@@ -72,7 +67,7 @@ const isInsideDirectory = ({
   const relativePath = relative(directory, filePath);
 
   return (
-    relativePath !== '' &&
+    isNonEmptyString(relativePath) &&
     relativePath !== '..' &&
     !relativePath.startsWith(`..${sep}`) &&
     !isAbsolute(relativePath)
@@ -88,11 +83,11 @@ const resolveInsideSdk = ({
   specifier: string;
   sdkPath: string;
 }) => {
-  const resolution = tryResolve(resolveFromApp, specifier);
+  const resolvedPath = tryResolve(resolveFromApp, specifier);
 
-  return 'path' in resolution &&
-    isInsideDirectory({ filePath: resolution.path, directory: sdkPath })
-    ? resolution.path
+  return isDefined(resolvedPath) &&
+    isInsideDirectory({ filePath: resolvedPath, directory: sdkPath })
+    ? resolvedPath
     : undefined;
 };
 
@@ -113,10 +108,10 @@ const hasYarnPlugAndPlay = async (appPath: string) => {
 
 const parseDescriptor = (value: unknown) => {
   if (
-    !isJsonObject(value) ||
+    !isPlainObject(value) ||
     !isNumber(value.protocolVersion) ||
     !isString(value.requiredNode) ||
-    !Array.isArray(value.capabilities) ||
+    !isArray(value.capabilities) ||
     !value.capabilities.every(isString)
   ) {
     return undefined;
@@ -214,7 +209,7 @@ export const resolveProjectSdk = async ({
     (capability) => !descriptor.capabilities.includes(capability),
   );
 
-  if (missingCapabilities.length > 0) {
+  if (isNonEmptyArray(missingCapabilities)) {
     throw new CliError({
       code: 'TOOLING_UNSUPPORTED',
       message: `twenty-sdk ${version} does not support ${missingCapabilities.join(', ')}.`,

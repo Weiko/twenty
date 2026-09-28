@@ -3,20 +3,19 @@ import { type CommandRun } from '@/catalog/types/command-run.type';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';
 import { formatMetadataOwner } from '@/metadata/format-metadata-owner';
 import { METADATA_OWNER_KIND_ORDER } from '@/metadata/constants/metadata-owner-kind-order.constant';
+import { METADATA_PAGE_SIZE } from '@/metadata/constants/metadata-page.constant';
 import { createMetadataOwnerResolver } from '@/metadata/resolve-metadata-owner';
 import { fetchOwnerApplications } from '@/metadata/fetch-owner-applications';
 import { formatTable } from '@/output/format-table';
 import { dimText } from '@/output/style';
 import { createMetadataClient } from '@/transport/metadata/create-metadata-client';
 
-const OBJECT_PAGE_SIZE = 1000;
-
 type MetadataClient = ReturnType<typeof createMetadataClient>;
 
 const fetchObjects = (client: MetadataClient) =>
   client.query({
     objects: {
-      __args: { paging: { first: OBJECT_PAGE_SIZE }, filter: {} },
+      __args: { paging: { first: METADATA_PAGE_SIZE }, filter: {} },
       pageInfo: { hasNextPage: true },
       edges: {
         node: {
@@ -44,7 +43,7 @@ export const runMetadataObjectListCommand: CommandRun<
   if (objects.pageInfo.hasNextPage === true) {
     output.warn({
       code: 'INCOMPLETE_LIST',
-      message: `Only the first ${OBJECT_PAGE_SIZE} objects are listed.`,
+      message: `Only the first ${METADATA_PAGE_SIZE} objects are listed.`,
     });
   }
 
@@ -68,12 +67,17 @@ export const runMetadataObjectListCommand: CommandRun<
   );
   const listedObjects = allObjects
     .filter((object) => includeSystemObjects || !object.isSystem)
-    .sort(
-      (first, second) =>
+    .sort((first, second) => {
+      const ownerKindDifference =
         METADATA_OWNER_KIND_ORDER.indexOf(first.owner.kind) -
-          METADATA_OWNER_KIND_ORDER.indexOf(second.owner.kind) ||
-        first.namePlural.localeCompare(second.namePlural),
-    );
+        METADATA_OWNER_KIND_ORDER.indexOf(second.owner.kind);
+
+      if (ownerKindDifference !== 0) {
+        return ownerKindDifference;
+      }
+
+      return first.namePlural.localeCompare(second.namePlural);
+    });
   const hiddenSystemObjectCount = allObjects.length - listedObjects.length;
 
   return {

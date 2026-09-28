@@ -1,6 +1,5 @@
 import { Option, type Command } from 'commander';
-import { isNonEmptyArray } from '@sniptt/guards';
-import { isDefined } from 'twenty-shared/utils';
+import { isDefined, isNonEmptyArray } from 'twenty-shared/utils';
 
 import { getCommandName } from '@/catalog/get-command-name';
 import { type CommandDefinition } from '@/catalog/types/command-definition.type';

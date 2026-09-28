@@ -1,8 +1,8 @@
 import { isNonEmptyString } from '@sniptt/guards';
 
-import { METADATA_ITEM_LIMIT } from '@/metadata/constants/metadata-page.constant';
 import { CliError } from '@/output/cli-error';
 import { RESPONSE_BYTE_LIMIT } from '@/transport/constants/response-byte-limit.constant';
+import { RESULT_ITEM_LIMIT } from '@/transport/constants/result-item-limit.constant';
 
 type MetadataPage<TNode> = {
   edges: { node: TNode }[];
@@ -24,7 +24,7 @@ export const collectMetadataNodes = async <TNode>(
     for (const { node } of page.edges) {
       bytes += Buffer.byteLength(JSON.stringify(node), 'utf8');
 
-      if (nodes.length >= METADATA_ITEM_LIMIT || bytes > RESPONSE_BYTE_LIMIT) {
+      if (nodes.length >= RESULT_ITEM_LIMIT || bytes > RESPONSE_BYTE_LIMIT) {
         throw new CliError({
           code: 'RESPONSE_LIMIT_EXCEEDED',
           message:

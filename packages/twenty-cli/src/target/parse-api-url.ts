@@ -2,8 +2,8 @@ import { isDefined } from 'twenty-shared/utils';
 
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
-
-const SUPPORTED_PROTOCOLS = new Set(['http:', 'https:']);
+import { API_URL_PROTOCOLS } from '@/target/constants/api-url-protocols.constant';
+import { formatApiUrl } from '@/target/format-api-url';
 
 export const parseApiUrl = ({
   rawUrl,
@@ -16,7 +16,7 @@ export const parseApiUrl = ({
 
   const isValid =
     isDefined(url) &&
-    SUPPORTED_PROTOCOLS.has(url.protocol) &&
+    API_URL_PROTOCOLS.includes(url.protocol) &&
     url.username === '' &&
     url.password === '' &&
     url.search === '' &&
@@ -31,5 +31,5 @@ export const parseApiUrl = ({
     });
   }
 
-  return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+  return formatApiUrl(url);
 };

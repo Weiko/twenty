@@ -28,9 +28,11 @@ describe('runCli', () => {
       const { stdout } = await runCliForTest(args);
       const envelope = parseSingleJsonLine(stdout);
 
-      expect(envelope.schemaVersion).toBe(1);
-      expect(typeof envelope.ok).toBe('boolean');
-      expect(Array.isArray(envelope.warnings)).toBe(true);
+      expect(envelope).toMatchObject({
+        schemaVersion: 1,
+        ok: expect.any(Boolean),
+        warnings: expect.any(Array),
+      });
     },
   );
 

@@ -2,9 +2,9 @@ import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { Readable } from 'node:stream';
 
-import { isDefined } from 'twenty-shared/utils';
+import { isString } from '@sniptt/guards';
+import { isDefined, isPlainObject } from 'twenty-shared/utils';
 import {
   afterAll,
   afterEach,
@@ -19,7 +19,9 @@ import {
   parseSingleJsonLine,
   runCliForTest,
 } from '@/__tests__/utils/run-cli-for-test';
+import { createStandardInputStub } from '@/__tests__/utils/create-standard-input-stub';
 import { sendJson, startTestServer } from '@/__tests__/utils/start-test-server';
+import { type ConfigFile } from '@/config/types/config-file.type';
 import { openBrowser } from '@/oauth/open-browser';
 import { refreshOAuthSession } from '@/oauth/refresh-oauth-session';
 import { startCallbackServer } from '@/oauth/start-callback-server';
@@ -34,6 +36,16 @@ type Scenario = {
   returnedIssuer?: string | null;
   advertisedIssuer?: string;
   tokenEndpointOrigin?: string;
+};
+
+type ServerState = {
+  scenario: Scenario;
+  codeChallenge: string;
+  isVerifierValid: boolean;
+  codeExchanges: number;
+  currentRefreshToken: string;
+  refreshCalls: number;
+  validAccessTokens: Set<string>;
 };
 
 type RefusalCase = {
@@ -52,8 +64,8 @@ const createAccessToken = (expiresInSeconds: number, id: string) =>
     'signature',
   ].join('.');
 
-const state = {
-  scenario: {} as Scenario,
+const state: ServerState = {
+  scenario: {},
   codeChallenge: '',
   isVerifierValid: false,
   codeExchanges: 0,
@@ -107,11 +119,16 @@ const server = await startTestServer((request, response) => {
   }
 
   if (url.pathname === '/oauth/token') {
-    const parameters = JSON.parse(request.body);
+    const parameters: unknown = JSON.parse(request.body);
+
+    if (!isPlainObject(parameters)) {
+      return sendJson(response, 400, { error: 'invalid_request' });
+    }
 
     if (parameters.grant_type === 'authorization_code') {
       state.codeExchanges += 1;
       state.isVerifierValid =
+        isString(parameters.code_verifier) &&
         createHash('sha256')
           .update(parameters.code_verifier)
           .digest('base64url') === state.codeChallenge;
@@ -180,11 +197,9 @@ const signIn = (args: string[] = []) =>
   ]);
 
 const stubStandardInput = ({ isTerminal }: { isTerminal: boolean }) =>
-  vi.spyOn(process, 'stdin', 'get').mockReturnValue(
-    Object.assign(Readable.from([]), {
-      isTTY: isTerminal,
-    }) as unknown as typeof process.stdin,
-  );
+  vi
+    .spyOn(process, 'stdin', 'get')
+    .mockReturnValue(createStandardInputStub({ isTerminal }));
 
 const countListeningServers = () =>
   process
@@ -194,7 +209,7 @@ const countListeningServers = () =>
 describe('browser sign-in and session refresh', () => {
   let configPath: string;
 
-  const readConfigFile = async () =>
+  const readConfigFile = async (): Promise<ConfigFile> =>
     JSON.parse(await readFile(configPath, 'utf8'));
 
   const expectNothingSaved = () =>
@@ -404,7 +419,7 @@ describe('browser sign-in and session refresh', () => {
     expect(state.refreshCalls).toBe(1);
     expect(remotes.cloud.twentyCLIRefreshToken).toBe('refresh-3');
     expect(
-      state.validAccessTokens.has(remotes.cloud.twentyCLIAccessToken),
+      state.validAccessTokens.has(remotes.cloud.twentyCLIAccessToken ?? ''),
     ).toBe(true);
   });
 

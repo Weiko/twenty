@@ -1,16 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { open, rename, rm } from 'node:fs/promises';
 
+import { CONFIG_FILE_MODE } from '@/config/constants/config-file-mode.constant';
 import { type ConfigFile } from '@/config/types/config-file.type';
-
-const PRIVATE_FILE_MODE = 0o600;
 
 export const writeConfigAtomically = async (
   configPath: string,
   config: ConfigFile,
 ) => {
   const temporaryPath = `${configPath}.${process.pid}.${randomUUID()}.tmp`;
-  const temporaryFile = await open(temporaryPath, 'wx', PRIVATE_FILE_MODE);
+  const temporaryFile = await open(
+    temporaryPath,
+    'wx',
+    CONFIG_FILE_MODE.PRIVATE_FILE,
+  );
 
   try {
     await temporaryFile.writeFile(`${JSON.stringify(config, null, 2)}\n`);

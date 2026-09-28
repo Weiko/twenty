@@ -22,6 +22,7 @@ export const createToolingFailure = ({
   const errorCount = diagnostics.filter(
     (diagnostic) => diagnostic.severity === 'error',
   ).length;
+  const errorLabel = errorCount === 1 ? 'error' : 'errors';
   const details = { sdkErrorCode: error.code, sdkVersion, diagnostics };
 
   if (error.code === 'TYPECHECK_FAILED') {
@@ -29,7 +30,7 @@ export const createToolingFailure = ({
       code: 'TYPECHECK_FAILED',
       message:
         errorCount > 0
-          ? `Typecheck failed with ${errorCount} ${errorCount === 1 ? 'error' : 'errors'}.`
+          ? `Typecheck failed with ${errorCount} ${errorLabel}.`
           : `Typecheck failed: ${error.message}`,
       details,
     });

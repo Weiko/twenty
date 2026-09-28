@@ -5,6 +5,7 @@ import { formatFailureLine, formatWarningLine } from '@/output/style';
 import { type CliWarning } from '@/output/types/cli-warning.type';
 import { type OutputMode } from '@/output/types/output-mode.type';
 import { type Output } from '@/output/types/output.type';
+import { writeStreamEvent } from '@/output/write-stream-event';
 import { type PublicTarget } from '@/target/types/public-target.type';
 
 const writeLine = (stream: NodeJS.WriteStream, text: string) => {
@@ -46,6 +47,23 @@ export const createOutput = ({
   };
 
   return {
+    event: async (type, data, signal) => {
+      if (mode !== 'ndjson') {
+        return;
+      }
+
+      eventSequence += 1;
+      await writeStreamEvent(
+        {
+          schemaVersion: JSON_SCHEMA_VERSION,
+          command,
+          type,
+          sequence: eventSequence,
+          data,
+        },
+        signal,
+      );
+    },
     progress: (message) => {
       if (mode === 'ndjson') {
         writeEvent('progress', { message });

@@ -2,14 +2,13 @@ import { readdir, stat } from 'node:fs/promises';
 import { basename, join, relative, resolve } from 'node:path';
 
 import { isNonEmptyString } from '@sniptt/guards';
-import { isDefined } from 'twenty-shared/utils';
+import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import { listAncestorDirectories } from '@/app/list-ancestor-directories';
 import { readJsonObject } from '@/app/read-json-object';
 import { type AppProject } from '@/app/types/app-project.type';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
-import { isJsonObject } from '@/utils/is-json-object';
 
 const DEPENDENCY_FIELDS = [
   'dependencies',
@@ -30,7 +29,7 @@ const readAppProject = async (
     const dependencies = packageJson[field];
 
     return (
-      isJsonObject(dependencies) && Object.hasOwn(dependencies, 'twenty-sdk')
+      isPlainObject(dependencies) && Object.hasOwn(dependencies, 'twenty-sdk')
     );
   });
 
@@ -87,11 +86,11 @@ export const resolveAppProject = async ({
 }): Promise<AppProject> => {
   if (isDefined(explicitPath)) {
     const appPath = resolve(workingDirectory, explicitPath);
-    const isDirectory = (
-      await stat(appPath).catch(() => undefined)
-    )?.isDirectory();
+    const appPathStats = await stat(appPath).catch(() => undefined);
     const project =
-      isDirectory === true ? await readAppProject(appPath) : undefined;
+      isDefined(appPathStats) && appPathStats.isDirectory()
+        ? await readAppProject(appPath)
+        : undefined;
 
     if (!isDefined(project)) {
       throw new CliError({

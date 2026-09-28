@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 
-import { isNonEmptyString, isObject } from '@sniptt/guards';
-import { isDefined } from 'twenty-shared/utils';
+import { isFunction, isNonEmptyString } from '@sniptt/guards';
+import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import type {
   AppWorkerRequest,
@@ -26,6 +26,38 @@ const PARENT_DISCONNECT_EXIT_MILLISECONDS = 5000;
 
 const abortController = new AbortController();
 
+const isBuildApi = (value: unknown): value is BuildApi =>
+  isPlainObject(value) &&
+  isFunction(value.buildAppSnapshot) &&
+  isFunction(value.typecheckApp) &&
+  isFunction(value.releaseAppSnapshot);
+
+const parseRequest = (message: unknown): AppWorkerRequest | undefined => {
+  if (!isPlainObject(message)) {
+    return undefined;
+  }
+
+  if (message.type === 'cancel') {
+    return { type: 'cancel' };
+  }
+
+  if (
+    message.type !== 'run' ||
+    (message.operation !== 'build' && message.operation !== 'typecheck') ||
+    !isNonEmptyString(message.appPath) ||
+    !isNonEmptyString(message.buildEntryPath)
+  ) {
+    return undefined;
+  }
+
+  return {
+    type: 'run',
+    operation: message.operation,
+    appPath: message.appPath,
+    buildEntryPath: message.buildEntryPath,
+  };
+};
+
 const respond = (response: AppWorkerResponse) => {
   if (!process.connected) {
     process.exit(1);
@@ -36,12 +68,9 @@ const respond = (response: AppWorkerResponse) => {
 
 const readSuccessfulBuildId = (result: unknown) => {
   if (
-    !isObject(result) ||
-    !('success' in result) ||
+    !isPlainObject(result) ||
     result.success !== true ||
-    !('data' in result) ||
-    !isObject(result.data) ||
-    !('buildId' in result.data)
+    !isPlainObject(result.data)
   ) {
     return undefined;
   }
@@ -51,12 +80,24 @@ const readSuccessfulBuildId = (result: unknown) => {
     : undefined;
 };
 
+const loadBuildApi = (buildEntryPath: string) => {
+  const buildApi: unknown = createRequire(buildEntryPath)(buildEntryPath);
+
+  if (!isBuildApi(buildApi)) {
+    throw new Error(
+      `${buildEntryPath} does not export buildAppSnapshot, typecheckApp and releaseAppSnapshot.`,
+    );
+  }
+
+  return buildApi;
+};
+
 const runOperation = async ({
   operation,
   appPath,
   buildEntryPath,
 }: RunRequest): Promise<AppWorkerResponse> => {
-  const buildApi = createRequire(buildEntryPath)(buildEntryPath) as BuildApi;
+  const buildApi = loadBuildApi(buildEntryPath);
   const signal = abortController.signal;
 
   if (operation === 'typecheck') {
@@ -85,7 +126,18 @@ process.on('disconnect', () => {
   setTimeout(() => process.exit(1), PARENT_DISCONNECT_EXIT_MILLISECONDS);
 });
 
-process.on('message', (request: AppWorkerRequest) => {
+process.on('message', (message: unknown) => {
+  const request = parseRequest(message);
+
+  if (!isDefined(request)) {
+    respond({
+      type: 'failure',
+      message: 'The build worker received a request it cannot read.',
+    });
+
+    return;
+  }
+
   if (request.type === 'cancel') {
     abortController.abort();
 

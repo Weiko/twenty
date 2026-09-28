@@ -15,7 +15,7 @@ const getRedirectOrigin = (response: Response, requestUrl: URL) => {
   const location = response.headers.get('location');
 
   return isDefined(location)
-    ? (URL.parse(location, requestUrl.href)?.origin ?? undefined)
+    ? URL.parse(location, requestUrl.href)?.origin
     : undefined;
 };
 

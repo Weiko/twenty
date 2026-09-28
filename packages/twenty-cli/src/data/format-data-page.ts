@@ -4,6 +4,7 @@ import { assertDataResultLimit } from '@/data/assert-data-result-limit';
 import { formatDataCell } from '@/data/format-data-value';
 import { type readDataListOptions } from '@/data/read-data-list-options';
 import { type DataPage, type DataRecord } from '@/data/types/data-page.type';
+import { TABLE_LAYOUT } from '@/output/constants/table-layout.constant';
 import { formatTable } from '@/output/format-table';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
 
@@ -34,8 +35,10 @@ export const formatDataPage = ({
       ...availableFields.filter((field) => field !== 'id' && field !== 'name'),
     ].slice(0, 5);
 
+  let rowWidth = TABLE_LAYOUT.ROW_INDENT.length;
   let extraBytes = 0;
-  const rowWidth = fields.reduce((width, field) => {
+
+  for (const field of fields) {
     const header = formatDataCell(field);
     let columnWidth = header.length;
 
@@ -48,8 +51,8 @@ export const formatDataPage = ({
       extraBytes += Buffer.byteLength(cell, 'utf8') - cell.length;
     }
 
-    return width + columnWidth + 3;
-  }, 2);
+    rowWidth += columnWidth + TABLE_LAYOUT.COLUMN_GAP.length;
+  }
 
   assertDataResultLimit({
     recordCount: page.records.length,

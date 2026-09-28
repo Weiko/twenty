@@ -1,10 +1,10 @@
 import { isNonEmptyString } from '@sniptt/guards';
+import { isPlainObject } from 'twenty-shared/utils';
 
 import { type OAuthTokens } from '@/oauth/types/oauth-tokens.type';
 import { CliError } from '@/output/cli-error';
 import { createBoundedFetch } from '@/transport/create-target-fetch';
 import { parseResponseBody } from '@/transport/parse-response-body';
-import { isJsonObject } from '@/utils/is-json-object';
 
 export const requestOAuthTokens = async ({
   apiUrl,
@@ -26,7 +26,7 @@ export const requestOAuthTokens = async ({
     body: JSON.stringify(parameters),
   });
   const body = await parseResponseBody(response);
-  const tokens = isJsonObject(body) ? body : {};
+  const tokens = isPlainObject(body) ? body : {};
 
   if (!response.ok || !isNonEmptyString(tokens.access_token)) {
     throw new CliError({

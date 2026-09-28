@@ -31,7 +31,7 @@ export const runDataListCommand: CommandRun<TargetCommandContext> = async ({
     name: readStringArgument(commandArguments, 0) ?? '',
   });
   const client = createRestClient({ target, signal });
-  const streaming = outputMode === 'ndjson';
+  const isStreaming = outputMode === 'ndjson';
   const records: DataRecord[] = [];
   let recordCount = 0;
   let pages = 0;
@@ -45,7 +45,7 @@ export const runDataListCommand: CommandRun<TargetCommandContext> = async ({
   let totalCount = 0;
 
   try {
-    if (streaming) {
+    if (isStreaming) {
       await output.event(
         'start',
         { object: object.namePlural, target: toPublicTarget(target) },
@@ -71,7 +71,7 @@ export const runDataListCommand: CommandRun<TargetCommandContext> = async ({
         ),
     })) {
       for (const record of page.records) {
-        if (streaming) {
+        if (isStreaming) {
           await output.event('record', record, signal);
         } else {
           recordBytes += Buffer.byteLength(JSON.stringify(record), 'utf8');
@@ -100,7 +100,7 @@ export const runDataListCommand: CommandRun<TargetCommandContext> = async ({
       totalCount = page.totalCount;
       resumeCursor = pageInfo.endCursor ?? resumeCursor;
 
-      if (streaming) {
+      if (isStreaming) {
         await output.event(
           'progress',
           { recordCount, pages, resumeCursor, pageInfo, totalCount },
@@ -115,7 +115,7 @@ export const runDataListCommand: CommandRun<TargetCommandContext> = async ({
   } catch (error) {
     const failure = toCliError(error, signal);
 
-    if (!streaming) {
+    if (!isStreaming) {
       throw failure;
     }
 
@@ -128,7 +128,7 @@ export const runDataListCommand: CommandRun<TargetCommandContext> = async ({
     });
   }
 
-  if (streaming) {
+  if (isStreaming) {
     return { data: { recordCount, pages, resumeCursor, pageInfo, totalCount } };
   }
 

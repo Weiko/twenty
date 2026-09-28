@@ -5,7 +5,9 @@ const JSON_CONTENT_TYPE_PATTERN = /^application\/([\w.+-]+\+)?json/i;
 const TEXT_CONTENT_TYPE_PATTERN =
   /^(text\/|application\/([\w.+-]+\+)?(json|xml)|application\/javascript)/i;
 
-export const parseResponseBody = async (response: Response) => {
+export const parseResponseBody = async (
+  response: Response,
+): Promise<unknown> => {
   const contentType = response.headers.get('content-type') ?? '';
 
   if (contentType !== '' && !TEXT_CONTENT_TYPE_PATTERN.test(contentType)) {
@@ -27,7 +29,7 @@ export const parseResponseBody = async (response: Response) => {
   }
 
   try {
-    return JSON.parse(text) as unknown;
+    return JSON.parse(text);
   } catch {
     return text;
   }

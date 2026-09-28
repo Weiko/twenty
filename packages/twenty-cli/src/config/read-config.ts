@@ -1,13 +1,13 @@
 import { readFile } from 'node:fs/promises';
 
 import { isNumber } from '@sniptt/guards';
-import { isDefined } from 'twenty-shared/utils';
+import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import { normalizeConfig } from '@/config/normalize-config';
 import { type ConfigFile } from '@/config/types/config-file.type';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
-import { isJsonObject } from '@/utils/is-json-object';
+import { hasErrorCode } from '@/utils/has-error-code';
 
 const EMPTY_CONFIG: ConfigFile = { version: 1, remotes: {} };
 
@@ -37,7 +37,7 @@ const readConfigText = async (configPath: string) => {
   try {
     return await readFile(configPath, 'utf8');
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+    if (hasErrorCode(error, 'ENOENT')) {
       return '';
     }
 
@@ -68,7 +68,7 @@ export const readConfig = async (configPath: string): Promise<ConfigFile> => {
     throw createInvalidConfigError(configPath, describeJsonSyntaxError(error));
   }
 
-  if (isJsonObject(raw) && isDefined(raw.version) && raw.version !== 1) {
+  if (isPlainObject(raw) && isDefined(raw.version) && raw.version !== 1) {
     throw createInvalidConfigError(
       configPath,
       `version ${isNumber(raw.version) ? raw.version : 'unknown'} is not supported by this CLI.`,

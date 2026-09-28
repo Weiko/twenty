@@ -1,9 +1,24 @@
+import { isArray, isString } from '@sniptt/guards';
+import { isPlainObject } from 'twenty-shared/utils';
+
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 import { getAuthenticationHint } from '@/target/get-authentication-hint';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
 import { pickSafeResponseHeaders } from '@/transport/pick-safe-response-headers';
-import { type GraphqlErrorEntry } from '@/transport/graphql/types/graphql-payload.type';
+
+const toPublicGraphqlError = (error: unknown) => {
+  const entry: Record<string, unknown> = isPlainObject(error) ? error : {};
+
+  return {
+    message: isString(entry.message) ? entry.message : 'Unknown GraphQL error',
+    path: isArray(entry.path) ? entry.path : null,
+    code:
+      isPlainObject(entry.extensions) && isString(entry.extensions.code)
+        ? entry.extensions.code
+        : null,
+  };
+};
 
 const summarizeMessages = (errors: { message: string }[]) =>
   errors.length === 1
@@ -17,17 +32,13 @@ export const createGraphqlError = ({
   headers,
   target,
 }: {
-  errors: GraphqlErrorEntry[];
+  errors: unknown[];
   data: unknown;
   status: number;
   headers: Headers;
   target: ResolvedTarget;
 }) => {
-  const publicErrors = errors.map(({ message, path, extensions }) => ({
-    message: message ?? 'Unknown GraphQL error',
-    path: path ?? null,
-    code: extensions?.code ?? null,
-  }));
+  const publicErrors = errors.map(toPublicGraphqlError);
   const errorCodes = publicErrors.map((error) => error.code);
   const details = {
     status,

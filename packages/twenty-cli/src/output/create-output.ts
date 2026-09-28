@@ -1,3 +1,4 @@
+import { isNonEmptyString } from '@sniptt/guards';
 import { isDefined } from 'twenty-shared/utils';
 
 import { JSON_SCHEMA_VERSION } from '@/output/constants/json-schema-version.constant';
@@ -104,7 +105,7 @@ export const createOutput = ({
 
       const humanText = human ?? JSON.stringify(data, null, 2);
 
-      if (humanText !== '') {
+      if (isNonEmptyString(humanText)) {
         writeLine(process.stdout, humanText);
       }
 

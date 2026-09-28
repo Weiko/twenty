@@ -6,10 +6,14 @@ export const APP_BUILD_COMMAND_DEFINITION: LocalCommandDefinition = {
   options: [
     {
       flags: '--path <directory>',
-      description: 'App directory (default: the app containing the current folder)',
+      description:
+        'App directory (default: the app containing the current folder)',
     },
   ],
-  examples: ['twenty app build', 'twenty app build --path ./apps/billing --json'],
+  examples: [
+    'twenty app build',
+    'twenty app build --path ./apps/billing --json',
+  ],
   outputModes: ['human', 'json'],
   writes: false,
   needsProject: true,

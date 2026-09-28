@@ -1,17 +1,17 @@
 import { type OutputConfiguration } from 'commander';
 
 export const createCommanderOutputCapture = () => {
-  const captured = { out: '', err: '' };
+  const captured = { standardOutput: '', standardError: '' };
 
   const configuration: OutputConfiguration = {
     writeOut: (text) => {
-      captured.out += text;
+      captured.standardOutput += text;
     },
     writeErr: (text) => {
-      captured.err += text;
+      captured.standardError += text;
     },
     outputError: (text) => {
-      captured.err += text;
+      captured.standardError += text;
     },
   };
 

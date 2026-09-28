@@ -1,8 +1,7 @@
 import { isNumber } from '@sniptt/guards';
-import { isDefined } from 'twenty-shared/utils';
+import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import { OAUTH_TIMING } from '@/oauth/constants/oauth-timing.constant';
-import { isJsonObject } from '@/utils/is-json-object';
 
 export const getAccessTokenExpiry = (accessToken: string) => {
   try {
@@ -10,7 +9,7 @@ export const getAccessTokenExpiry = (accessToken: string) => {
       Buffer.from(accessToken.split('.')[1] ?? '', 'base64url').toString(),
     );
 
-    return isJsonObject(payload) && isNumber(payload.exp)
+    return isPlainObject(payload) && isNumber(payload.exp)
       ? payload.exp * 1000
       : undefined;
   } catch {

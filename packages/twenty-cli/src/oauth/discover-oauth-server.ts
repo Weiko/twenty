@@ -1,13 +1,14 @@
-import { isNonEmptyString } from '@sniptt/guards';
-import { isDefined } from 'twenty-shared/utils';
+import { isArray, isNonEmptyString } from '@sniptt/guards';
+import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import { type OAuthServer } from '@/oauth/types/oauth-server.type';
 import { CliError } from '@/output/cli-error';
+import { API_URL_PROTOCOLS } from '@/target/constants/api-url-protocols.constant';
+import { formatApiUrl } from '@/target/format-api-url';
 import { assertUrlWithinTarget } from '@/transport/assert-url-within-target';
 import { createBoundedFetch } from '@/transport/create-target-fetch';
 import { parseResponseBody } from '@/transport/parse-response-body';
 import { resolveRequestUrl } from '@/transport/resolve-request-url';
-import { isJsonObject } from '@/utils/is-json-object';
 
 const DISCOVERY_PATH = '/.well-known/oauth-authorization-server';
 
@@ -21,7 +22,7 @@ const createUnavailableError = (apiUrl: string, reason: string) =>
 const parseHttpUrl = (value: unknown) => {
   const url = isNonEmptyString(value) ? URL.parse(value) : null;
 
-  return url?.protocol === 'https:' || url?.protocol === 'http:'
+  return isDefined(url) && API_URL_PROTOCOLS.includes(url.protocol)
     ? url
     : undefined;
 };
@@ -39,7 +40,7 @@ export const discoverOAuthServer = async ({
   );
   const metadata = await parseResponseBody(response);
 
-  if (!response.ok || !isJsonObject(metadata)) {
+  if (!response.ok || !isPlainObject(metadata)) {
     throw createUnavailableError(
       apiUrl,
       `the server answered ${response.status}.`,
@@ -55,17 +56,14 @@ export const discoverOAuthServer = async ({
     !isNonEmptyString(metadata.cli_client_id) ||
     !isDefined(authorizationEndpoint) ||
     !isDefined(tokenEndpoint) ||
-    (Array.isArray(challengeMethods) && !challengeMethods.includes('S256'))
+    (isArray(challengeMethods) && !challengeMethods.includes('S256'))
   ) {
     throw createUnavailableError(apiUrl, 'its OAuth metadata is incomplete.');
   }
 
   const issuer = URL.parse(metadata.issuer);
 
-  if (
-    !isDefined(issuer) ||
-    `${issuer.origin}${issuer.pathname.replace(/\/+$/, '')}` !== apiUrl
-  ) {
+  if (!isDefined(issuer) || formatApiUrl(issuer) !== apiUrl) {
     throw createUnavailableError(
       apiUrl,
       `it identifies itself as ${metadata.issuer}.`,

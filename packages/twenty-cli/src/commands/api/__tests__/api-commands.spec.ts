@@ -2,6 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { isDefined } from 'twenty-shared/utils';
 import {
   afterAll,
   afterEach,
@@ -108,7 +109,7 @@ const server = await startTestServer((request, response) => {
     request.body.includes(marker),
   );
 
-  if (graphqlResponse !== undefined) {
+  if (isDefined(graphqlResponse)) {
     return sendJson(response, graphqlResponse[1], graphqlResponse[2]);
   }
 

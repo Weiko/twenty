@@ -1,13 +1,11 @@
-import { isNonEmptyString } from '@sniptt/guards';
-import { isDefined } from 'twenty-shared/utils';
-
-import { isJsonObject } from '@/utils/is-json-object';
+import { isArray, isNonEmptyString, isString } from '@sniptt/guards';
+import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 const RECORD_LABEL_FIELDS = ['name', 'title', 'subject'];
 const RECORD_PREVIEW_COUNT = 3;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
-  isJsonObject(value) && isNonEmptyString(value.id);
+  isPlainObject(value) && isNonEmptyString(value.id);
 
 const findRecordLabel = (record: Record<string, unknown>) =>
   RECORD_LABEL_FIELDS.map((field) => record[field]).find(isDefined);
@@ -29,7 +27,7 @@ const formatDataList = (values: unknown[]) => {
     return `${values.length} ${values.length === 1 ? 'record' : 'records'} returned · ${labels.join(', ')}${more}`;
   }
 
-  return values.some((value) => isJsonObject(value) || Array.isArray(value))
+  return values.some((value) => isPlainObject(value) || isArray(value))
     ? JSON.stringify(values)
     : values.map(formatDataValue).join(', ');
 };
@@ -39,7 +37,7 @@ export const formatDataValue = (value: unknown): string => {
     return '-';
   }
 
-  if (typeof value === 'string') {
+  if (isString(value)) {
     return /[\x00-\x1f\x7f-\x9f]/.test(value)
       ? JSON.stringify(value).replace(
           /[\x7f-\x9f]/g,
@@ -49,11 +47,11 @@ export const formatDataValue = (value: unknown): string => {
       : value;
   }
 
-  if (Array.isArray(value)) {
+  if (isArray(value)) {
     return formatDataList(value);
   }
 
-  if (isJsonObject(value)) {
+  if (isPlainObject(value)) {
     if (isNonEmptyString(value.firstName) || isNonEmptyString(value.lastName)) {
       return formatDataValue(
         [value.firstName, value.lastName].filter(isNonEmptyString).join(' '),

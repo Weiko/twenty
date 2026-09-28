@@ -1,3 +1,5 @@
+import { isNonEmptyString } from '@sniptt/guards';
+
 import {
   readBooleanOption,
   readStringArgument,
@@ -7,6 +9,7 @@ import { type TargetCommandContext } from '@/catalog/types/target-command-contex
 import { fetchMetadataInspection } from '@/metadata/fetch-metadata-inspection';
 import { formatMetadataFields } from '@/metadata/format-metadata-fields';
 import { formatMetadataOwner } from '@/metadata/format-metadata-owner';
+import { selectListedFields } from '@/metadata/select-listed-fields';
 import { formatDetails } from '@/output/format-details';
 
 export const runMetadataObjectDescribeCommand: CommandRun<
@@ -18,16 +21,17 @@ export const runMetadataObjectDescribeCommand: CommandRun<
   signal,
   output,
 }) => {
-  const { object, fields: allFields } = await fetchMetadataInspection({
+  const inspection = await fetchMetadataInspection({
     objectName: readStringArgument(commandArguments, 0) ?? '',
     target,
     signal,
     output,
   });
-  const fields = allFields.filter(
-    (field) => readBooleanOption(options, 'all') || field.isSystem !== true,
-  );
-  const hiddenSystemFieldCount = allFields.length - fields.length;
+  const { object } = inspection;
+  const { fields, hiddenSystemFieldCount } = selectListedFields({
+    fields: inspection.fields,
+    includeSystemFields: readBooleanOption(options, 'all'),
+  });
 
   return {
     data: { object, fields, hiddenSystemFieldCount },
@@ -48,7 +52,7 @@ export const runMetadataObjectDescribeCommand: CommandRun<
         labelIdentifierFieldMetadataId: object.labelIdentifierFieldMetadataId,
       }),
     ]
-      .filter(Boolean)
+      .filter(isNonEmptyString)
       .join('\n\n'),
   };
 };

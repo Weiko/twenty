@@ -1,5 +1,5 @@
 import { isNonEmptyString } from '@sniptt/guards';
-import { isDefined } from 'twenty-shared/utils';
+import { isDefined, isNonEmptyArray } from 'twenty-shared/utils';
 
 import { type ConfigFile } from '@/config/types/config-file.type';
 import { CliError } from '@/output/cli-error';
@@ -58,7 +58,7 @@ export const selectTarget = async ({
         isDefined(readEnvironmentValue(environment, variableName)),
     );
 
-    if (ignoredVariables.length > 0) {
+    if (isNonEmptyArray(ignoredVariables)) {
       warn({
         code: 'ENVIRONMENT_TARGET_IGNORED',
         message: `Using remote ${remoteFlag}. Ignoring ${formatList(ignoredVariables)}.`,

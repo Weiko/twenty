@@ -1,14 +1,31 @@
-import { access, mkdir, mkdtemp, readdir, writeFile } from 'node:fs/promises';
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  writeFile,
+} from 'node:fs/promises';
+import Module from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { isFunction } from '@sniptt/guards';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   parseSingleJsonLine,
   runCliForTest,
 } from '@/__tests__/utils/run-cli-for-test';
+
+const initializeModulePaths = () => {
+  if (!('_initPaths' in Module) || !isFunction(Module._initPaths)) {
+    throw new Error('node:module does not expose _initPaths.');
+  }
+
+  Module._initPaths();
+};
 
 vi.mock('@/app/get-app-worker-launch', () => ({
   getAppWorkerLaunch: () => ({
@@ -187,7 +204,7 @@ describe('app build and typecheck', () => {
     expect(stderr).toContain('Building fake-app with twenty-sdk 9.9.9');
     expect(stderr).toContain('A deprecated option is used.');
     expect(stdout).toContain('Built Fake App with twenty-sdk 9.9.9');
-    expect(stdout).toContain('2 files · 1.5 kB');
+    expect(stdout).toContain('2 files · 1.5 KB');
     expect(stdout).toContain('1 logic function · 1 source file');
     expect(stdout).toContain('Nothing was uploaded.');
   });
@@ -347,13 +364,9 @@ describe('app build and typecheck', () => {
     it('never uses an SDK found only through global module paths', async () => {
       const { appPath } = await createApp();
       const globalRoot = await mkdtemp(join(tmpdir(), 'twenty-cli-global-'));
-      const nodeModule = (await import('node:module')).default as unknown as {
-        _initPaths: () => void;
-      };
-
       await writeFakeSdk({ appPath: globalRoot });
       vi.stubEnv('NODE_PATH', join(globalRoot, 'node_modules'));
-      nodeModule._initPaths();
+      initializeModulePaths();
 
       try {
         const { envelope, exitCode } = await runJson([
@@ -368,7 +381,7 @@ describe('app build and typecheck', () => {
         expect(await exists(join(globalRoot, 'loaded.txt'))).toBe(false);
       } finally {
         vi.unstubAllEnvs();
-        nodeModule._initPaths();
+        initializeModulePaths();
       }
     });
 
@@ -481,8 +494,7 @@ describe('app build and typecheck', () => {
       });
 
       const { exitCode } = await runJson(['app', 'build', '--path', appPath]);
-      const { readFile } = await import('node:fs/promises');
-      const visibleVariables = JSON.parse(
+      const visibleVariables: unknown = JSON.parse(
         await readFile(join(appPath, 'environment.json'), 'utf8'),
       );
 

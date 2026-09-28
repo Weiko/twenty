@@ -1,20 +1,20 @@
-import { isNonEmptyString } from '@sniptt/guards';
+import { isArray, isNonEmptyString } from '@sniptt/guards';
+import { isPlainObject } from 'twenty-shared/utils';
 
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 import { getAuthenticationHint } from '@/target/get-authentication-hint';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
 import { pickSafeResponseHeaders } from '@/transport/pick-safe-response-headers';
-import { isJsonObject } from '@/utils/is-json-object';
 
 const findServerMessage = (body: unknown) => {
-  if (!isJsonObject(body)) {
+  if (!isPlainObject(body)) {
     return undefined;
   }
 
   const messages = body.messages;
 
-  if (Array.isArray(messages) && isNonEmptyString(messages[0])) {
+  if (isArray(messages) && isNonEmptyString(messages[0])) {
     return messages[0];
   }
 

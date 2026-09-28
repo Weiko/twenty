@@ -12,7 +12,7 @@ vi.mock('@/config/constants/config-lock.constant', () => ({
   CONFIG_LOCK: { TIMEOUT_MILLISECONDS: 500, RETRY_MILLISECONDS: 10 },
 }));
 
-const INITIAL_CONFIG = {
+const INITIAL_CONFIG: ConfigFile = {
   version: 1,
   remotes: { dev: { apiUrl: 'http://localhost:3000' } },
 };
@@ -28,8 +28,8 @@ const addRemote = (config: ConfigFile, name: string) => ({
 describe('updateConfig', () => {
   let configPath: string;
 
-  const readConfigFile = async () =>
-    JSON.parse(await readFile(configPath, 'utf8')) as ConfigFile;
+  const readConfigFile = async (): Promise<ConfigFile> =>
+    JSON.parse(await readFile(configPath, 'utf8'));
 
   beforeEach(async () => {
     const directory = await mkdtemp(join(tmpdir(), 'twenty-cli-update-'));
@@ -89,7 +89,7 @@ describe('updateConfig', () => {
     await updateConfig({
       configPath,
       signal: new AbortController().signal,
-      update: () => ({ result: null, config: INITIAL_CONFIG as ConfigFile }),
+      update: () => ({ result: null, config: INITIAL_CONFIG }),
     });
 
     const heldLock = JSON.stringify({ pid: process.pid, token: 'held' });
@@ -114,7 +114,7 @@ describe('updateConfig', () => {
     await updateConfig({
       configPath,
       signal: new AbortController().signal,
-      update: () => ({ result: null, config: INITIAL_CONFIG as ConfigFile }),
+      update: () => ({ result: null, config: INITIAL_CONFIG }),
     });
 
     const exitedProcess = spawnSync(process.execPath, ['-e', 'process.pid']);
@@ -125,14 +125,16 @@ describe('updateConfig', () => {
 
     await writeFile(`${configPath}.lock`, abandonedLock);
 
-    const error = await updateConfig({
-      configPath,
-      signal: new AbortController().signal,
-      update: (config) => addRemote(config, 'after-crash'),
-    }).catch((caught) => caught);
-
-    expect(error).toMatchObject({ code: 'CONFIG_LOCKED' });
-    expect(error.hint).toBe(`Delete ${configPath}.lock and try again.`);
+    await expect(
+      updateConfig({
+        configPath,
+        signal: new AbortController().signal,
+        update: (config) => addRemote(config, 'after-crash'),
+      }),
+    ).rejects.toMatchObject({
+      code: 'CONFIG_LOCKED',
+      hint: `Delete ${configPath}.lock and try again.`,
+    });
     expect(await readFile(`${configPath}.lock`, 'utf8')).toBe(abandonedLock);
   });
 
@@ -140,7 +142,7 @@ describe('updateConfig', () => {
     await updateConfig({
       configPath,
       signal: new AbortController().signal,
-      update: () => ({ result: null, config: INITIAL_CONFIG as ConfigFile }),
+      update: () => ({ result: null, config: INITIAL_CONFIG }),
     });
     await writeFile(
       `${configPath}.lock`,

@@ -1,29 +1,23 @@
 import { fork } from 'node:child_process';
 
 import { isString } from '@sniptt/guards';
-import { isDefined } from 'twenty-shared/utils';
+import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import { APP_WORKER } from '@/app/constants/app-worker.constant';
 import { createAppWorkerEnvironment } from '@/app/create-app-worker-environment';
 import { createOutputCollector } from '@/app/create-output-collector';
 import { getAppWorkerLaunch } from '@/app/get-app-worker-launch';
 import { type AppOperation } from '@/app/types/app-operation.type';
+import { type AppWorkerOutput } from '@/app/types/app-worker-output.type';
 import {
   type AppWorkerRequest,
   type AppWorkerResponse,
 } from '@/app/types/app-worker-message.type';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
-import { isJsonObject } from '@/utils/is-json-object';
-
-export type AppWorkerOutput = {
-  stdout: string;
-  stderr: string;
-  isTruncated: boolean;
-};
 
 const isWorkerResponse = (value: unknown): value is AppWorkerResponse =>
-  isJsonObject(value) &&
+  isPlainObject(value) &&
   ((value.type === 'result' && 'result' in value) ||
     (value.type === 'failure' && isString(value.message)));
 
@@ -138,13 +132,17 @@ export const runAppWorker = async ({
           return;
         }
 
+        const stopReason = isDefined(exitSignal)
+          ? `signal ${exitSignal}`
+          : `exit code ${exitCode}`;
+
         reject(
           new CliError({
             code: 'WORKER_FAILED',
             message:
               response?.type === 'failure'
                 ? `The build worker failed: ${response.message}`
-                : `The build worker stopped before finishing (${isDefined(exitSignal) ? `signal ${exitSignal}` : `exit code ${exitCode}`}). The app or the SDK may have exited the process.`,
+                : `The build worker stopped before finishing (${stopReason}). The app or the SDK may have exited the process.`,
             details: { exitCode, signal: exitSignal, output },
           }),
         );

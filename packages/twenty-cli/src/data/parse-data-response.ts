@@ -1,26 +1,33 @@
-import { isNonEmptyString } from '@sniptt/guards';
+import {
+  isArray,
+  isBoolean,
+  isNonEmptyString,
+  isNull,
+  isNumber,
+  isUndefined,
+} from '@sniptt/guards';
+import { isNonEmptyArray, isPlainObject } from 'twenty-shared/utils';
 
 import { type DataPage } from '@/data/types/data-page.type';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
-import { isJsonObject } from '@/utils/is-json-object';
 
-const invalidResponse = () =>
+const createInvalidResponseError = () =>
   new CliError({
     code: 'INVALID_RESPONSE',
     message: 'The server returned an invalid record response.',
   });
 
 const isCursor = (value: unknown): value is string | null =>
-  value === null || isNonEmptyString(value);
+  isNull(value) || isNonEmptyString(value);
 
 export const parseDataPage = (
   body: unknown,
   objectName: string,
   limit: number,
 ): DataPage => {
-  if (!isJsonObject(body) || !isJsonObject(body.data)) {
-    throw invalidResponse();
+  if (!isPlainObject(body) || !isPlainObject(body.data)) {
+    throw createInvalidResponseError();
   }
 
   const records = body.data[objectName];
@@ -28,32 +35,32 @@ export const parseDataPage = (
   const totalCount = body.totalCount;
 
   if (
-    !Array.isArray(records) ||
+    !isArray(records) ||
     records.length > limit ||
-    !records.every(isJsonObject) ||
-    !isJsonObject(pageInfo) ||
-    typeof pageInfo.hasNextPage !== 'boolean' ||
-    (pageInfo.hasPreviousPage !== undefined &&
-      typeof pageInfo.hasPreviousPage !== 'boolean') ||
+    !records.every(isPlainObject) ||
+    !isPlainObject(pageInfo) ||
+    !isBoolean(pageInfo.hasNextPage) ||
+    (!isUndefined(pageInfo.hasPreviousPage) &&
+      !isBoolean(pageInfo.hasPreviousPage)) ||
     !isCursor(pageInfo.startCursor) ||
     !isCursor(pageInfo.endCursor) ||
-    (records.length > 0 &&
+    (isNonEmptyArray(records) &&
       (!isNonEmptyString(pageInfo.startCursor) ||
         !isNonEmptyString(pageInfo.endCursor))) ||
     (pageInfo.hasNextPage &&
-      (records.length === 0 || !isNonEmptyString(pageInfo.endCursor))) ||
-    typeof totalCount !== 'number' ||
+      (!isNonEmptyArray(records) || !isNonEmptyString(pageInfo.endCursor))) ||
+    !isNumber(totalCount) ||
     !Number.isSafeInteger(totalCount) ||
     totalCount < 0
   ) {
-    throw invalidResponse();
+    throw createInvalidResponseError();
   }
 
   return {
     records,
     pageInfo: {
       hasNextPage: pageInfo.hasNextPage,
-      ...(typeof pageInfo.hasPreviousPage === 'boolean'
+      ...(isBoolean(pageInfo.hasPreviousPage)
         ? { hasPreviousPage: pageInfo.hasPreviousPage }
         : {}),
       startCursor: pageInfo.startCursor,
@@ -64,13 +71,13 @@ export const parseDataPage = (
 };
 
 export const parseDataRecord = (body: unknown, objectName: string) => {
-  if (!isJsonObject(body) || !isJsonObject(body.data)) {
-    throw invalidResponse();
+  if (!isPlainObject(body) || !isPlainObject(body.data)) {
+    throw createInvalidResponseError();
   }
 
   const record = body.data[objectName];
 
-  if (record === null) {
+  if (isNull(record)) {
     throw new CliError({
       code: 'NOT_FOUND',
       exitCode: EXIT_CODE.NOT_FOUND,
@@ -78,8 +85,8 @@ export const parseDataRecord = (body: unknown, objectName: string) => {
     });
   }
 
-  if (!isJsonObject(record)) {
-    throw invalidResponse();
+  if (!isPlainObject(record)) {
+    throw createInvalidResponseError();
   }
 
   return record;

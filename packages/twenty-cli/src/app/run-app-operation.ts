@@ -1,4 +1,4 @@
-import { isDefined } from 'twenty-shared/utils';
+import { isPlainObject } from 'twenty-shared/utils';
 
 import { createToolingFailure } from '@/app/create-tooling-failure';
 import { formatToolingDiagnostic } from '@/app/format-tooling-diagnostic';
@@ -10,7 +10,6 @@ import { toWorkerOutputDiagnostics } from '@/app/to-worker-output-diagnostics';
 import { type AppOperation } from '@/app/types/app-operation.type';
 import { readStringOption } from '@/catalog/read-command-values';
 import { type CommandContext } from '@/catalog/types/command-context.type';
-import { isJsonObject } from '@/utils/is-json-object';
 
 const PROGRESS_VERBS: Record<AppOperation, string> = {
   build: 'Building',
@@ -69,11 +68,7 @@ export const runAppOperation = async <TData>({
     });
   }
 
-  if (
-    isDefined(workerRun.release) &&
-    isJsonObject(workerRun.release) &&
-    workerRun.release.success === false
-  ) {
+  if (isPlainObject(workerRun.release) && workerRun.release.success === false) {
     output.warn({
       code: 'SNAPSHOT_RELEASE_FAILED',
       message:

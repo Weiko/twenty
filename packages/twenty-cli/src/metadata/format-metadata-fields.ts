@@ -1,10 +1,11 @@
+import { isNonEmptyString } from '@sniptt/guards';
 import { isDefined } from 'twenty-shared/utils';
 
 import { formatMetadataOwner } from '@/metadata/format-metadata-owner';
+import { getFieldOptions } from '@/metadata/get-field-options';
 import { type InspectedField } from '@/metadata/types/metadata-inspection.type';
 import { formatTable } from '@/output/format-table';
 import { dimText } from '@/output/style';
-import { isJsonObject } from '@/utils/is-json-object';
 
 export const formatMetadataRelations = (field: InspectedField) => {
   const relations = isDefined(field.relation)
@@ -21,23 +22,18 @@ export const formatMetadataRelations = (field: InspectedField) => {
     .join(' · ');
 };
 
-const formatMetadataFieldDetails = (field: InspectedField) => {
-  const options: unknown = field.options;
-
-  return [
+const formatMetadataFieldDetails = (field: InspectedField) =>
+  [
     field.isActive === false ? 'inactive' : '',
     field.isNullable === false ? 'required' : '',
     field.isUnique === true ? 'unique' : '',
     formatMetadataRelations(field),
-    ...(Array.isArray(options)
-      ? options
-          .filter(isJsonObject)
-          .map((option) => String(option.label ?? option.value ?? ''))
-      : []),
+    ...getFieldOptions(field).map((option) =>
+      String(option.label ?? option.value ?? ''),
+    ),
   ]
-    .filter(Boolean)
+    .filter(isNonEmptyString)
     .join(' · ');
-};
 
 export const formatMetadataFields = ({
   fields,
@@ -63,7 +59,7 @@ export const formatMetadataFields = ({
               field.id === labelIdentifierFieldMetadataId ? 'label field' : '',
               formatMetadataFieldDetails(field),
             ]
-              .filter(Boolean)
+              .filter(isNonEmptyString)
               .join(' · '),
         },
       ],

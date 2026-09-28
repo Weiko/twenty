@@ -1,6 +1,7 @@
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 import { RESPONSE_BYTE_LIMIT } from '@/transport/constants/response-byte-limit.constant';
+import { RESULT_ITEM_LIMIT } from '@/transport/constants/result-item-limit.constant';
 
 export const assertDataResultLimit = ({
   recordCount,
@@ -9,7 +10,7 @@ export const assertDataResultLimit = ({
   recordCount: number;
   bytes: number;
 }) => {
-  if (recordCount > 10_000 || bytes > RESPONSE_BYTE_LIMIT) {
+  if (recordCount > RESULT_ITEM_LIMIT || bytes > RESPONSE_BYTE_LIMIT) {
     throw new CliError({
       code: 'RESULT_LIMIT_EXCEEDED',
       exitCode: EXIT_CODE.USAGE,

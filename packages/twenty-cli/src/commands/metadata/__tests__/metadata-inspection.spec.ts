@@ -1,5 +1,7 @@
+import { isNonEmptyString, isString } from '@sniptt/guards';
 import { Kind, parse, valueFromASTUntyped } from 'graphql';
 import { TWENTY_STANDARD_APPLICATION_UNIVERSAL_IDENTIFIER } from 'twenty-shared/application';
+import { isPlainObject, safeGetNestedProperty } from 'twenty-shared/utils';
 import {
   afterAll,
   afterEach,
@@ -112,27 +114,41 @@ const page = <TNode>(nodes: TNode[], after?: string) => {
 };
 
 const server = await startTestServer((request, response) => {
-  const body = JSON.parse(request.body);
+  const body: unknown = JSON.parse(request.body);
+
+  if (!isPlainObject(body) || !isString(body.query)) {
+    throw new Error('Expected a GraphQL request');
+  }
+
   const definition = parse(body.query).definitions[0];
 
-  if (definition.kind !== Kind.OPERATION_DEFINITION)
+  if (definition.kind !== Kind.OPERATION_DEFINITION) {
     throw new Error('Expected operation');
+  }
+
   const selection = definition.selectionSet.selections[0];
-  if (selection.kind !== Kind.FIELD) throw new Error('Expected root field');
+
+  if (selection.kind !== Kind.FIELD) {
+    throw new Error('Expected root field');
+  }
+
+  const variables = isPlainObject(body.variables) ? body.variables : undefined;
   const args = Object.fromEntries(
     (selection.arguments ?? []).map((argument) => [
       argument.name.value,
-      valueFromASTUntyped(argument.value, body.variables),
+      valueFromASTUntyped(argument.value, variables),
     ]),
-  ) as {
-    paging: { after?: string };
-    filter: { objectMetadataId: { eq: string } };
-  };
+  );
+  const pagingAfter = safeGetNestedProperty(args, 'paging.after');
+  const after = isString(pagingAfter) ? pagingAfter : undefined;
 
   if (selection.name.value === 'objects') {
-    if (objectsDenied) return sendJson(response, 200, FORBIDDEN);
+    if (objectsDenied) {
+      return sendJson(response, 200, FORBIDDEN);
+    }
+
     if (endlessObjects) {
-      const offset = Number(args.paging.after ?? 0);
+      const offset = Number(after ?? 0);
       return sendJson(response, 200, {
         data: {
           objects: {
@@ -149,21 +165,25 @@ const server = await startTestServer((request, response) => {
       });
     }
     return sendJson(response, 200, {
-      data: { objects: page(objects, args.paging.after) },
+      data: { objects: page(objects, after) },
     });
   }
 
   if (selection.name.value === 'fields') {
-    if (fieldsDenied || (failSecondFieldPage && args.paging.after))
+    if (fieldsDenied || (failSecondFieldPage && isNonEmptyString(after))) {
       return sendJson(response, 200, FORBIDDEN);
+    }
+
+    const objectMetadataId = safeGetNestedProperty(
+      args,
+      'filter.objectMetadataId.eq',
+    );
+
     return sendJson(response, 200, {
       data: {
         fields: page(
-          fields.filter(
-            (field) =>
-              field.objectMetadataId === args.filter.objectMetadataId.eq,
-          ),
-          args.paging.after,
+          fields.filter((field) => field.objectMetadataId === objectMetadataId),
+          after,
         ),
       },
     });
@@ -330,8 +350,9 @@ describe('metadata inspection commands', () => {
       'Gold',
       'GOLD',
       'yellow',
-    ])
+    ]) {
       expect(stdout).toContain(text);
+    }
   });
 
   it('renders relations, label fields and system-field guidance', async () => {
@@ -350,8 +371,9 @@ describe('metadata inspection commands', () => {
       'Billing',
       'system fields hidden',
       '--all',
-    ])
+    ]) {
       expect(stdout).toContain(text);
+    }
   });
 
   it('keeps unknown nullable constraints unknown in human output', async () => {

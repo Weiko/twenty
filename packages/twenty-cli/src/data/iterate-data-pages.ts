@@ -10,19 +10,21 @@ export async function* iterateDataPages({
   cursor?: string;
   signal: AbortSignal;
 }) {
+  let pageCursor = cursor;
   let checkpoint = cursor;
   let checkpointInterval = 1;
   let pagesSinceCheckpoint = 0;
+  let hasNextPage = true;
 
-  while (true) {
+  while (hasNextPage) {
     signal.throwIfAborted();
-    const page = await fetchPage(cursor);
+    const page = await fetchPage(pageCursor);
     signal.throwIfAborted();
-    const nextCursor = page.pageInfo.endCursor;
+    const nextCursor = page.pageInfo.endCursor ?? undefined;
 
     if (
       page.records.length > 0 &&
-      (nextCursor === cursor || nextCursor === checkpoint)
+      (nextCursor === pageCursor || nextCursor === checkpoint)
     ) {
       throw new CliError({
         code: 'INVALID_RESPONSE',
@@ -30,23 +32,19 @@ export async function* iterateDataPages({
       });
     }
 
-    if (page.pageInfo.hasNextPage) {
-      // Detect cursor cycles without retaining an unbounded export history.
+    hasNextPage = page.pageInfo.hasNextPage;
+
+    if (hasNextPage) {
       pagesSinceCheckpoint += 1;
 
       if (pagesSinceCheckpoint === checkpointInterval) {
-        checkpoint = nextCursor ?? undefined;
+        checkpoint = nextCursor;
         checkpointInterval *= 2;
         pagesSinceCheckpoint = 0;
       }
     }
 
     yield page;
-
-    if (!page.pageInfo.hasNextPage) {
-      return;
-    }
-
-    cursor = nextCursor ?? undefined;
+    pageCursor = nextCursor;
   }
 }

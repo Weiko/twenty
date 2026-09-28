@@ -9,7 +9,9 @@ import { isJsonObject } from '@/utils/is-json-object';
 export const formatMetadataRelations = (field: InspectedField) => {
   const relations = isDefined(field.relation)
     ? [field.relation]
-    : (field.morphRelations ?? []);
+    : (field.morphRelations ?? []).filter(
+        (relation) => relation.sourceFieldMetadata.id === field.id,
+      );
 
   return relations
     .map(

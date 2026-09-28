@@ -1,6 +1,6 @@
-import { access } from 'node:fs/promises';
+import { access, realpath } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { isAbsolute, join, relative, sep } from 'node:path';
 
 import { isNumber, isString } from '@sniptt/guards';
 import { isDefined } from 'twenty-shared/utils';
@@ -33,16 +33,51 @@ const tryResolve = (
   }
 };
 
-const findSdkPackagePath = async (resolvedFilePath: string) => {
-  for (const directory of listAncestorDirectories(dirname(resolvedFilePath))) {
-    const packageJson = await readJsonObject(join(directory, 'package.json'));
+const findInstalledSdk = async (appPath: string) => {
+  for (const directory of listAncestorDirectories(appPath)) {
+    const packagePath = join(directory, 'node_modules', 'twenty-sdk');
+    const packageJson = await readJsonObject(join(packagePath, 'package.json'));
 
     if (packageJson?.name === 'twenty-sdk') {
-      return { path: directory, packageJson };
+      return { path: await realpath(packagePath), packageJson };
     }
   }
 
   return undefined;
+};
+
+const isInsideDirectory = ({
+  filePath,
+  directory,
+}: {
+  filePath: string;
+  directory: string;
+}) => {
+  const relativePath = relative(directory, filePath);
+
+  return (
+    relativePath !== '' &&
+    relativePath !== '..' &&
+    !relativePath.startsWith(`..${sep}`) &&
+    !isAbsolute(relativePath)
+  );
+};
+
+const resolveInsideSdk = ({
+  resolveFromApp,
+  specifier,
+  sdkPath,
+}: {
+  resolveFromApp: NodeJS.RequireResolve;
+  specifier: string;
+  sdkPath: string;
+}) => {
+  const resolution = tryResolve(resolveFromApp, specifier);
+
+  return 'path' in resolution &&
+    isInsideDirectory({ filePath: resolution.path, directory: sdkPath })
+    ? resolution.path
+    : undefined;
 };
 
 const hasYarnPlugAndPlay = async (appPath: string) => {
@@ -104,51 +139,38 @@ export const resolveProjectSdk = async ({
   appPath: string;
   operation: AppOperation;
 }): Promise<ProjectSdk> => {
-  const resolveFromApp = createRequire(join(appPath, 'package.json')).resolve;
-  const descriptorResolution = tryResolve(
-    resolveFromApp,
-    'twenty-sdk/build/descriptor.json',
-  );
+  const sdk = await findInstalledSdk(appPath);
 
-  if (!('path' in descriptorResolution)) {
-    const packageResolution = tryResolve(resolveFromApp, 'twenty-sdk');
-
-    if (!('path' in packageResolution)) {
-      return throwMissingSdk(appPath);
-    }
-
-    const legacySdk = await findSdkPackagePath(packageResolution.path);
-    const legacyVersion = isString(legacySdk?.packageJson.version)
-      ? legacySdk.packageJson.version
-      : 'unknown';
-
-    throw new CliError({
-      code: 'TOOLING_UNSUPPORTED',
-      message: `twenty-sdk ${legacyVersion} in this app has no build API (twenty-sdk/build).`,
-      hint: UPGRADE_SDK_HINT,
-      details: {
-        appPath,
-        sdkPath: legacySdk?.path ?? null,
-        sdkVersion: legacyVersion,
-        supportedProtocolVersions: SUPPORTED_BUILD_PROTOCOL_VERSIONS,
-      },
-    });
+  if (!isDefined(sdk)) {
+    return throwMissingSdk(appPath);
   }
 
-  const sdk = await findSdkPackagePath(descriptorResolution.path);
-  const version = isString(sdk?.packageJson.version)
+  const version = isString(sdk.packageJson.version)
     ? sdk.packageJson.version
     : 'unknown';
-  const packagePath = sdk?.path ?? dirname(descriptorResolution.path);
   const details = {
     appPath,
-    sdkPath: packagePath,
+    sdkPath: sdk.path,
     sdkVersion: version,
     supportedProtocolVersions: SUPPORTED_BUILD_PROTOCOL_VERSIONS,
   };
-  const descriptor = parseDescriptor(
-    await readJsonObject(descriptorResolution.path),
-  );
+  const resolveFromApp = createRequire(join(appPath, 'package.json')).resolve;
+  const descriptorPath = resolveInsideSdk({
+    resolveFromApp,
+    specifier: 'twenty-sdk/build/descriptor.json',
+    sdkPath: sdk.path,
+  });
+
+  if (!isDefined(descriptorPath)) {
+    throw new CliError({
+      code: 'TOOLING_UNSUPPORTED',
+      message: `twenty-sdk ${version} in this app has no build API (twenty-sdk/build).`,
+      hint: UPGRADE_SDK_HINT,
+      details,
+    });
+  }
+
+  const descriptor = parseDescriptor(await readJsonObject(descriptorPath));
 
   if (!isDefined(descriptor)) {
     throw new CliError({
@@ -208,9 +230,13 @@ export const resolveProjectSdk = async ({
     });
   }
 
-  const entryResolution = tryResolve(resolveFromApp, 'twenty-sdk/build');
+  const buildEntryPath = resolveInsideSdk({
+    resolveFromApp,
+    specifier: 'twenty-sdk/build',
+    sdkPath: sdk.path,
+  });
 
-  if (!('path' in entryResolution)) {
+  if (!isDefined(buildEntryPath)) {
     throw new CliError({
       code: 'TOOLING_UNSUPPORTED',
       message: `twenty-sdk ${version} has a build descriptor but no build entry point.`,
@@ -221,8 +247,8 @@ export const resolveProjectSdk = async ({
 
   return {
     version,
-    packagePath,
-    buildEntryPath: entryResolution.path,
+    packagePath: sdk.path,
+    buildEntryPath,
     protocolVersion: descriptor.protocolVersion,
   };
 };

@@ -344,6 +344,34 @@ describe('app build and typecheck', () => {
       expect(await exists(join(appPath, 'loaded.txt'))).toBe(false);
     });
 
+    it('never uses an SDK found only through global module paths', async () => {
+      const { appPath } = await createApp();
+      const globalRoot = await mkdtemp(join(tmpdir(), 'twenty-cli-global-'));
+      const nodeModule = (await import('node:module')).default as unknown as {
+        _initPaths: () => void;
+      };
+
+      await writeFakeSdk({ appPath: globalRoot });
+      vi.stubEnv('NODE_PATH', join(globalRoot, 'node_modules'));
+      nodeModule._initPaths();
+
+      try {
+        const { envelope, exitCode } = await runJson([
+          'app',
+          'build',
+          '--path',
+          appPath,
+        ]);
+
+        expect(exitCode).toBe(1);
+        expect(envelope.error.code).toBe('SDK_NOT_INSTALLED');
+        expect(await exists(join(globalRoot, 'loaded.txt'))).toBe(false);
+      } finally {
+        vi.unstubAllEnvs();
+        nodeModule._initPaths();
+      }
+    });
+
     it('explains how to upgrade when the CLI is older than the SDK', async () => {
       const { appPath } = await createApp();
 

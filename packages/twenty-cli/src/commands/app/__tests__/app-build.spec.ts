@@ -372,6 +372,43 @@ describe('app build and typecheck', () => {
       }
     });
 
+    it('does not skip a broken nearer installation for a hoisted SDK', async () => {
+      const { root, appPath } = await createApp();
+
+      await writeFakeSdk({ appPath: root });
+      await mkdir(join(appPath, 'node_modules', 'twenty-sdk'), {
+        recursive: true,
+      });
+
+      const { envelope, exitCode } = await runJson([
+        'app',
+        'build',
+        '--path',
+        appPath,
+      ]);
+
+      expect(exitCode).toBe(1);
+      expect(envelope.error.code).toBe('TOOLING_UNSUPPORTED');
+      expect(envelope.error.message).toContain('is incomplete');
+      expect(await exists(join(root, 'loaded.txt'))).toBe(false);
+    });
+
+    it('uses a hoisted SDK when the app has no nearer installation', async () => {
+      const { root, appPath } = await createApp();
+
+      await writeFakeSdk({ appPath: root, version: '8.8.8' });
+
+      const { envelope, exitCode } = await runJson([
+        'app',
+        'build',
+        '--path',
+        appPath,
+      ]);
+
+      expect(exitCode).toBe(0);
+      expect(envelope.data.sdk.version).toBe('8.8.8');
+    });
+
     it('explains how to upgrade when the CLI is older than the SDK', async () => {
       const { appPath } = await createApp();
 

@@ -36,11 +36,27 @@ const tryResolve = (
 const findInstalledSdk = async (appPath: string) => {
   for (const directory of listAncestorDirectories(appPath)) {
     const packagePath = join(directory, 'node_modules', 'twenty-sdk');
+    const isInstalled = await access(packagePath).then(
+      () => true,
+      () => false,
+    );
+
+    if (!isInstalled) {
+      continue;
+    }
+
     const packageJson = await readJsonObject(join(packagePath, 'package.json'));
 
-    if (packageJson?.name === 'twenty-sdk') {
-      return { path: await realpath(packagePath), packageJson };
+    if (packageJson?.name !== 'twenty-sdk') {
+      throw new CliError({
+        code: 'TOOLING_UNSUPPORTED',
+        message: `The twenty-sdk installation at ${packagePath} is incomplete: it has no readable twenty-sdk package.json.`,
+        hint: "Reinstall the app's dependencies (for example with yarn install), then try again.",
+        details: { appPath, sdkPath: packagePath },
+      });
     }
+
+    return { path: await realpath(packagePath), packageJson };
   }
 
   return undefined;

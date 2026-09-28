@@ -313,6 +313,19 @@ describe('app build and typecheck', () => {
         'NODE_VERSION_UNSUPPORTED',
         'needs Node >=99.0.0',
       ],
+      [
+        'when the SDK declares a Node range it cannot read',
+        async (appPath: string) => {
+          await writeFakeSdk({
+            appPath,
+            descriptor: { requiredNode: 'latest' },
+          });
+
+          return appPath;
+        },
+        'TOOLING_UNSUPPORTED',
+        'Node requirement this CLI cannot read: latest',
+      ],
     ])('%s', async (_, prepare, code, message) => {
       const { appPath } = await createApp();
 

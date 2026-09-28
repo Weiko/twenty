@@ -5,11 +5,11 @@ import { dirname, join } from 'node:path';
 import { isNumber, isString } from '@sniptt/guards';
 import { isDefined } from 'twenty-shared/utils';
 
+import { checkNodeRequirement } from '@/app/check-node-requirement';
 import { SUPPORTED_BUILD_PROTOCOL_VERSIONS } from '@/app/constants/app-build-protocol.constant';
 import { APP_OPERATION_CAPABILITIES } from '@/app/constants/app-operation-capabilities.constant';
 import { listAncestorDirectories } from '@/app/list-ancestor-directories';
 import { readJsonObject } from '@/app/read-json-object';
-import { satisfiesNodeRange } from '@/app/satisfies-node-range';
 import { type AppOperation } from '@/app/types/app-operation.type';
 import { type ProjectSdk } from '@/app/types/project-sdk.type';
 import { CliError } from '@/output/cli-error';
@@ -185,12 +185,21 @@ export const resolveProjectSdk = async ({
     });
   }
 
-  const isNodeSupported = satisfiesNodeRange({
+  const nodeRequirement = checkNodeRequirement({
     version: process.versions.node,
     range: descriptor.requiredNode,
   });
 
-  if (isNodeSupported === false) {
+  if (nodeRequirement === 'invalid') {
+    throw new CliError({
+      code: 'TOOLING_UNSUPPORTED',
+      message: `twenty-sdk ${version} declares a Node requirement this CLI cannot read: ${descriptor.requiredNode}`,
+      hint: UPGRADE_SDK_HINT,
+      details: { ...details, requiredNode: descriptor.requiredNode },
+    });
+  }
+
+  if (nodeRequirement === 'unsatisfied') {
     throw new CliError({
       code: 'NODE_VERSION_UNSUPPORTED',
       message: `twenty-sdk ${version} needs Node ${descriptor.requiredNode}; this is Node ${process.versions.node}.`,

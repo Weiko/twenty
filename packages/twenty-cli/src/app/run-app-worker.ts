@@ -5,6 +5,7 @@ import { isDefined } from 'twenty-shared/utils';
 
 import { APP_WORKER } from '@/app/constants/app-worker.constant';
 import { createAppWorkerEnvironment } from '@/app/create-app-worker-environment';
+import { createOutputCollector } from '@/app/create-output-collector';
 import { getAppWorkerLaunch } from '@/app/get-app-worker-launch';
 import { type AppOperation } from '@/app/types/app-operation.type';
 import {
@@ -19,29 +20,6 @@ export type AppWorkerOutput = {
   stdout: string;
   stderr: string;
   isTruncated: boolean;
-};
-
-const createOutputCollector = () => {
-  const chunks: Buffer[] = [];
-  let size = 0;
-  let isTruncated = false;
-
-  return {
-    add: (chunk: Buffer) => {
-      const kept = chunk.subarray(
-        0,
-        Math.max(0, APP_WORKER.OUTPUT_LIMIT_BYTES - size),
-      );
-
-      chunks.push(kept);
-      size += kept.length;
-      isTruncated ||= kept.length < chunk.length;
-    },
-    read: () => ({
-      text: Buffer.concat(chunks).toString('utf8'),
-      isTruncated,
-    }),
-  };
 };
 
 const isWorkerResponse = (value: unknown): value is AppWorkerResponse =>
@@ -69,8 +47,8 @@ export const runAppWorker = async ({
     serialization: 'json',
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
   });
-  const stdout = createOutputCollector();
-  const stderr = createOutputCollector();
+  const stdout = createOutputCollector(APP_WORKER.OUTPUT_LIMIT_BYTES);
+  const stderr = createOutputCollector(APP_WORKER.OUTPUT_LIMIT_BYTES);
 
   worker.stdout?.on('data', stdout.add);
   worker.stderr?.on('data', stderr.add);

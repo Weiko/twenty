@@ -2,7 +2,7 @@
 
 The command line for [Twenty](https://twenty.com).
 
-This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, metadata inspection and record reads. Run `twenty commands` for the available commands. For app development, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk).
+This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, metadata inspection, record reads, and local app builds and typechecks. Run `twenty commands` for the available commands. To upload, sync or publish an app, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
 
 ## Inspect the data model
 
@@ -37,6 +37,22 @@ These commands resolve the same exact singular/plural API names as metadata insp
 `--all` reads every remaining page, including when starting from `--cursor`. Human/JSON results are limited to 10,000 records and 16 MiB of serialized payload; human tables are also bounded. Exceeding a limit returns `RESULT_LIMIT_EXCEEDED` (exit 2), with no partial success. Every HTTP response is separately limited to 16 MiB, including in NDJSON mode.
 
 Use explicit `--format ndjson` for larger traversals. It emits numbered `start`, `record`, page `progress`, and terminal `result`/`error` events, reading one page at a time and waiting for stdout when the reader is slow. `resumeCursor` advances only after a complete page has been written. After a partial page or a failure, resume with the last reported cursor and the same filter/order; records from the partial page may repeat. With no completed page, use the original cursor or restart without one. A stream without a terminal event is incomplete. Without `--all`, NDJSON still reads only one page.
+
+## Build and check an app
+
+```bash
+twenty app build
+twenty app typecheck
+twenty app build --path ./apps/billing --json
+```
+
+These commands run inside an app project: the nearest folder, from the current one upwards, whose `package.json` depends on `twenty-sdk`. Pass `--path` to choose another app. In a folder that contains several apps, `--path` is required, and the error lists them.
+
+The CLI builds with the app's own installed `twenty-sdk`, not a copy of its own, through the SDK's `twenty-sdk/build` API. Before loading any SDK code it reads `twenty-sdk/build/descriptor.json` and checks the protocol version, the capabilities and the Node version the SDK needs. An app without `twenty-sdk` installed fails with `SDK_NOT_INSTALLED`; an SDK without the build API, or with an incompatible protocol, fails with `TOOLING_UNSUPPORTED`; a Node version the SDK does not support fails with `NODE_VERSION_UNSUPPORTED`. The CLI never installs packages or falls back to another SDK. Yarn Plug'n'Play is not supported; use `nodeLinker: node-modules`.
+
+The SDK runs in a separate worker process. That process does not receive the CLI's connections or credentials: `TWENTY_API_URL`, `TWENTY_API_KEY`, `TWENTY_REMOTE` and every `TWENTY_*` token, key, secret or password variable are removed from its environment. Anything the app or the SDK prints is reported as a `PROJECT_OUTPUT` diagnostic instead of mixing with the CLI's output, and an app that exits the process fails with `WORKER_FAILED`. This separates output and process state; it is not a sandbox for untrusted code.
+
+`app build` compiles the app into a temporary snapshot, reports its files with their upload roles, sizes and SHA-256 checksums, the content hash and the manifest, then deletes the snapshot. Nothing is uploaded or kept. `app typecheck` checks the project without writing files. Build and type errors exit with 1, as `BUILD_FAILED` or `TYPECHECK_FAILED`, with the SDK's diagnostics in `details.diagnostics`. Ctrl+C cancels the SDK operation and exits with 130; a worker that does not stop within a few seconds is killed.
 
 ## Output
 
@@ -77,4 +93,11 @@ Exit codes:
 ```bash
 npx nx build twenty-cli
 node packages/twenty-cli/dist/cli.cjs --help
+```
+
+The app build tests also build a fixture app with the repository SDK, so build it first:
+
+```bash
+npx nx build twenty-sdk
+npx vitest run --root packages/twenty-cli
 ```

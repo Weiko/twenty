@@ -1,4 +1,6 @@
 import { type CommandDefinition } from '@/catalog/types/command-definition.type';
+import { APP_BUILD_COMMAND_DEFINITION } from '@/commands/app/build/app-build.command-definition';
+import { APP_TYPECHECK_COMMAND_DEFINITION } from '@/commands/app/typecheck/app-typecheck.command-definition';
 import { AUTH_LOGIN_COMMAND_DEFINITION } from '@/commands/auth/login/auth-login.command-definition';
 import { AUTH_LOGOUT_COMMAND_DEFINITION } from '@/commands/auth/logout/auth-logout.command-definition';
 import { AUTH_STATUS_COMMAND_DEFINITION } from '@/commands/auth/status/auth-status.command-definition';
@@ -19,6 +21,8 @@ import { REMOTE_USE_COMMAND_DEFINITION } from '@/commands/remote/use/remote-use.
 import { VERSION_COMMAND_DEFINITION } from '@/commands/version/version.command-definition';
 
 export const COMMAND_CATALOG: CommandDefinition[] = [
+  APP_BUILD_COMMAND_DEFINITION,
+  APP_TYPECHECK_COMMAND_DEFINITION,
   AUTH_LOGIN_COMMAND_DEFINITION,
   AUTH_LOGOUT_COMMAND_DEFINITION,
   AUTH_STATUS_COMMAND_DEFINITION,

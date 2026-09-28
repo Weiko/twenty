@@ -25,7 +25,9 @@
   "devDependencies": {
     "@sniptt/guards": "^0.2.0",
     "@types/node": "^24.0.0",
+    "@types/semver": "^7.5.8",
     "commander": "^14.0.3",
+    "semver": "7.6.3",
     "twenty-client-sdk": "workspace:*",
     "twenty-shared": "workspace:*",
     "vite": "^8.0.0",

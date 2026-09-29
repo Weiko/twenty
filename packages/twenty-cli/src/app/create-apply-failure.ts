@@ -3,7 +3,7 @@ import {
   type AppApplyPhase,
 } from '@/app/types/app-apply-phase.type';
 import { type AppUploadProgress } from '@/app/types/app-upload-progress.type';
-import { CliError } from '@/output/cli-error';
+import { withPhaseDetails } from '@/app/with-phase-details';
 import { toCliError } from '@/output/to-cli-error';
 import { type CliErrorCode } from '@/output/types/cli-error-code.type';
 
@@ -78,16 +78,11 @@ export const createApplyFailure = ({
   const cliError = toCliError(error, signal);
   const outcome = getOutcome({ phase, code: cliError.code, upload });
 
-  return new CliError({
-    code: cliError.code,
-    exitCode: cliError.exitCode,
-    message: cliError.message,
-    hint: cliError.hint ?? getRecoveryHint({ phase, outcome }),
-    details: {
-      ...cliError.details,
-      phase,
-      outcome,
-      completedPhases: [...completedPhases],
-    },
+  return withPhaseDetails({
+    error: cliError,
+    phase,
+    outcome,
+    completedPhases,
+    hint: getRecoveryHint({ phase, outcome }),
   });
 };

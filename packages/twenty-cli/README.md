@@ -2,7 +2,7 @@
 
 The command line for [Twenty](https://twenty.com).
 
-This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, metadata inspection, record reads, local app builds and typechecks, advisory app previews, and applying a development app to a workspace. Run `twenty commands` for the available commands. To publish an app or develop in watch mode, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
+This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, metadata inspection, record reads, local app builds and typechecks, advisory app previews, and applying a development app to a workspace or uninstalling it. Run `twenty commands` for the available commands. To publish an app or develop in watch mode, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
 
 ## Inspect the data model
 
@@ -83,6 +83,20 @@ twenty app apply --no-delete
 - **Failures.** A failed apply reports `details.phase`, `details.completedPhases` and `details.outcome`: `not-started` when the failing step changed nothing, `partial` when some files were uploaded, and `unknown` when a request was sent but its effect is not known, such as a failed or interrupted sync. Earlier steps, like a new registration, stay done. There is no rollback and no automatic retry: run `twenty app plan` to see where the workspace stands, then apply again. Ctrl+C exits with 130 and reports the step it interrupted.
 
 The preview is advisory: remote changes made between the preview and the sync can change what the sync does. After a successful sync, the app's typed API client is not regenerated yet (`CLIENT_NOT_GENERATED` warning), and the pull base is not updated.
+
+## Uninstall an app
+
+```bash
+twenty app uninstall --remote dev
+twenty app uninstall --yes --json
+twenty app uninstall --universal-identifier <id> --yes
+```
+
+`app uninstall` builds the app to find its universal identifier, checks that the app is installed on the target and that the workspace allows uninstalling it, then uninstalls it. `--universal-identifier` skips the build, so an app whose source no longer builds can still be uninstalled. It needs the server's `APPLICATIONS` permission.
+
+Uninstalling runs the app's uninstall hook and deletes everything the app owns, including its objects, fields and their data. It always needs `--yes`, or a yes at the prompt in an interactive terminal; otherwise it stops with `CONFIRMATION_REQUIRED` (exit 2) before changing anything. An app that is not installed returns `APP_NOT_INSTALLED` (exit 4), and one the workspace does not allow to uninstall returns `APP_NOT_UNINSTALLABLE` (exit 6).
+
+The app's registration is kept, so `twenty app apply` can install it again without `--create`. Failures report `details.phase`, `details.completedPhases` and `details.outcome`, as for apply: an uninstall request that fails after the server received it, or is interrupted with Ctrl+C, has an `unknown` outcome. Running the command again reports `APP_NOT_INSTALLED` once the app is gone.
 
 ## Output
 

@@ -1,3 +1,5 @@
+import { isDefined } from 'twenty-shared/utils';
+
 import { COMMAND_CATALOG } from '@/catalog/command-catalog';
 import { getCommandName } from '@/catalog/get-command-name';
 import { type CommandRun } from '@/catalog/types/command-run.type';
@@ -18,6 +20,9 @@ export const runCommandsCommand: CommandRun = async () => {
     writes: definition.writes,
     needsProject: definition.needsProject,
     needsTarget: definition.needsTarget,
+    ...(isDefined(definition.requiredPermissions)
+      ? { requiredPermissions: definition.requiredPermissions }
+      : {}),
   })).sort((first, second) => first.name.localeCompare(second.name));
 
   return {

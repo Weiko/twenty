@@ -15,6 +15,7 @@ type BaseCommandDefinition = {
   outputModes: OutputMode[];
   writes: boolean;
   needsProject: boolean;
+  requiredPermissions?: string[];
 };
 
 export type LocalCommandDefinition = BaseCommandDefinition & {

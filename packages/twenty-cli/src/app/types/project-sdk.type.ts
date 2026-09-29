@@ -3,4 +3,5 @@ export type ProjectSdk = {
   packagePath: string;
   buildEntryPath: string;
   protocolVersion: number;
+  capabilities: string[];
 };

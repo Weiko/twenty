@@ -6,10 +6,12 @@ export const createToolingFailure = ({
   error,
   diagnostics,
   sdkVersion,
+  operation = 'build',
 }: {
   error: { code: string; message: string };
   diagnostics: ToolingDiagnostic[];
   sdkVersion: string;
+  operation?: 'build' | 'generateClient';
 }) => {
   if (error.code === 'CANCELLED') {
     return new CliError({
@@ -37,8 +39,14 @@ export const createToolingFailure = ({
   }
 
   return new CliError({
-    code: 'BUILD_FAILED',
-    message: `The build failed: ${error.message}`,
+    code:
+      operation === 'generateClient'
+        ? 'CLIENT_GENERATION_FAILED'
+        : 'BUILD_FAILED',
+    message:
+      operation === 'generateClient'
+        ? `Client generation failed: ${error.message}`
+        : `The build failed: ${error.message}`,
     details,
   });
 };

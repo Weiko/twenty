@@ -35,7 +35,7 @@ const isToolingArtifact = (value: unknown): value is ToolingArtifact =>
 const createInvalidResultError = () =>
   new CliError({
     code: 'WORKER_FAILED',
-    message: 'twenty-sdk returned a build result this CLI cannot read.',
+    message: 'twenty-sdk returned a tooling result this CLI cannot read.',
     hint: 'Check that the app and the CLI use compatible versions.',
   });
 

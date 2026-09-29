@@ -92,9 +92,13 @@ export const runAppOperation = async <TData>({
   let heldBuildResult: AppBuildResult<TData> | undefined;
 
   const workerRun = await runAppWorker({
-    operation,
-    appPath: project.path,
-    buildEntryPath: sdk.buildEntryPath,
+    request: {
+      type: 'run',
+      operation,
+      appPath: project.path,
+      buildEntryPath: sdk.buildEntryPath,
+      holdSnapshot: isDefined(useHeldBuild),
+    },
     signal,
     ...(isDefined(useHeldBuild)
       ? {

@@ -7,7 +7,6 @@ import { APP_WORKER } from '@/app/constants/app-worker.constant';
 import { createAppWorkerEnvironment } from '@/app/create-app-worker-environment';
 import { createOutputCollector } from '@/app/create-output-collector';
 import { getAppWorkerLaunch } from '@/app/get-app-worker-launch';
-import { type AppOperation } from '@/app/types/app-operation.type';
 import { type AppWorkerOutput } from '@/app/types/app-worker-output.type';
 import {
   type AppWorkerRequest,
@@ -34,15 +33,11 @@ const isWorkerResponse = (value: unknown): value is AppWorkerResponse =>
     (value.type === 'failure' && isString(value.message)));
 
 export const runAppWorker = async ({
-  operation,
-  appPath,
-  buildEntryPath,
+  request,
   signal,
   useHeldSnapshot,
 }: {
-  operation: AppOperation;
-  appPath: string;
-  buildEntryPath: string;
+  request: Extract<AppWorkerRequest, { type: 'run' | 'generateClient' }>;
   signal: AbortSignal;
   useHeldSnapshot?: (heldBuild: HeldBuild) => Promise<void>;
 }) => {
@@ -90,9 +85,9 @@ export const runAppWorker = async ({
         isTruncated: standardOutput.isTruncated || standardError.isTruncated,
       };
     };
-    const askToStop = (request: AppWorkerRequest) => {
+    const askToStop = (stopRequest: AppWorkerRequest) => {
       if (worker.connected) {
-        worker.send(request);
+        worker.send(stopRequest);
       }
 
       killTimer = setTimeout(
@@ -180,8 +175,8 @@ export const runAppWorker = async ({
           new CliError({
             code: 'WORKER_FAILED',
             message: isDefined(failureResponse)
-              ? `The build worker failed: ${failureResponse.message}`
-              : `The build worker stopped before finishing (${stopReason}). The app or the SDK may have exited the process.`,
+              ? `The SDK worker failed: ${failureResponse.message}`
+              : `The SDK worker stopped before finishing (${stopReason}). The app or the SDK may have exited the process.`,
             details: { exitCode, signal: exitSignal, output },
           }),
         );
@@ -218,7 +213,7 @@ export const runAppWorker = async ({
         reject(
           new CliError({
             code: 'WORKER_FAILED',
-            message: `The build worker could not run: ${error.message}`,
+            message: `The SDK worker could not run: ${error.message}`,
           }),
         ),
       ),
@@ -236,12 +231,6 @@ export const runAppWorker = async ({
       );
     });
 
-    worker.send({
-      type: 'run',
-      operation,
-      appPath,
-      buildEntryPath,
-      holdSnapshot: isDefined(useHeldSnapshot),
-    } satisfies AppWorkerRequest);
+    worker.send(request);
   });
 };

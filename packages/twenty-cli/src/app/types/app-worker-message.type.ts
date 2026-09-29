@@ -8,6 +8,12 @@ export type AppWorkerRequest =
       buildEntryPath: string;
       holdSnapshot: boolean;
     }
+  | {
+      type: 'generateClient';
+      appPath: string;
+      buildEntryPath: string;
+      schema: string;
+    }
   | { type: 'release' }
   | { type: 'cancel' };
 

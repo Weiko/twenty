@@ -1,5 +1,12 @@
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -65,6 +72,8 @@ const OBJECT_DELETION = {
   universalIdentifier: 'object-id',
   flatEntity: { nameSingular: 'invoice' },
 };
+const SCHEMA =
+  'type Query { companies: [Company!]! } type Company { id: ID! name: String! }';
 
 type ServerState = {
   isRegistered: boolean;
@@ -83,6 +92,10 @@ type ServerState = {
   heldSyncResponse?: ServerResponse;
   wasSnapshotPresentAtSync?: boolean;
   snapshotPath: string;
+  schemaResponse?: unknown;
+  schemaError?: string;
+  isSchemaHeld?: boolean;
+  heldSchemaResponse?: ServerResponse;
 };
 
 const state: ServerState = {
@@ -134,6 +147,7 @@ const getOperation = (request: RecordedRequest) => {
       ['createApplicationFileUploads', 'upload-targets'],
       ['completeApplicationFileUploads', 'upload-complete'],
       ['syncApplication', 'sync'],
+      ['applicationCoreGraphqlSchema', 'schema'],
     ].find(([field]) => query.includes(field))?.[1] ?? 'unknown'
   );
 };
@@ -294,6 +308,35 @@ const server = await startTestServer((request, response) => {
     return sendJson(response, 200, syncResponse(variables));
   }
 
+  if (operation === 'schema') {
+    if (state.isSchemaHeld) {
+      state.heldSchemaResponse = response;
+
+      return;
+    }
+
+    if (
+      variables.applicationUniversalIdentifier !==
+      APPLICATION.universalIdentifier
+    ) {
+      return sendJson(
+        response,
+        200,
+        graphqlError('NOT_FOUND', 'APPLICATION_NOT_FOUND'),
+      );
+    }
+
+    return sendJson(
+      response,
+      200,
+      isDefined(state.schemaError)
+        ? graphqlError(state.schemaError)
+        : (state.schemaResponse ?? {
+            data: { applicationCoreGraphqlSchema: SCHEMA },
+          }),
+    );
+  }
+
   return sendJson(response, 400, { errors: [{ message: 'Unexpected' }] });
 });
 
@@ -315,9 +358,11 @@ describe('app apply', () => {
   const writeSdk = async ({
     corruptPath,
     application = APPLICATION,
+    generateClientBody,
   }: {
     corruptPath?: string;
     application?: typeof APPLICATION;
+    generateClientBody?: string;
   } = {}) => {
     await writeFile(
       join(sdkPath, 'build.cjs'),
@@ -363,8 +408,27 @@ describe('app apply', () => {
         fs.writeFileSync(path.join(__dirname, 'released.txt'), buildId);
         return { success: true, data: null, diagnostics: [] };
       };
+      ${isDefined(generateClientBody) ? `exports.generateAppClient = async ({ appPath, schema, signal }) => { ${generateClientBody} };` : ''}
     `,
     );
+  };
+
+  const enableClientGeneration = async (
+    body?: string,
+    application = APPLICATION,
+  ) => {
+    await mkdir(join(appPath, 'node_modules', 'twenty-client-sdk'), {
+      recursive: true,
+    });
+    await writeFile(
+      join(sdkPath, 'descriptor.json'),
+      JSON.stringify({
+        protocolVersion: 1,
+        requiredNode: '24',
+        capabilities: ['build', 'releaseSnapshot', 'generateClient'],
+      }),
+    );
+    await writeSdk({ generateClientBody: body, application });
   };
 
   beforeEach(async () => {
@@ -419,12 +483,17 @@ describe('app apply', () => {
       heldSyncResponse: undefined,
       wasSnapshotPresentAtSync: undefined,
       snapshotPath: join(appPath, '.twenty', 'snapshots', 'build-test'),
+      schemaResponse: undefined,
+      schemaError: undefined,
+      isSchemaHeld: false,
+      heldSchemaResponse: undefined,
     });
     server.requests.length = 0;
   });
 
   afterEach(() => {
     state.heldSyncResponse?.end();
+    state.heldSchemaResponse?.end();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
@@ -517,6 +586,375 @@ describe('app apply', () => {
     expect(exitCode).toBe(0);
     expect(operations().at(-1)).toBe('sync');
   });
+
+  it('generates with the project SDK after sync and snapshot release, keeping target credentials in the CLI', async () => {
+    await enableClientGeneration(`
+      fs.writeFileSync(path.join(appPath, 'generated.json'), JSON.stringify({
+        appPath, schema,
+        hasSignal: signal instanceof AbortSignal,
+        snapshotReleased: fs.existsSync(path.join(__dirname, 'released.txt')),
+        apiKey: process.env.TWENTY_API_KEY ?? null,
+        apiUrl: process.env.TWENTY_API_URL ?? null,
+      }));
+      console.log('generator progress');
+      return { success: true, data: null, diagnostics: [] };
+    `);
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(0);
+    expect(envelope.data).toMatchObject({
+      clientGeneration: 'generated',
+      completedPhases: [
+        'build',
+        'preview',
+        'installation',
+        'upload',
+        'sync',
+        'clientGeneration',
+      ],
+      diagnostics: expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('generator progress'),
+        }),
+      ]),
+    });
+    expect(envelope.warnings).toEqual([]);
+    expect(operations().slice(-2)).toEqual(['sync', 'schema']);
+    expect(
+      operations().filter((operation) => operation === 'sync'),
+    ).toHaveLength(1);
+    const schemaRequest = server.requests.at(-1);
+
+    expect(schemaRequest).toMatchObject({
+      path: '/metadata',
+      headers: { authorization: 'Bearer apply-test-key' },
+    });
+    expect(
+      isDefined(schemaRequest) && readGraphqlRequest(schemaRequest).variables,
+    ).toEqual({
+      applicationUniversalIdentifier: APPLICATION.universalIdentifier,
+    });
+    expect(
+      JSON.parse(await readFile(join(appPath, 'generated.json'), 'utf8')),
+    ).toEqual({
+      appPath,
+      schema: SCHEMA,
+      hasSignal: true,
+      snapshotReleased: true,
+      apiKey: null,
+      apiUrl: null,
+    });
+  });
+
+  it('fetches the schema with the lowercase identifier the server acknowledged', async () => {
+    await enableClientGeneration(
+      'return { success: true, data: null, diagnostics: [] };',
+      {
+        ...APPLICATION,
+        universalIdentifier: APPLICATION.universalIdentifier.toUpperCase(),
+      },
+    );
+
+    const { envelope, exitCode } = await runJson();
+    const schemaRequest = server.requests.at(-1);
+
+    expect(exitCode).toBe(0);
+    expect(envelope.data.clientGeneration).toBe('generated');
+    expect(
+      isDefined(schemaRequest) && readGraphqlRequest(schemaRequest).variables,
+    ).toEqual({
+      applicationUniversalIdentifier: APPLICATION.universalIdentifier,
+    });
+  });
+
+  it('skips generation with a warning when the app has no client package of its own', async () => {
+    await enableClientGeneration(
+      "throw new Error('generation must not start');",
+    );
+    await rm(join(appPath, 'node_modules', 'twenty-client-sdk'), {
+      recursive: true,
+    });
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(0);
+    expect(envelope.data).toMatchObject({
+      clientGeneration: 'skipped',
+      completedPhases: ['build', 'preview', 'installation', 'upload', 'sync'],
+    });
+    expect(envelope.warnings).toEqual([
+      {
+        code: 'CLIENT_NOT_GENERATED',
+        message: expect.stringContaining(
+          "twenty-client-sdk is not installed in the app's own node_modules",
+        ),
+      },
+    ]);
+    expect(operations()).not.toContain('schema');
+  });
+
+  it('skips generation without fetching the schema when the SDK does not advertise it', async () => {
+    await writeSdk({
+      generateClientBody: "throw new Error('generation must not start');",
+    });
+    await mkdir(join(appPath, 'node_modules', 'twenty-client-sdk'), {
+      recursive: true,
+    });
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(0);
+    expect(envelope.data.clientGeneration).toBe('skipped');
+    expect(envelope.warnings).toEqual([
+      {
+        code: 'CLIENT_NOT_GENERATED',
+        message:
+          "The app's typed API client was not regenerated: twenty-sdk 9.9.9 cannot generate it. Upgrade twenty-sdk in this app to regenerate the client on apply.",
+      },
+    ]);
+    expect(operations()).not.toContain('schema');
+  });
+
+  it('leaves a dangling client package link to the SDK instead of skipping generation', async () => {
+    await enableClientGeneration(`
+      if (!fs.existsSync(path.join(appPath, 'node_modules', 'twenty-client-sdk', 'package.json'))) {
+        return { success: false, error: { code: 'CLIENT_GENERATION_FAILED', message: 'twenty-client-sdk is unreadable.' }, diagnostics: [] };
+      }
+      return { success: true, data: null, diagnostics: [] };
+    `);
+    await rm(join(appPath, 'node_modules', 'twenty-client-sdk'), {
+      recursive: true,
+    });
+    await symlink(
+      join(appPath, 'missing-client-sdk'),
+      join(appPath, 'node_modules', 'twenty-client-sdk'),
+    );
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(1);
+    expect(envelope.error).toMatchObject({
+      code: 'CLIENT_GENERATION_FAILED',
+      message: `Apply App was applied to ${server.url}, but its typed API client was not regenerated: twenty-client-sdk is unreadable.`,
+      details: { phase: 'clientGeneration', outcome: 'applied' },
+    });
+    expect(operations()).toContain('schema');
+  });
+
+  it('prints successful local client generation in the human summary', async () => {
+    await enableClientGeneration(
+      'return { success: true, data: null, diagnostics: [] };',
+    );
+
+    const { exitCode, stdout, stderr } = await run();
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Regenerated the typed API client.');
+    expect(stderr).not.toContain('typed API client was not regenerated');
+  });
+
+  it.each([
+    null,
+    {},
+    { applicationCoreGraphqlSchema: '' },
+    { applicationCoreGraphqlSchema: '   ' },
+    { applicationCoreGraphqlSchema: 42 },
+  ])(
+    'keeps the remote sync completed when the schema response is unreadable: %j',
+    async (data) => {
+      await enableClientGeneration(
+        "throw new Error('generation must not start');",
+      );
+      state.schemaResponse = { data };
+
+      const { exitCode, envelope } = await runJson();
+
+      expect(exitCode).toBe(1);
+      expect(envelope.error).toMatchObject({
+        code: 'INVALID_RESPONSE',
+        details: {
+          phase: 'clientGeneration',
+          outcome: 'applied',
+          completedPhases: [
+            'build',
+            'preview',
+            'installation',
+            'upload',
+            'sync',
+          ],
+        },
+      });
+    },
+  );
+
+  it('does not classify a schema permission failure as an unapplied app', async () => {
+    await enableClientGeneration();
+    state.schemaError = 'FORBIDDEN';
+
+    const { exitCode, envelope } = await runJson();
+
+    expect(exitCode).toBe(3);
+    expect(envelope.error).toMatchObject({
+      code: 'PERMISSION_DENIED',
+      message: expect.stringContaining(
+        `Apply App was applied to ${server.url}, but its typed API client was not regenerated`,
+      ),
+      hint: expect.stringContaining('already has this version of the app'),
+      details: {
+        phase: 'clientGeneration',
+        outcome: 'applied',
+        completedPhases: expect.arrayContaining(['sync']),
+      },
+    });
+  });
+
+  it.each([
+    { body: undefined, code: 'WORKER_FAILED' },
+    { body: 'process.exit(7);', code: 'WORKER_FAILED' },
+    {
+      body: 'return { success: true, data: {}, diagnostics: [] };',
+      code: 'WORKER_FAILED',
+    },
+    {
+      body: `
+      fs.writeFileSync(path.join(appPath, 'partial-client.txt'), 'partial');
+      return { success: false, error: { code: 'CLIENT_GENERATION_FAILED', message: 'Write failed.' }, diagnostics: [{ severity: 'error', code: 'GENERATE', message: 'Write failed.' }] };
+    `,
+      code: 'CLIENT_GENERATION_FAILED',
+    },
+  ])(
+    'preserves the sync when generation fails with $code',
+    async ({ body, code }) => {
+      await enableClientGeneration(body);
+
+      const { exitCode, envelope } = await runJson();
+
+      expect(exitCode).toBe(1);
+      expect(envelope.error).toMatchObject({
+        code,
+        details: {
+          phase: 'clientGeneration',
+          outcome: 'applied',
+          completedPhases: expect.arrayContaining(['sync']),
+        },
+        hint: expect.stringContaining('may be incomplete'),
+      });
+      expect(envelope.error.details.completedPhases).not.toContain(
+        'clientGeneration',
+      );
+      expect(await readReleasedBuildId()).toBe('build-id');
+      expect(
+        operations().filter((operation) => operation === 'sync'),
+      ).toHaveLength(1);
+    },
+  );
+
+  it('never fetches a schema or generates a client after a failed sync', async () => {
+    await enableClientGeneration(
+      "throw new Error('generation must not start');",
+    );
+    state.syncError = 'INTERNAL_SERVER_ERROR';
+
+    const { exitCode, envelope } = await runJson();
+
+    expect(exitCode).toBe(1);
+    expect(envelope.error.details).toMatchObject({
+      phase: 'sync',
+      outcome: 'unknown',
+    });
+    expect(operations()).not.toContain('schema');
+  });
+
+  it('keeps the remote sync completed when schema fetching is cancelled', async () => {
+    await enableClientGeneration();
+    state.isSchemaHeld = true;
+    const pending = runJson();
+
+    await vi.waitFor(() => expect(state.heldSchemaResponse).toBeDefined(), {
+      timeout: 10_000,
+    });
+    process.emit('SIGINT');
+
+    const { exitCode, envelope } = await pending;
+
+    expect(exitCode).toBe(130);
+    expect(envelope.error).toMatchObject({
+      code: 'CANCELLED',
+      message: `Apply App was applied to ${server.url}, but generating its typed API client was cancelled.`,
+      details: {
+        phase: 'clientGeneration',
+        outcome: 'applied',
+        completedPhases: expect.arrayContaining(['sync']),
+      },
+    });
+  });
+
+  it.each(['CANCELLED', 'CLIENT_GENERATION_FAILED'])(
+    'waits for generation to settle and preserves the SDK result %s after cancellation',
+    async (code) => {
+      await enableClientGeneration(`
+      fs.writeFileSync(path.join(appPath, 'generation-started.txt'), 'started');
+      await new Promise((resolve) => signal.addEventListener('abort', resolve, { once: true }));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      fs.writeFileSync(path.join(appPath, 'generation-settled.txt'), 'settled');
+      return { success: false, error: { code: '${code}', message: 'Generation stopped.' }, diagnostics: [] };
+    `);
+      const pending = runJson();
+
+      await vi.waitFor(
+        () =>
+          expect(existsSync(join(appPath, 'generation-started.txt'))).toBe(
+            true,
+          ),
+        { timeout: 10_000 },
+      );
+      process.emit('SIGINT');
+
+      const { exitCode, envelope } = await pending;
+
+      expect(exitCode).toBe(code === 'CANCELLED' ? 130 : 1);
+      expect(envelope.error).toMatchObject({
+        code,
+        details: {
+          phase: 'clientGeneration',
+          outcome: 'applied',
+          completedPhases: expect.arrayContaining(['sync']),
+        },
+      });
+      expect(
+        await readFile(join(appPath, 'generation-settled.txt'), 'utf8'),
+      ).toBe('settled');
+    },
+  );
+
+  it('terminates an unresponsive generator on cancellation while preserving the completed sync', async () => {
+    await enableClientGeneration(`
+      fs.writeFileSync(path.join(appPath, 'generation-started.txt'), 'started');
+      setInterval(() => {}, 1000);
+      await new Promise(() => {});
+    `);
+    const pending = runJson();
+
+    await vi.waitFor(
+      () =>
+        expect(existsSync(join(appPath, 'generation-started.txt'))).toBe(true),
+      { timeout: 10_000 },
+    );
+    process.emit('SIGINT');
+
+    const { exitCode, envelope } = await pending;
+
+    expect(exitCode).toBe(130);
+    expect(envelope.error).toMatchObject({
+      code: 'CANCELLED',
+      details: {
+        phase: 'clientGeneration',
+        outcome: 'applied',
+        completedPhases: expect.arrayContaining(['sync']),
+      },
+    });
+  }, 15_000);
 
   it('refuses to register an unknown app without --create', async () => {
     state.isRegistered = false;

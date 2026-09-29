@@ -1,6 +1,17 @@
 import { existsSync } from 'node:fs';
-import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { isArray, isString } from '@sniptt/guards';
@@ -122,6 +133,14 @@ const server = await startTestServer((request, response) => {
     });
   }
 
+  if (query.includes('applicationCoreGraphqlSchema')) {
+    return sendJson(response, 200, {
+      data: {
+        applicationCoreGraphqlSchema: 'type Query { demoGreeting: String }',
+      },
+    });
+  }
+
   return sendJson(response, 400, { errors: [{ message: 'Unexpected' }] });
 });
 
@@ -153,7 +172,7 @@ describe('app commands with the repository SDK', () => {
       APP_PATH,
     ]);
 
-    expect(exitCode).toBe(0);
+    expect(exitCode, JSON.stringify(envelope)).toBe(0);
     expect(envelope.data.sdk.protocolVersion).toBe(1);
     expect(envelope.data.files).toEqual(
       expect.arrayContaining([
@@ -163,32 +182,85 @@ describe('app commands with the repository SDK', () => {
     expect(await listSnapshots()).toEqual(snapshotsBefore);
   }, 120_000);
 
-  it('uploads every file of a real build and releases its snapshot', async () => {
-    const snapshotsBefore = await listSnapshots();
-    const { envelope, exitCode } = await runJson([
-      'app',
-      'apply',
-      '--path',
-      APP_PATH,
-    ]);
-    const uploadTargets = server.requests.find(({ body, method }) =>
-      method === 'POST'
-        ? readGraphqlBody(body).query.includes('createApplicationFileUploads')
-        : false,
-    );
-    const puts = server.requests.filter(({ method }) => method === 'PUT');
+  it('uploads a real build, releases its snapshot and generates an isolated client with the project SDK', async () => {
+    const appPath = await mkdtemp(join(tmpdir(), 'twenty-cli-real-apply-'));
 
-    expect(exitCode).toBe(0);
-    expect(envelope.data.upload.fileCount).toBeGreaterThan(0);
-    expect(puts).toHaveLength(envelope.data.upload.fileCount);
-    expect(puts.every(({ body }) => body.length > 0)).toBe(true);
-    expect(
-      isDefined(uploadTargets) && readGraphqlBody(uploadTargets.body).variables,
-    ).toMatchObject({
-      files: expect.arrayContaining([
-        expect.objectContaining({ fileFolder: 'BuiltLogicFunction' }),
-      ]),
-    });
-    expect(await listSnapshots()).toEqual(snapshotsBefore);
+    try {
+      await cp(APP_PATH, appPath, {
+        recursive: true,
+        filter: (source) =>
+          !['node_modules', '.twenty'].includes(basename(source)),
+      });
+      await mkdir(join(appPath, 'node_modules'));
+      for (const name of [
+        'twenty-sdk',
+        'twenty-ui',
+        'react',
+        'react-dom',
+        '@types',
+      ]) {
+        await symlink(
+          join(REPOSITORY_ROOT, 'node_modules', name),
+          join(appPath, 'node_modules', name),
+          'dir',
+        );
+      }
+      const clientPath = join(appPath, 'node_modules', 'twenty-client-sdk');
+
+      await mkdir(join(clientPath, 'dist'), { recursive: true });
+      await writeFile(
+        join(clientPath, 'package.json'),
+        JSON.stringify({ name: 'twenty-client-sdk' }),
+      );
+      await writeFile(
+        join(clientPath, 'dist', 'metadata.cjs'),
+        'metadata client',
+      );
+      const { envelope, exitCode } = await runJson([
+        'app',
+        'apply',
+        '--path',
+        appPath,
+      ]);
+      const uploadTargets = server.requests.find(({ body, method }) =>
+        method === 'POST'
+          ? readGraphqlBody(body).query.includes('createApplicationFileUploads')
+          : false,
+      );
+      const puts = server.requests.filter(({ method }) => method === 'PUT');
+
+      expect(exitCode, JSON.stringify(envelope)).toBe(0);
+      expect(envelope.data.clientGeneration).toBe('generated');
+      expect(envelope.data.completedPhases.slice(-2)).toEqual([
+        'sync',
+        'clientGeneration',
+      ]);
+      expect(envelope.data.upload.fileCount).toBeGreaterThan(0);
+      expect(puts).toHaveLength(envelope.data.upload.fileCount);
+      expect(puts.every(({ body }) => body.length > 0)).toBe(true);
+      expect(
+        isDefined(uploadTargets) &&
+          readGraphqlBody(uploadTargets.body).variables,
+      ).toMatchObject({
+        files: expect.arrayContaining([
+          expect.objectContaining({ fileFolder: 'BuiltLogicFunction' }),
+        ]),
+      });
+      expect(await readdir(join(appPath, '.twenty', 'snapshots'))).toEqual([]);
+      expect(
+        await readFile(
+          join(clientPath, 'dist', 'core/generated/schema.graphql'),
+          'utf8',
+        ),
+      ).toContain('demoGreeting: String');
+      expect(
+        createRequire(import.meta.url)(join(clientPath, 'dist', 'core.cjs')),
+      ).toHaveProperty('CoreApiClient');
+      expect(
+        await readFile(join(clientPath, 'dist', 'metadata.cjs'), 'utf8'),
+      ).toBe('metadata client');
+    } finally {
+      await rm(appPath, { recursive: true, force: true });
+    }
   }, 120_000);
 });

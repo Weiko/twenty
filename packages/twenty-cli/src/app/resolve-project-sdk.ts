@@ -245,5 +245,6 @@ export const resolveProjectSdk = async ({
     packagePath: sdk.path,
     buildEntryPath,
     protocolVersion: descriptor.protocolVersion,
+    capabilities: descriptor.capabilities,
   };
 };

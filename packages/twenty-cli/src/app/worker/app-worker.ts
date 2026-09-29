@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 
-import { isFunction, isNonEmptyString } from '@sniptt/guards';
+import { isFunction, isNonEmptyString, isString } from '@sniptt/guards';
 import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import type {
@@ -23,7 +23,20 @@ type BuildApi = {
   releaseAppSnapshot: (options: { buildId: string }) => Promise<unknown>;
 };
 
+type GenerateClientApi = {
+  generateAppClient: (options: {
+    appPath: string;
+    schema: string;
+    signal: AbortSignal;
+  }) => Promise<unknown>;
+};
+
 type RunRequest = Extract<AppWorkerRequest, { type: 'run' }>;
+
+type GenerateClientRequest = Extract<
+  AppWorkerRequest,
+  { type: 'generateClient' }
+>;
 
 type HeldSnapshot = {
   buildModule: BuildApi;
@@ -44,17 +57,20 @@ const isBuildApi = (value: unknown): value is BuildApi =>
   isFunction(value.buildAppSnapshot) &&
   isFunction(value.releaseAppSnapshot);
 
+const isGenerateClientApi = (value: unknown): value is GenerateClientApi =>
+  isPlainObject(value) && isFunction(value.generateAppClient);
+
 const createMissingExportsError = ({
   buildEntryPath,
-  operation,
   exportNames,
+  purpose,
 }: {
   buildEntryPath: string;
-  operation: RunRequest['operation'];
   exportNames: string[];
+  purpose: string;
 }) =>
   new Error(
-    `${buildEntryPath} must export ${exportNames.join(' and ')} to ${operation} the app.`,
+    `${buildEntryPath} must export ${exportNames.join(' and ')} to ${purpose}.`,
   );
 
 const parseRequest = (message: unknown): AppWorkerRequest | undefined => {
@@ -64,6 +80,23 @@ const parseRequest = (message: unknown): AppWorkerRequest | undefined => {
 
   if (message.type === 'cancel' || message.type === 'release') {
     return { type: message.type };
+  }
+
+  if (message.type === 'generateClient') {
+    if (
+      !isNonEmptyString(message.appPath) ||
+      !isNonEmptyString(message.buildEntryPath) ||
+      !isString(message.schema)
+    ) {
+      return undefined;
+    }
+
+    return {
+      type: 'generateClient',
+      appPath: message.appPath,
+      buildEntryPath: message.buildEntryPath,
+      schema: message.schema,
+    };
   }
 
   if (
@@ -145,8 +178,8 @@ const runOperation = async ({
     if (!isTypecheckApi(buildModule)) {
       throw createMissingExportsError({
         buildEntryPath,
-        operation,
         exportNames: ['typecheckApp'],
+        purpose: 'typecheck the app',
       });
     }
 
@@ -160,8 +193,8 @@ const runOperation = async ({
   if (!isBuildApi(buildModule)) {
     throw createMissingExportsError({
       buildEntryPath,
-      operation,
       exportNames: ['buildAppSnapshot', 'releaseAppSnapshot'],
+      purpose: 'build the app',
     });
   }
 
@@ -182,6 +215,32 @@ const runOperation = async ({
     type: 'result',
     result,
     release: await buildModule.releaseAppSnapshot({ buildId }),
+    isSnapshotHeld: false,
+  };
+};
+
+const generateClient = async ({
+  appPath,
+  buildEntryPath,
+  schema,
+}: GenerateClientRequest): Promise<AppWorkerResponse> => {
+  const buildModule: unknown = createRequire(buildEntryPath)(buildEntryPath);
+
+  if (!isGenerateClientApi(buildModule)) {
+    throw createMissingExportsError({
+      buildEntryPath,
+      exportNames: ['generateAppClient'],
+      purpose: 'generate the app client',
+    });
+  }
+
+  return {
+    type: 'result',
+    result: await buildModule.generateAppClient({
+      appPath,
+      schema,
+      signal: abortController.signal,
+    }),
     isSnapshotHeld: false,
   };
 };
@@ -208,7 +267,7 @@ process.on('message', (message: unknown) => {
   if (!isDefined(request)) {
     respond({
       type: 'failure',
-      message: 'The build worker received a request it cannot read.',
+      message: 'The SDK worker received a request it cannot read.',
     });
 
     return;
@@ -224,6 +283,14 @@ process.on('message', (message: unknown) => {
     releaseHeldSnapshot().then(
       (release) => respond({ type: 'released', release }),
       (error: unknown) => respond(toFailure(error)),
+    );
+
+    return;
+  }
+
+  if (request.type === 'generateClient') {
+    generateClient(request).then(respond, (error: unknown) =>
+      respond(toFailure(error)),
     );
 
     return;

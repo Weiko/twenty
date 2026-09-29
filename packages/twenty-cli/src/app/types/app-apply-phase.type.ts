@@ -5,6 +5,7 @@ export type AppApplyPhase =
   | 'registration'
   | 'installation'
   | 'upload'
-  | 'sync';
+  | 'sync'
+  | 'clientGeneration';
 
-export type AppApplyOutcome = 'not-started' | 'partial' | 'unknown';
+export type AppApplyOutcome = 'not-started' | 'partial' | 'unknown' | 'applied';

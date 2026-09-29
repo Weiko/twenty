@@ -13,6 +13,7 @@ export const formatApplySummary = ({
   summary,
   upload,
   isRegistrationCreated,
+  clientGeneration,
   durationMilliseconds,
 }: {
   applicationName: string;
@@ -20,6 +21,7 @@ export const formatApplySummary = ({
   summary: AppPlanSummary | undefined;
   upload: AppUploadProgress;
   isRegistrationCreated: boolean;
+  clientGeneration: 'generated' | 'skipped';
   durationMilliseconds: number;
 }) => {
   const changes = isDefined(summary)
@@ -36,6 +38,9 @@ export const formatApplySummary = ({
     ),
     isRegistrationCreated
       ? dimText('  Registered the app and installed it in this workspace.')
+      : '',
+    clientGeneration === 'generated'
+      ? dimText('  Regenerated the typed API client.')
       : '',
   ]
     .filter(isNonEmptyString)

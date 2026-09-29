@@ -21,6 +21,7 @@ export type AppApplyResult = {
   completedPhases: AppApplyPhase[];
   isRegistrationCreated: boolean;
   appliedActions: AppPlanAction[] | undefined;
+  acknowledgedUniversalIdentifier: string;
   upload: AppUploadProgress;
 };
 
@@ -189,14 +190,21 @@ export const applyAppBuild = async ({
   );
   output.progress('Synchronizing the app…');
 
-  const { actions: appliedActions } = await runPhase('sync', () =>
-    syncAppManifest({
-      build,
-      inferDeletionFromMissingEntities,
-      target,
-      signal,
-    }),
-  );
+  const { actions: appliedActions, acknowledgedUniversalIdentifier } =
+    await runPhase('sync', () =>
+      syncAppManifest({
+        build,
+        inferDeletionFromMissingEntities,
+        target,
+        signal,
+      }),
+    );
 
-  return { completedPhases, isRegistrationCreated, appliedActions, upload };
+  return {
+    completedPhases,
+    isRegistrationCreated,
+    appliedActions,
+    acknowledgedUniversalIdentifier,
+    upload,
+  };
 };

@@ -35,7 +35,7 @@ const isToolingArtifact = (value: unknown): value is ToolingArtifact =>
 const createInvalidResultError = () =>
   new CliError({
     code: 'WORKER_FAILED',
-    message: 'twenty-sdk returned a build result this CLI cannot read.',
+    message: 'twenty-sdk returned a result this CLI cannot read.',
     hint: 'Check that the app and the CLI use compatible versions.',
   });
 
@@ -76,9 +76,8 @@ export const parseBuildData = (
   };
 };
 
-export const parseTypecheckData = (
-  value: unknown,
-): { data: null } | undefined => (isNull(value) ? { data: null } : undefined);
+export const parseNullData = (value: unknown): { data: null } | undefined =>
+  isNull(value) ? { data: null } : undefined;
 
 export const parseToolingResult = <TData>({
   value,

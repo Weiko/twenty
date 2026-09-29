@@ -1,8 +1,11 @@
 import { isDefined } from 'twenty-shared/utils';
 
 import { type AppApplyResult, applyAppBuild } from '@/app/apply-app-build';
+import { createClientGenerationFailure } from '@/app/create-client-generation-failure';
 import { formatApplySummary } from '@/app/format-apply-summary';
+import { generateAppClient } from '@/app/generate-app-client';
 import { getAppPlanSummary } from '@/app/get-app-plan-summary';
+import { getClientGenerationSkipReason } from '@/app/get-client-generation-skip-reason';
 import { parseBuildData } from '@/app/parse-tooling-result';
 import { runAppOperation } from '@/app/run-app-operation';
 import { readBooleanOption } from '@/catalog/read-command-values';
@@ -49,7 +52,6 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
   const summary = isDefined(applyResult.appliedActions)
     ? getAppPlanSummary(applyResult.appliedActions)
     : undefined;
-  const durationMilliseconds = Math.round(performance.now() - startedAt);
 
   if (!isDefined(summary)) {
     context.output.warn({
@@ -59,10 +61,42 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
     });
   }
 
-  context.output.warn({
-    code: 'CLIENT_NOT_GENERATED',
-    message: `The app's typed API client was not regenerated: twenty-sdk ${sdk.version} cannot generate it for the CLI yet.`,
+  const clientGenerationSkipReason = await getClientGenerationSkipReason({
+    appPath: project.path,
+    sdk,
   });
+  let clientGeneration: 'generated' | 'skipped' = 'skipped';
+
+  if (isDefined(clientGenerationSkipReason)) {
+    context.output.warn({
+      code: 'CLIENT_NOT_GENERATED',
+      message: `The app's typed API client was not regenerated: ${clientGenerationSkipReason}`,
+    });
+  } else {
+    try {
+      diagnostics.push(
+        ...(await generateAppClient({
+          appPath: project.path,
+          applicationUniversalIdentifier:
+            applyResult.acknowledgedUniversalIdentifier,
+          sdk,
+          context,
+        })),
+      );
+      clientGeneration = 'generated';
+      applyResult.completedPhases.push('clientGeneration');
+    } catch (error) {
+      throw createClientGenerationFailure({
+        error,
+        applicationName: build.application.displayName,
+        apiUrl: context.target.apiUrl,
+        completedPhases: applyResult.completedPhases,
+        signal: context.signal,
+      });
+    }
+  }
+
+  const durationMilliseconds = Math.round(performance.now() - startedAt);
 
   return {
     data: {
@@ -79,7 +113,7 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
         fileCount: applyResult.upload.fileCount,
         byteCount: applyResult.upload.byteCount,
       },
-      clientGeneration: 'skipped',
+      clientGeneration,
       diagnostics,
       durationMilliseconds,
     },
@@ -89,6 +123,7 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
       summary,
       upload: applyResult.upload,
       isRegistrationCreated: applyResult.isRegistrationCreated,
+      clientGeneration,
       durationMilliseconds,
     }),
   };

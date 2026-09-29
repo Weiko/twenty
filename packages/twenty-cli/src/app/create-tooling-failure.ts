@@ -45,7 +45,7 @@ export const createToolingFailure = ({
         : 'BUILD_FAILED',
     message:
       operation === 'generateClient'
-        ? `Client generation failed: ${error.message}`
+        ? error.message
         : `The build failed: ${error.message}`,
     details,
   });

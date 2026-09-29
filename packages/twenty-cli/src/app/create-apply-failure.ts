@@ -4,7 +4,6 @@ import {
 } from '@/app/types/app-apply-phase.type';
 import { type AppUploadProgress } from '@/app/types/app-upload-progress.type';
 import { withPhaseDetails } from '@/app/with-phase-details';
-import { CliError } from '@/output/cli-error';
 import { toCliError } from '@/output/to-cli-error';
 import { type CliErrorCode } from '@/output/types/cli-error-code.type';
 
@@ -27,10 +26,6 @@ const getOutcome = ({
   code: CliErrorCode;
   upload: AppUploadProgress;
 }): AppApplyOutcome => {
-  if (phase === 'clientGeneration') {
-    return 'applied';
-  }
-
   if (phase === 'build' || phase === 'preview' || phase === 'confirmation') {
     return 'not-started';
   }
@@ -60,10 +55,6 @@ const getRecoveryHint = ({
   phase: AppApplyPhase;
   outcome: AppApplyOutcome;
 }) => {
-  if (outcome === 'applied') {
-    return 'The remote app is already applied. Local client files may be incomplete. Fix the client generation problem and review twenty app plan before applying again.';
-  }
-
   if (outcome === 'not-started') {
     return 'Fix the problem, then run twenty app apply again. It builds and previews from scratch.';
   }
@@ -88,18 +79,7 @@ export const createApplyFailure = ({
   const outcome = getOutcome({ phase, code: cliError.code, upload });
 
   return withPhaseDetails({
-    error:
-      phase === 'clientGeneration'
-        ? new CliError({
-            code: cliError.code,
-            exitCode: cliError.exitCode,
-            message: `The app was applied, but client generation did not finish: ${cliError.message}`,
-            hint: [getRecoveryHint({ phase, outcome }), cliError.hint]
-              .filter(Boolean)
-              .join(' '),
-            details: cliError.details,
-          })
-        : cliError,
+    error: cliError,
     phase,
     outcome,
     completedPhases,

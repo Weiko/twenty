@@ -1,8 +1,8 @@
-import { isNonEmptyString, isNull } from '@sniptt/guards';
+import { isNonEmptyString } from '@sniptt/guards';
 
 import { createToolingFailure } from '@/app/create-tooling-failure';
 import { formatToolingDiagnostic } from '@/app/format-tooling-diagnostic';
-import { parseToolingResult } from '@/app/parse-tooling-result';
+import { parseNullData, parseToolingResult } from '@/app/parse-tooling-result';
 import { runAppWorker } from '@/app/run-app-worker';
 import { toWorkerOutputDiagnostics } from '@/app/to-worker-output-diagnostics';
 import { type ProjectSdk } from '@/app/types/project-sdk.type';
@@ -56,7 +56,7 @@ export const generateAppClient = async ({
   });
   const result = parseToolingResult({
     value: workerRun.result,
-    parseData: (value) => (isNull(value) ? { data: null } : undefined),
+    parseData: parseNullData,
   });
   const diagnostics = [
     ...result.diagnostics,

@@ -1,3 +1,4 @@
+import { isString } from '@sniptt/guards';
 import { isPlainObject } from 'twenty-shared/utils';
 
 import { isSameUniversalIdentifier } from '@/app/is-same-universal-identifier';
@@ -73,6 +74,7 @@ export const syncAppManifest = async ({
 
   if (
     !isPlainObject(acknowledgement) ||
+    !isString(acknowledgement.applicationUniversalIdentifier) ||
     !isSameUniversalIdentifier({
       value: acknowledgement.applicationUniversalIdentifier,
       universalIdentifier: applicationUniversalIdentifier,
@@ -89,5 +91,7 @@ export const syncAppManifest = async ({
       value: acknowledgement,
       applicationUniversalIdentifier,
     }),
+    acknowledgedUniversalIdentifier:
+      acknowledgement.applicationUniversalIdentifier,
   };
 };

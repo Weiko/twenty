@@ -1,5 +1,12 @@
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -308,6 +315,17 @@ const server = await startTestServer((request, response) => {
       return;
     }
 
+    if (
+      variables.applicationUniversalIdentifier !==
+      APPLICATION.universalIdentifier
+    ) {
+      return sendJson(
+        response,
+        200,
+        graphqlError('NOT_FOUND', 'APPLICATION_NOT_FOUND'),
+      );
+    }
+
     return sendJson(
       response,
       200,
@@ -395,7 +413,13 @@ describe('app apply', () => {
     );
   };
 
-  const enableClientGeneration = async (body?: string) => {
+  const enableClientGeneration = async (
+    body?: string,
+    application = APPLICATION,
+  ) => {
+    await mkdir(join(appPath, 'node_modules', 'twenty-client-sdk'), {
+      recursive: true,
+    });
     await writeFile(
       join(sdkPath, 'descriptor.json'),
       JSON.stringify({
@@ -404,7 +428,7 @@ describe('app apply', () => {
         capabilities: ['build', 'releaseSnapshot', 'generateClient'],
       }),
     );
-    await writeSdk({ generateClientBody: body });
+    await writeSdk({ generateClientBody: body, application });
   };
 
   beforeEach(async () => {
@@ -623,6 +647,101 @@ describe('app apply', () => {
     });
   });
 
+  it('fetches the schema with the lowercase identifier the server acknowledged', async () => {
+    await enableClientGeneration(
+      'return { success: true, data: null, diagnostics: [] };',
+      {
+        ...APPLICATION,
+        universalIdentifier: APPLICATION.universalIdentifier.toUpperCase(),
+      },
+    );
+
+    const { envelope, exitCode } = await runJson();
+    const schemaRequest = server.requests.at(-1);
+
+    expect(exitCode).toBe(0);
+    expect(envelope.data.clientGeneration).toBe('generated');
+    expect(
+      isDefined(schemaRequest) && readGraphqlRequest(schemaRequest).variables,
+    ).toEqual({
+      applicationUniversalIdentifier: APPLICATION.universalIdentifier,
+    });
+  });
+
+  it('skips generation with a warning when the app has no client package of its own', async () => {
+    await enableClientGeneration(
+      "throw new Error('generation must not start');",
+    );
+    await rm(join(appPath, 'node_modules', 'twenty-client-sdk'), {
+      recursive: true,
+    });
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(0);
+    expect(envelope.data).toMatchObject({
+      clientGeneration: 'skipped',
+      completedPhases: ['build', 'preview', 'installation', 'upload', 'sync'],
+    });
+    expect(envelope.warnings).toEqual([
+      {
+        code: 'CLIENT_NOT_GENERATED',
+        message: expect.stringContaining(
+          "twenty-client-sdk is not installed in the app's own node_modules",
+        ),
+      },
+    ]);
+    expect(operations()).not.toContain('schema');
+  });
+
+  it('skips generation without fetching the schema when the SDK does not advertise it', async () => {
+    await writeSdk({
+      generateClientBody: "throw new Error('generation must not start');",
+    });
+    await mkdir(join(appPath, 'node_modules', 'twenty-client-sdk'), {
+      recursive: true,
+    });
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(0);
+    expect(envelope.data.clientGeneration).toBe('skipped');
+    expect(envelope.warnings).toEqual([
+      {
+        code: 'CLIENT_NOT_GENERATED',
+        message:
+          "The app's typed API client was not regenerated: twenty-sdk 9.9.9 cannot generate it. Upgrade twenty-sdk in this app to regenerate the client on apply.",
+      },
+    ]);
+    expect(operations()).not.toContain('schema');
+  });
+
+  it('leaves a dangling client package link to the SDK instead of skipping generation', async () => {
+    await enableClientGeneration(`
+      if (!fs.existsSync(path.join(appPath, 'node_modules', 'twenty-client-sdk', 'package.json'))) {
+        return { success: false, error: { code: 'CLIENT_GENERATION_FAILED', message: 'twenty-client-sdk is unreadable.' }, diagnostics: [] };
+      }
+      return { success: true, data: null, diagnostics: [] };
+    `);
+    await rm(join(appPath, 'node_modules', 'twenty-client-sdk'), {
+      recursive: true,
+    });
+    await symlink(
+      join(appPath, 'missing-client-sdk'),
+      join(appPath, 'node_modules', 'twenty-client-sdk'),
+    );
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(1);
+    expect(envelope.error).toMatchObject({
+      code: 'CLIENT_GENERATION_FAILED',
+      message: `Apply App was applied to ${server.url}, but its typed API client was not regenerated: twenty-client-sdk is unreadable.`,
+      details: { phase: 'clientGeneration', outcome: 'applied' },
+    });
+    expect(operations()).toContain('schema');
+  });
+
   it('prints successful local client generation in the human summary', async () => {
     await enableClientGeneration(
       'return { success: true, data: null, diagnostics: [] };',
@@ -678,8 +797,10 @@ describe('app apply', () => {
     expect(exitCode).toBe(3);
     expect(envelope.error).toMatchObject({
       code: 'PERMISSION_DENIED',
-      message: expect.stringContaining('The app was applied'),
-      hint: expect.stringContaining('remote app is already applied'),
+      message: expect.stringContaining(
+        `Apply App was applied to ${server.url}, but its typed API client was not regenerated`,
+      ),
+      hint: expect.stringContaining('already has this version of the app'),
       details: {
         phase: 'clientGeneration',
         outcome: 'applied',
@@ -717,7 +838,7 @@ describe('app apply', () => {
           outcome: 'applied',
           completedPhases: expect.arrayContaining(['sync']),
         },
-        hint: expect.stringContaining('Local client files may be incomplete'),
+        hint: expect.stringContaining('may be incomplete'),
       });
       expect(envelope.error.details.completedPhases).not.toContain(
         'clientGeneration',
@@ -760,6 +881,7 @@ describe('app apply', () => {
     expect(exitCode).toBe(130);
     expect(envelope.error).toMatchObject({
       code: 'CANCELLED',
+      message: `Apply App was applied to ${server.url}, but generating its typed API client was cancelled.`,
       details: {
         phase: 'clientGeneration',
         outcome: 'applied',

@@ -1,10 +1,11 @@
 import { isDefined } from 'twenty-shared/utils';
 
 import { type AppApplyResult, applyAppBuild } from '@/app/apply-app-build';
-import { createApplyFailure } from '@/app/create-apply-failure';
+import { createClientGenerationFailure } from '@/app/create-client-generation-failure';
 import { formatApplySummary } from '@/app/format-apply-summary';
 import { generateAppClient } from '@/app/generate-app-client';
 import { getAppPlanSummary } from '@/app/get-app-plan-summary';
+import { getClientGenerationSkipReason } from '@/app/get-client-generation-skip-reason';
 import { parseBuildData } from '@/app/parse-tooling-result';
 import { runAppOperation } from '@/app/run-app-operation';
 import { readBooleanOption } from '@/catalog/read-command-values';
@@ -60,14 +61,24 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
     });
   }
 
+  const clientGenerationSkipReason = await getClientGenerationSkipReason({
+    appPath: project.path,
+    sdk,
+  });
   let clientGeneration: 'generated' | 'skipped' = 'skipped';
 
-  if (sdk.capabilities.includes('generateClient')) {
+  if (isDefined(clientGenerationSkipReason)) {
+    context.output.warn({
+      code: 'CLIENT_NOT_GENERATED',
+      message: `The app's typed API client was not regenerated: ${clientGenerationSkipReason}`,
+    });
+  } else {
     try {
       diagnostics.push(
         ...(await generateAppClient({
           appPath: project.path,
-          applicationUniversalIdentifier: build.application.universalIdentifier,
+          applicationUniversalIdentifier:
+            applyResult.acknowledgedUniversalIdentifier,
           sdk,
           context,
         })),
@@ -75,19 +86,14 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
       clientGeneration = 'generated';
       applyResult.completedPhases.push('clientGeneration');
     } catch (error) {
-      throw createApplyFailure({
+      throw createClientGenerationFailure({
         error,
-        phase: 'clientGeneration',
+        applicationName: build.application.displayName,
+        apiUrl: context.target.apiUrl,
         completedPhases: applyResult.completedPhases,
-        upload: applyResult.upload,
         signal: context.signal,
       });
     }
-  } else {
-    context.output.warn({
-      code: 'CLIENT_NOT_GENERATED',
-      message: `The app's typed API client was not regenerated: twenty-sdk ${sdk.version} cannot generate it for the CLI yet.`,
-    });
   }
 
   const durationMilliseconds = Math.round(performance.now() - startedAt);

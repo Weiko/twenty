@@ -158,14 +158,14 @@ export const applyAppBuild = async ({
   if (summary.destructive > 0) {
     const deletionLabel =
       summary.destructive === 1
-        ? 'object or field deletion'
-        : 'object or field deletions';
+        ? 'object or field deletion that permanently deletes'
+        : 'object or field deletions that permanently delete';
 
     await approve({
       isApproved: isDeletionApproved,
-      question: `Apply ${summary.destructive} ${deletionLabel} that permanently delete stored data on ${target.apiUrl}?`,
+      question: `Apply ${summary.destructive} ${deletionLabel} stored data on ${target.apiUrl}?`,
       code: 'CONFIRMATION_REQUIRED',
-      message: `The preview includes ${summary.destructive} ${deletionLabel}, which permanently delete stored data.`,
+      message: `The preview includes ${summary.destructive} ${deletionLabel} stored data.`,
       hint: 'Review it with twenty app plan, then pass --yes to apply it, or --no-delete to keep entities missing from source.',
     });
   }

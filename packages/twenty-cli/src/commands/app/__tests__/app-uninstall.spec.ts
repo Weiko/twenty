@@ -69,13 +69,13 @@ const graphqlError = ({
 }: {
   code: string;
   subCode?: string;
-  field: string;
+  field?: string;
 }) => ({
   data: null,
   errors: [
     {
       message: 'The server refused the request.',
-      path: [field],
+      ...(isDefined(field) ? { path: [field] } : {}),
       extensions: { code, subCode },
     },
   ],
@@ -126,7 +126,6 @@ const server = await startTestServer((request, response) => {
         : graphqlError({
             code: 'NOT_FOUND',
             subCode: 'APPLICATION_NOT_FOUND',
-            field: 'findOneApplication',
           }),
     );
   }
@@ -323,6 +322,7 @@ describe('app uninstall', () => {
     expect(exitCode).toBe(4);
     expect(envelope.error).toMatchObject({
       code: 'APP_NOT_INSTALLED',
+      hint: 'Nothing was uninstalled. Check the target workspace and the universal identifier.',
       details: {
         phase: 'check',
         outcome: 'not-started',
@@ -413,6 +413,22 @@ describe('app uninstall', () => {
       });
     },
   );
+
+  it('keeps the partial-run hint when the app disappears during the uninstall', async () => {
+    state.uninstallError = {
+      code: 'NOT_FOUND',
+      subCode: 'APPLICATION_NOT_FOUND',
+    };
+
+    const { envelope, exitCode } = await runJson('--yes');
+
+    expect(exitCode).toBe(4);
+    expect(envelope.error).toMatchObject({
+      code: 'APP_NOT_INSTALLED',
+      hint: expect.stringContaining('The uninstall may have partly run.'),
+      details: { phase: 'uninstall', outcome: 'unknown' },
+    });
+  });
 
   it('does not report success when the server does not confirm the uninstall', async () => {
     state.uninstallResult = false;

@@ -111,7 +111,6 @@ const graphqlError = (code: string, subCode?: string) => ({
   errors: [
     {
       message: 'The server refused the request.',
-      path: ['syncApplication'],
       extensions: { code, subCode },
     },
   ],
@@ -1070,6 +1069,8 @@ describe('app apply', () => {
     expect(refused.exitCode).toBe(2);
     expect(refused.envelope.error).toMatchObject({
       code: 'CONFIRMATION_REQUIRED',
+      message:
+        'The preview includes 1 object or field deletion that permanently deletes stored data.',
       hint: expect.stringContaining('--yes'),
       details: { phase: 'confirmation', completedPhases: ['build', 'preview'] },
     });

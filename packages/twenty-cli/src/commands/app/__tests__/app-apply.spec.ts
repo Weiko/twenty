@@ -69,7 +69,9 @@ const OBJECT_DELETION = {
 type ServerState = {
   isRegistered: boolean;
   previewActions: unknown[];
+  registrationError?: string;
   installError?: string;
+  uploadTargetsStatus?: number;
   completeError?: string;
   syncError?: string;
   syncResponseOverride?: unknown;
@@ -196,6 +198,12 @@ const server = await startTestServer((request, response) => {
   }
 
   if (operation === 'registration') {
+    if (isDefined(state.registrationError)) {
+      state.isRegistered = true;
+
+      return sendJson(response, 200, graphqlError(state.registrationError));
+    }
+
     state.isRegistered = true;
 
     return sendJson(response, 200, {
@@ -228,6 +236,12 @@ const server = await startTestServer((request, response) => {
   }
 
   if (operation === 'upload-targets') {
+    if (isDefined(state.uploadTargetsStatus)) {
+      return sendJson(response, state.uploadTargetsStatus, {
+        message: 'Storage is unavailable.',
+      });
+    }
+
     const files = isArray(variables.files) ? variables.files : [];
 
     return sendJson(response, 200, {
@@ -383,7 +397,9 @@ describe('app apply', () => {
     Object.assign(state, {
       isRegistered: true,
       previewActions: [CREATE_ACTION],
+      registrationError: undefined,
       installError: undefined,
+      uploadTargetsStatus: undefined,
       completeError: undefined,
       syncError: undefined,
       syncResponseOverride: undefined,
@@ -547,6 +563,44 @@ describe('app apply', () => {
     });
     expect(operations()).toEqual(['preview', 'registration', 'installation']);
   });
+
+  it.each([
+    [
+      'registration',
+      { isRegistered: false, registrationError: 'INTERNAL_SERVER_ERROR' },
+      ['--create'],
+      'GRAPHQL_ERROR',
+      ['build'],
+    ],
+    [
+      'installation',
+      { installError: 'INTERNAL_SERVER_ERROR' },
+      [],
+      'GRAPHQL_ERROR',
+      ['build', 'preview'],
+    ],
+    [
+      'upload',
+      { uploadTargetsStatus: 500 },
+      [],
+      'HTTP_ERROR',
+      ['build', 'preview', 'installation'],
+    ],
+  ])(
+    'reports an unknown outcome when the server fails a %s request after receiving it',
+    async (phase, serverState, args, code, completedPhases) => {
+      Object.assign(state, serverState);
+
+      const { envelope, exitCode } = await runJson(...args);
+
+      expect(exitCode).toBe(1);
+      expect(envelope.error).toMatchObject({
+        code,
+        details: { phase, outcome: 'unknown', completedPhases },
+      });
+      expect(operations()).not.toContain('sync');
+    },
+  );
 
   it('requires --yes before deleting objects or fields in automation', async () => {
     state.previewActions = [CREATE_ACTION, OBJECT_DELETION];

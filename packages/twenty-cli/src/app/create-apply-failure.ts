@@ -17,15 +17,6 @@ const LOCAL_FAILURE_CODES = new Set<CliErrorCode>([
   'TOOLING_UNSUPPORTED',
 ]);
 
-const REJECTED_BY_SERVER_CODES = new Set<CliErrorCode>([
-  'AUTH_REQUIRED',
-  'CONFLICT',
-  'GRAPHQL_ERROR',
-  'HTTP_ERROR',
-  'NOT_FOUND',
-  'PERMISSION_DENIED',
-]);
-
 const getOutcome = ({
   phase,
   code,
@@ -51,10 +42,6 @@ const getOutcome = ({
     REJECTED_BEFORE_EXECUTION_CODES.has(code) ||
     LOCAL_FAILURE_CODES.has(code)
   ) {
-    return 'not-started';
-  }
-
-  if (phase !== 'sync' && REJECTED_BY_SERVER_CODES.has(code)) {
     return 'not-started';
   }
 

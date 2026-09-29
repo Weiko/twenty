@@ -132,7 +132,7 @@ export const resolveProjectSdk = async ({
   operation,
 }: {
   appPath: string;
-  operation: AppOperation;
+  operation?: AppOperation;
 }): Promise<ProjectSdk> => {
   const sdk = await findInstalledSdk(appPath);
 
@@ -189,7 +189,10 @@ export const resolveProjectSdk = async ({
     });
   }
 
-  const missingCapabilities = APP_OPERATION_CAPABILITIES[operation].filter(
+  const requiredCapabilities = isDefined(operation)
+    ? APP_OPERATION_CAPABILITIES[operation]
+    : [];
+  const missingCapabilities = requiredCapabilities.filter(
     (capability) => !descriptor.capabilities.includes(capability),
   );
 

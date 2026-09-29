@@ -13,6 +13,7 @@ import { API_REST_COMMAND_DEFINITION } from '@/commands/api/rest/api-rest.comman
 import { COMMANDS_COMMAND_DEFINITION } from '@/commands/commands/commands.command-definition';
 import { DATA_GET_COMMAND_DEFINITION } from '@/commands/data/get/data-get.command-definition';
 import { DATA_LIST_COMMAND_DEFINITION } from '@/commands/data/list/data-list.command-definition';
+import { DOCTOR_COMMAND_DEFINITION } from '@/commands/doctor/doctor.command-definition';
 import { METADATA_OBJECT_DESCRIBE_COMMAND_DEFINITION } from '@/commands/metadata/object/describe/metadata-object-describe.command-definition';
 import { METADATA_FIELD_LIST_COMMAND_DEFINITION } from '@/commands/metadata/field/list/metadata-field-list.command-definition';
 import { METADATA_FIELD_DESCRIBE_COMMAND_DEFINITION } from '@/commands/metadata/field/describe/metadata-field-describe.command-definition';
@@ -42,6 +43,7 @@ export const COMMAND_CATALOG: CommandDefinition[] = [
   COMMANDS_COMMAND_DEFINITION,
   DATA_LIST_COMMAND_DEFINITION,
   DATA_GET_COMMAND_DEFINITION,
+  DOCTOR_COMMAND_DEFINITION,
   METADATA_OBJECT_LIST_COMMAND_DEFINITION,
   METADATA_OBJECT_DESCRIBE_COMMAND_DEFINITION,
   METADATA_FIELD_LIST_COMMAND_DEFINITION,

@@ -4,6 +4,20 @@ The command line for [Twenty](https://twenty.com).
 
 This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, metadata inspection, record reads, local app builds and typechecks, advisory app previews, and applying a development app to a workspace or uninstalling it. Run `twenty commands` for the available commands. To publish an app or develop in watch mode, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
 
+## Diagnose your setup
+
+```bash
+twenty doctor
+twenty doctor --remote staging --path ./my-app --json
+twenty doctor --offline
+```
+
+`doctor` checks the running CLI and Node version, executable ownership and precedence on PATH, configuration, the selected connection, and an app's installed SDK descriptor. It works without an app or saved remote; unavailable optional checks are marked `skipped`. Use `--path` to require a specific app. PATH inspection does not execute binaries or inspect shell aliases, functions or command caches; package-manager wrappers whose owner cannot be determined are reported as unknown.
+
+By default it sends one read-only request to the selected workspace's metadata endpoint to check access. This does not prove access to every object or app operation. `--offline` disables network requests. Doctor never imports app or SDK code, builds an app, installs packages, repairs files, or refreshes credentials. An expired OAuth access token skips the network check: it produces a warning when a refresh token is saved (renewal remains unverified), or a failure when there is none. Renew through `twenty auth status` for the same remote, or sign in again.
+
+Each check has an `id`, `status` (`pass`, `warning`, `fail`, or `skipped`), message, and optional code, hint and details. Failed checks exit 1 with `DOCTOR_FAILED`; JSON includes the checklist in `error.details.checks`. Otherwise exit 0, with the same checklist in `data.checks`, including warnings and skipped checks. Human output includes the full checklist in either case. Ctrl+C exits 130. Output omits credentials, server response bodies and user identity information, but includes local paths and the selected API URL.
+
 ## Inspect the data model
 
 ```bash

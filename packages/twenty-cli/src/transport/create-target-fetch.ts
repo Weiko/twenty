@@ -1,3 +1,4 @@
+import { isString } from '@sniptt/guards';
 import { isDefined } from 'twenty-shared/utils';
 
 import { CliError } from '@/output/cli-error';
@@ -43,12 +44,20 @@ const toTransportError = ({
     error instanceof Error && error.cause instanceof Error
       ? error.cause.message
       : String(error);
+  const cause =
+    error instanceof Error && error.cause instanceof Error
+      ? error.cause
+      : error;
+  const networkCode =
+    cause instanceof Error && 'code' in cause && isString(cause.code)
+      ? cause.code
+      : undefined;
 
   return new CliError({
     code: 'NETWORK_ERROR',
     message: `Could not reach ${url.origin}.`,
     hint: 'Check the API URL and that the server is running.',
-    details: { reason },
+    details: { reason, ...(isDefined(networkCode) ? { networkCode } : {}) },
   });
 };
 

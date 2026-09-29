@@ -17,6 +17,7 @@ export type ToolingArtifact = {
 
 export type ToolingBuild = {
   buildId: string;
+  directory?: string;
   contentHash: string;
   application: {
     universalIdentifier: string;

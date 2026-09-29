@@ -1,8 +1,8 @@
 import { access, realpath } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { isAbsolute, join, relative, sep } from 'node:path';
+import { join } from 'node:path';
 
-import { isArray, isNonEmptyString, isNumber, isString } from '@sniptt/guards';
+import { isArray, isNumber, isString } from '@sniptt/guards';
 import { isDefined, isNonEmptyArray, isPlainObject } from 'twenty-shared/utils';
 
 import { checkNodeRequirement } from '@/app/check-node-requirement';
@@ -13,6 +13,7 @@ import { readJsonObject } from '@/app/read-json-object';
 import { type AppOperation } from '@/app/types/app-operation.type';
 import { type ProjectSdk } from '@/app/types/project-sdk.type';
 import { CliError } from '@/output/cli-error';
+import { isInsideDirectory } from '@/utils/is-inside-directory';
 
 const UPGRADE_SDK_HINT =
   'Upgrade twenty-sdk in this app to a release that includes twenty-sdk/build, then install its dependencies again.';
@@ -55,23 +56,6 @@ const findInstalledSdk = async (appPath: string) => {
   }
 
   return undefined;
-};
-
-const isInsideDirectory = ({
-  filePath,
-  directory,
-}: {
-  filePath: string;
-  directory: string;
-}) => {
-  const relativePath = relative(directory, filePath);
-
-  return (
-    isNonEmptyString(relativePath) &&
-    relativePath !== '..' &&
-    !relativePath.startsWith(`..${sep}`) &&
-    !isAbsolute(relativePath)
-  );
 };
 
 const resolveInsideSdk = ({

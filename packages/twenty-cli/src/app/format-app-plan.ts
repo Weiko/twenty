@@ -15,21 +15,21 @@ const getActionName = (action: AppPlanAction) =>
     action.universalIdentifier,
   ].find(isNonEmptyString) ?? '(unnamed)';
 
-export const formatAppPlan = ({
-  applicationName,
-  apiUrl,
+export const formatAppPlanActions = ({
   actions,
   summary,
   inferDeletionFromMissingEntities,
 }: {
-  applicationName: string;
-  apiUrl: string;
   actions: AppPlanAction[];
   summary: AppPlanSummary;
   inferDeletionFromMissingEntities: boolean;
-}) =>
-  [
-    `Advisory plan for ${formatDataValue(applicationName)} on ${apiUrl}`,
+}) => {
+  const destructiveLabel =
+    summary.destructive === 1
+      ? 'object or field deletion'
+      : 'object or field deletions';
+
+  return [
     actions.length === 0
       ? 'No changes. Twenty metadata matches your manifest.'
       : formatTable({
@@ -52,14 +52,37 @@ export const formatAppPlan = ({
           ],
         }),
     `${summary.create} to add, ${summary.update} to change, ${summary.delete} to delete.`,
-    'Use --json for complete action details.',
     summary.destructive > 0
-      ? `${summary.destructive} object or field deletion(s) would permanently delete stored data.`
+      ? `${summary.destructive} ${destructiveLabel} would permanently delete stored data.`
       : '',
     inferDeletionFromMissingEntities && summary.delete > 0
       ? 'Entities missing from source are deleted by default. Use --no-delete to keep them.'
       : '',
-    'Nothing was registered, uploaded or synchronized. The server may return different actions when you apply.',
   ]
     .filter(isNonEmptyString)
     .join('\n\n');
+};
+
+export const formatAppPlan = ({
+  applicationName,
+  apiUrl,
+  actions,
+  summary,
+  inferDeletionFromMissingEntities,
+}: {
+  applicationName: string;
+  apiUrl: string;
+  actions: AppPlanAction[];
+  summary: AppPlanSummary;
+  inferDeletionFromMissingEntities: boolean;
+}) =>
+  [
+    `Advisory plan for ${formatDataValue(applicationName)} on ${apiUrl}`,
+    formatAppPlanActions({
+      actions,
+      summary,
+      inferDeletionFromMissingEntities,
+    }),
+    'Use --json for complete action details.',
+    'Nothing was registered, uploaded or synchronized. The server may return different actions when you apply.',
+  ].join('\n\n');

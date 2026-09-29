@@ -45,6 +45,7 @@ export const parseBuildData = (
   if (
     !isPlainObject(value) ||
     !isString(value.buildId) ||
+    !isOptionalString(value.directory) ||
     !isString(value.contentHash) ||
     !isPlainObject(value.application) ||
     !isString(value.application.universalIdentifier) ||
@@ -61,6 +62,7 @@ export const parseBuildData = (
   return {
     data: {
       buildId: value.buildId,
+      ...(isString(value.directory) ? { directory: value.directory } : {}),
       contentHash: value.contentHash,
       application: {
         universalIdentifier: value.application.universalIdentifier,

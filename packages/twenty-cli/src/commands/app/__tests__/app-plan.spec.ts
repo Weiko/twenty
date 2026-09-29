@@ -279,7 +279,7 @@ describe('app plan', () => {
     expect(exitCode).toBe(1);
     expect(envelope.error).toMatchObject({
       code: 'PLAN_UNAVAILABLE',
-      hint: expect.stringContaining('twenty-sdk'),
+      hint: expect.stringContaining('twenty app apply --create'),
       details: { advisory: true, applicationUniversalIdentifier: 'app-id' },
     });
     expect(server.requests).toHaveLength(1);

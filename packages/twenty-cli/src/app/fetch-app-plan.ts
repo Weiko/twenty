@@ -76,7 +76,7 @@ export const fetchAppPlan = async ({
         code: 'PLAN_UNAVAILABLE',
         message:
           'This app needs an owned registration before the server can preview it. Nothing was registered, uploaded or synchronized.',
-        hint: 'Register the development app in this workspace using the existing twenty-sdk CLI, then retry. The SDK CLI uses its own connection configuration.',
+        hint: 'Run twenty app apply --create to register it and install it in this workspace.',
         details: {
           ...error.details,
           data: null,

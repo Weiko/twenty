@@ -2,7 +2,7 @@
 
 The command line for [Twenty](https://twenty.com).
 
-This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, metadata inspection, record reads, local app builds and typechecks, and advisory app previews. Run `twenty commands` for the available commands. To upload, sync or publish an app, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
+This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, metadata inspection, record reads, local app builds and typechecks, advisory app previews, and applying a development app to a workspace. Run `twenty commands` for the available commands. To publish an app or develop in watch mode, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
 
 ## Inspect the data model
 
@@ -63,9 +63,26 @@ twenty app plan --path ./apps/billing --no-delete --json
 
 `app plan` builds once with the project's SDK, releases the temporary snapshot, then requests the server's metadata preview with `dryRun: true`. It uses the usual connection selection and requires the server's `APPLICATIONS` permission. The server enforces authorization, ownership and manifest/version compatibility. No registration, installation, upload or metadata synchronization is performed, and planning never advances a pull base. The local build can generate app artifacts, just as `app build` does.
 
-Plans are advisory, with `advisory: true` in JSON. They are not saved approvals: remote changes can alter what a later apply does. A missing owned application registration returns `PLAN_UNAVAILABLE` (exit 1). Bootstrap the app using the existing SDK CLI, explicitly selecting this same workspace in its own connection configuration, then retry. This package does not implement `app apply` yet.
+Plans are advisory, with `advisory: true` in JSON. They are not saved approvals: remote changes can alter what a later apply does. A missing owned application registration returns `PLAN_UNAVAILABLE` (exit 1). Register the app with `twenty app apply --create`, then plan again.
 
 Entities missing from source are included as deletions by default. `--no-delete` passes `inferDeletionFromMissingEntities: false` to the preview. Human output lists every action, identifies object/field deletions that would remove stored data, and shows the opt-out hint. JSON includes action details and counts. Application-variable values, including previous values in updates, are redacted from all plan actions regardless of their `isSecret` setting. A plan exceeding 10,000 actions or the transport's 16 MiB response limit fails instead of displaying an incomplete preview.
+
+## Apply an app
+
+```bash
+twenty app apply --remote dev
+twenty app apply --create --json
+twenty app apply --no-delete
+```
+
+`app apply` builds the app once with the project's SDK and keeps that build's snapshot until it finishes, so the files it uploads are the ones it built. It then asks the workspace for a fresh preview, shows it, and applies it: it installs the development app if needed, uploads the snapshot files, and synchronizes the manifest. It needs the server's `APPLICATIONS` and `UPLOAD_FILE` permissions.
+
+- **New apps.** An app without a registration needs `--create`, or a yes at the prompt in an interactive terminal. The CLI then registers the app (the server also requires `API_KEYS_AND_WEBHOOKS` for this), installs it, and previews it before uploading anything. Without approval it stops with `CREATE_REQUIRED` (exit 2). The registration's client secret is never requested.
+- **Deletions.** Entities missing from source are deleted by default, as in `app plan`; `--no-delete` keeps them and is sent to both the preview and the sync. Object and field deletions permanently delete stored data, so they need `--yes` or a yes at the prompt. Otherwise the command stops with `CONFIRMATION_REQUIRED` (exit 2) before changing anything. `--yes` never changes which entities are deleted.
+- **Uploads.** File bytes go straight to the upload URLs the server returns, without the CLI's credentials. Each file is checked against the build's size and SHA-256 before anything is uploaded.
+- **Failures.** A failed apply reports `details.phase`, `details.completedPhases` and `details.outcome`: `not-started` when the failing step changed nothing, `partial` when some files were uploaded, and `unknown` when a request was sent but its effect is not known, such as a failed or interrupted sync. Earlier steps, like a new registration, stay done. There is no rollback and no automatic retry: run `twenty app plan` to see where the workspace stands, then apply again. Ctrl+C exits with 130 and reports the step it interrupted.
+
+The preview is advisory: remote changes made between the preview and the sync can change what the sync does. After a successful sync, the app's typed API client is not regenerated yet (`CLIENT_NOT_GENERATED` warning), and the pull base is not updated.
 
 ## Output
 

@@ -16,9 +16,21 @@ import {
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 
+type HeldBuild = {
+  result: unknown;
+  output: AppWorkerOutput;
+};
+
+type HeldWorkOutcome =
+  | { isSuccessful: true }
+  | { isSuccessful: false; error: unknown };
+
 const isWorkerResponse = (value: unknown): value is AppWorkerResponse =>
   isPlainObject(value) &&
-  ((value.type === 'result' && 'result' in value) ||
+  ((value.type === 'result' &&
+    'result' in value &&
+    (value.isSnapshotHeld === true || value.isSnapshotHeld === false)) ||
+    (value.type === 'released' && 'release' in value) ||
     (value.type === 'failure' && isString(value.message)));
 
 export const runAppWorker = async ({
@@ -26,11 +38,13 @@ export const runAppWorker = async ({
   appPath,
   buildEntryPath,
   signal,
+  useHeldSnapshot,
 }: {
   operation: AppOperation;
   appPath: string;
   buildEntryPath: string;
   signal: AbortSignal;
+  useHeldSnapshot?: (heldBuild: HeldBuild) => Promise<void>;
 }) => {
   signal.throwIfAborted();
 
@@ -50,9 +64,19 @@ export const runAppWorker = async ({
   return new Promise<{
     result: unknown;
     release?: unknown;
+    isSnapshotHeld: boolean;
     output: AppWorkerOutput;
   }>((resolve, reject) => {
-    let response: AppWorkerResponse | undefined;
+    let resultResponse:
+      | Extract<AppWorkerResponse, { type: 'result' }>
+      | undefined;
+    let failureResponse:
+      | Extract<AppWorkerResponse, { type: 'failure' }>
+      | undefined;
+    let releasedResponse:
+      | Extract<AppWorkerResponse, { type: 'released' }>
+      | undefined;
+    let heldWork: Promise<HeldWorkOutcome> | undefined;
     let killTimer: NodeJS.Timeout | undefined;
     let isSettled = false;
 
@@ -66,9 +90,9 @@ export const runAppWorker = async ({
         isTruncated: standardOutput.isTruncated || standardError.isTruncated,
       };
     };
-    const cancel = () => {
+    const askToStop = (request: AppWorkerRequest) => {
       if (worker.connected) {
-        worker.send({ type: 'cancel' } satisfies AppWorkerRequest);
+        worker.send(request);
       }
 
       killTimer = setTimeout(
@@ -76,6 +100,7 @@ export const runAppWorker = async ({
         APP_WORKER.CANCEL_GRACE_MILLISECONDS,
       );
     };
+    const cancel = () => askToStop({ type: 'cancel' });
     const settle = (settleWith: () => void) => {
       if (isSettled) {
         return;
@@ -86,34 +111,49 @@ export const runAppWorker = async ({
       clearTimeout(killTimer);
       settleWith();
     };
+    const startHeldWork = (result: unknown) => {
+      signal.removeEventListener('abort', cancel);
+      clearTimeout(killTimer);
 
-    signal.addEventListener('abort', cancel, { once: true });
+      const runHeldWork = isDefined(useHeldSnapshot)
+        ? useHeldSnapshot({ result, output: readOutput() })
+        : Promise.resolve();
 
-    worker.on('message', (message: unknown) => {
-      if (isWorkerResponse(message)) {
-        response = message;
-      }
-    });
-
-    worker.on('error', (error) =>
-      settle(() =>
-        reject(
-          new CliError({
-            code: 'WORKER_FAILED',
-            message: `The build worker could not run: ${error.message}`,
+      heldWork = runHeldWork
+        .then(
+          (): HeldWorkOutcome => ({ isSuccessful: true }),
+          (error: unknown): HeldWorkOutcome => ({
+            isSuccessful: false,
+            error,
           }),
-        ),
-      ),
-    );
-
-    worker.on('close', (exitCode, exitSignal) =>
+        )
+        .finally(() => askToStop({ type: 'release' }));
+    };
+    const finish = ({
+      exitCode,
+      exitSignal,
+      heldOutcome,
+    }: {
+      exitCode: number | null;
+      exitSignal: NodeJS.Signals | null;
+      heldOutcome?: HeldWorkOutcome;
+    }) =>
       settle(() => {
         const output = readOutput();
 
-        if (response?.type === 'result') {
+        if (isDefined(heldOutcome) && !heldOutcome.isSuccessful) {
+          reject(heldOutcome.error);
+
+          return;
+        }
+
+        if (isDefined(resultResponse)) {
           resolve({
-            result: response.result,
-            release: response.release,
+            result: resultResponse.result,
+            release: resultResponse.isSnapshotHeld
+              ? releasedResponse?.release
+              : resultResponse.release,
+            isSnapshotHeld: resultResponse.isSnapshotHeld,
             output,
           });
 
@@ -139,21 +179,69 @@ export const runAppWorker = async ({
         reject(
           new CliError({
             code: 'WORKER_FAILED',
-            message:
-              response?.type === 'failure'
-                ? `The build worker failed: ${response.message}`
-                : `The build worker stopped before finishing (${stopReason}). The app or the SDK may have exited the process.`,
+            message: isDefined(failureResponse)
+              ? `The build worker failed: ${failureResponse.message}`
+              : `The build worker stopped before finishing (${stopReason}). The app or the SDK may have exited the process.`,
             details: { exitCode, signal: exitSignal, output },
           }),
         );
-      }),
+      });
+
+    signal.addEventListener('abort', cancel, { once: true });
+
+    worker.on('message', (message: unknown) => {
+      if (!isWorkerResponse(message)) {
+        return;
+      }
+
+      if (message.type === 'released') {
+        releasedResponse = message;
+
+        return;
+      }
+
+      if (message.type === 'failure') {
+        failureResponse = message;
+
+        return;
+      }
+
+      resultResponse = message;
+
+      if (message.isSnapshotHeld) {
+        startHeldWork(message.result);
+      }
+    });
+
+    worker.on('error', (error) =>
+      settle(() =>
+        reject(
+          new CliError({
+            code: 'WORKER_FAILED',
+            message: `The build worker could not run: ${error.message}`,
+          }),
+        ),
+      ),
     );
+
+    worker.on('close', (exitCode, exitSignal) => {
+      if (!isDefined(heldWork)) {
+        finish({ exitCode, exitSignal });
+
+        return;
+      }
+
+      heldWork.then((heldOutcome) =>
+        finish({ exitCode, exitSignal, heldOutcome }),
+      );
+    });
 
     worker.send({
       type: 'run',
       operation,
       appPath,
       buildEntryPath,
+      holdSnapshot: isDefined(useHeldSnapshot),
     } satisfies AppWorkerRequest);
   });
 };

@@ -25,9 +25,16 @@ type BuildApi = {
 
 type RunRequest = Extract<AppWorkerRequest, { type: 'run' }>;
 
+type HeldSnapshot = {
+  buildModule: BuildApi;
+  buildId: string;
+};
+
 const PARENT_DISCONNECT_EXIT_MILLISECONDS = 5000;
 
 const abortController = new AbortController();
+
+let heldSnapshot: HeldSnapshot | undefined;
 
 const isTypecheckApi = (value: unknown): value is TypecheckApi =>
   isPlainObject(value) && isFunction(value.typecheckApp);
@@ -55,8 +62,8 @@ const parseRequest = (message: unknown): AppWorkerRequest | undefined => {
     return undefined;
   }
 
-  if (message.type === 'cancel') {
-    return { type: 'cancel' };
+  if (message.type === 'cancel' || message.type === 'release') {
+    return { type: message.type };
   }
 
   if (
@@ -73,6 +80,7 @@ const parseRequest = (message: unknown): AppWorkerRequest | undefined => {
     operation: message.operation,
     appPath: message.appPath,
     buildEntryPath: message.buildEntryPath,
+    holdSnapshot: message.holdSnapshot === true,
   };
 };
 
@@ -82,6 +90,32 @@ const respond = (response: AppWorkerResponse) => {
   }
 
   process.send?.(response, undefined, {}, () => process.exit(0));
+};
+
+const releaseHeldSnapshot = async () => {
+  if (!isDefined(heldSnapshot)) {
+    return null;
+  }
+
+  const { buildModule, buildId } = heldSnapshot;
+
+  heldSnapshot = undefined;
+
+  return buildModule.releaseAppSnapshot({ buildId });
+};
+
+const exitAfterReleasing = () => {
+  releaseHeldSnapshot().finally(() => process.exit(1));
+};
+
+const sendHeldResult = (response: AppWorkerResponse) => {
+  if (!process.connected) {
+    exitAfterReleasing();
+
+    return;
+  }
+
+  process.send?.(response);
 };
 
 const readSuccessfulBuildId = (result: unknown) => {
@@ -102,6 +136,7 @@ const runOperation = async ({
   operation,
   appPath,
   buildEntryPath,
+  holdSnapshot,
 }: RunRequest): Promise<AppWorkerResponse> => {
   const buildModule: unknown = createRequire(buildEntryPath)(buildEntryPath);
   const signal = abortController.signal;
@@ -118,6 +153,7 @@ const runOperation = async ({
     return {
       type: 'result',
       result: await buildModule.typecheckApp({ appPath, signal }),
+      isSnapshotHeld: false,
     };
   }
 
@@ -132,20 +168,38 @@ const runOperation = async ({
   const result = await buildModule.buildAppSnapshot({ appPath, signal });
   const buildId = readSuccessfulBuildId(result);
 
-  return isDefined(buildId)
-    ? {
-        type: 'result',
-        result,
-        release: await buildModule.releaseAppSnapshot({ buildId }),
-      }
-    : { type: 'result', result };
+  if (!isDefined(buildId)) {
+    return { type: 'result', result, isSnapshotHeld: false };
+  }
+
+  if (holdSnapshot) {
+    heldSnapshot = { buildModule, buildId };
+
+    return { type: 'result', result, isSnapshotHeld: true };
+  }
+
+  return {
+    type: 'result',
+    result,
+    release: await buildModule.releaseAppSnapshot({ buildId }),
+    isSnapshotHeld: false,
+  };
 };
+
+const toFailure = (error: unknown): AppWorkerResponse => ({
+  type: 'failure',
+  message: error instanceof Error ? error.message : String(error),
+});
 
 process.on('SIGINT', () => undefined);
 
 process.on('disconnect', () => {
   abortController.abort();
   setTimeout(() => process.exit(1), PARENT_DISCONNECT_EXIT_MILLISECONDS);
+
+  if (isDefined(heldSnapshot)) {
+    exitAfterReleasing();
+  }
 });
 
 process.on('message', (message: unknown) => {
@@ -166,10 +220,20 @@ process.on('message', (message: unknown) => {
     return;
   }
 
-  runOperation(request).then(respond, (error: unknown) =>
-    respond({
-      type: 'failure',
-      message: error instanceof Error ? error.message : String(error),
-    }),
+  if (request.type === 'release') {
+    releaseHeldSnapshot().then(
+      (release) => respond({ type: 'released', release }),
+      (error: unknown) => respond(toFailure(error)),
+    );
+
+    return;
+  }
+
+  runOperation(request).then(
+    (response) =>
+      response.type === 'result' && response.isSnapshotHeld
+        ? sendHeldResult(response)
+        : respond(response),
+    (error: unknown) => respond(toFailure(error)),
   );
 });

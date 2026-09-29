@@ -11,6 +11,24 @@ const REJECTED_BEFORE_UNINSTALL_CODES = new Set<CliErrorCode>([
   'PERMISSION_DENIED',
 ]);
 
+const getRecoveryHint = ({
+  code,
+  outcome,
+}: {
+  code: CliErrorCode;
+  outcome: AppUninstallOutcome;
+}) => {
+  if (outcome === 'unknown') {
+    return 'The uninstall may have partly run. Run twenty app uninstall again: it reports APP_NOT_INSTALLED once the app is gone.';
+  }
+
+  if (code === 'APP_NOT_INSTALLED') {
+    return 'Nothing was uninstalled. Check the target workspace and the universal identifier.';
+  }
+
+  return 'Fix the problem, then run twenty app uninstall again.';
+};
+
 export const createUninstallFailure = ({
   error,
   phase,
@@ -33,9 +51,6 @@ export const createUninstallFailure = ({
     phase,
     outcome,
     completedPhases,
-    hint:
-      outcome === 'not-started'
-        ? 'Fix the problem, then run twenty app uninstall again.'
-        : 'The uninstall may have partly run. Run twenty app uninstall again: it reports APP_NOT_INSTALLED once the app is gone.',
+    hint: getRecoveryHint({ code: cliError.code, outcome }),
   });
 };

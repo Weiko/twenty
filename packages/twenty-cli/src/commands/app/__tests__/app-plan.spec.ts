@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { isDefined } from 'twenty-shared/utils';
 import {
   afterAll,
   afterEach,
@@ -76,16 +77,12 @@ const server = await startTestServer((_request, response) => {
   sendJson(response, state.status, state.response);
 });
 
-const graphqlError = (
-  code: string,
-  subCode?: string,
-  path = 'syncApplication',
-) => ({
+const graphqlError = (code: string, subCode?: string, path?: string) => ({
   data: null,
   errors: [
     {
       message: 'The server refused the preview.',
-      path: [path],
+      ...(isDefined(path) ? { path: [path] } : {}),
       extensions: { code, subCode },
     },
   ],
@@ -272,24 +269,27 @@ describe('app plan', () => {
     expect(envelope.data.actions[0].flatEntity.name).toBe(name);
   });
 
-  it('refuses an unregistered app without creating it', async () => {
-    state.response = graphqlError('NOT_FOUND', 'APPLICATION_NOT_FOUND');
-    const { envelope, exitCode } = await runJson();
+  it.each([undefined, 'syncApplication'])(
+    'refuses an unregistered app without creating it when the error path is %s',
+    async (path) => {
+      state.response = graphqlError('NOT_FOUND', 'APPLICATION_NOT_FOUND', path);
+      const { envelope, exitCode } = await runJson();
 
-    expect(exitCode).toBe(1);
-    expect(envelope.error).toMatchObject({
-      code: 'PLAN_UNAVAILABLE',
-      hint: expect.stringContaining('twenty app apply --create'),
-      details: { advisory: true, applicationUniversalIdentifier: 'app-id' },
-    });
-    expect(server.requests).toHaveLength(1);
-    expect(server.requests[0].body).not.toMatch(
-      /createApplication|createDevelopment|FileUpload/,
-    );
-    expect(await readFile(join(sdkPath, 'released.txt'), 'utf8')).toBe(
-      'build-id',
-    );
-  });
+      expect(exitCode).toBe(1);
+      expect(envelope.error).toMatchObject({
+        code: 'PLAN_UNAVAILABLE',
+        hint: expect.stringContaining('twenty app apply --create'),
+        details: { advisory: true, applicationUniversalIdentifier: 'app-id' },
+      });
+      expect(server.requests).toHaveLength(1);
+      expect(server.requests[0].body).not.toMatch(
+        /createApplication|createDevelopment|FileUpload/,
+      );
+      expect(await readFile(join(sdkPath, 'released.txt'), 'utf8')).toBe(
+        'build-id',
+      );
+    },
+  );
 
   it.each([
     ['FORBIDDEN', undefined, 'syncApplication', 'PERMISSION_DENIED', 3],

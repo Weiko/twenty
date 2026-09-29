@@ -1,4 +1,4 @@
-import { isArray } from '@sniptt/guards';
+import { isArray, isNull } from '@sniptt/guards';
 import { isPlainObject } from 'twenty-shared/utils';
 
 import { CliError } from '@/output/cli-error';
@@ -26,7 +26,6 @@ export const isApplicationNotFoundError = ({
     isPlainObject(entry) &&
     entry.code === 'NOT_FOUND' &&
     entry.subCode === 'APPLICATION_NOT_FOUND' &&
-    isArray(entry.path) &&
-    entry.path[0] === field
+    (isNull(entry.path) || (isArray(entry.path) && entry.path[0] === field))
   );
 };

@@ -14,6 +14,7 @@ export type CliErrorCode =
   | 'CONFLICT'
   | 'CONFLICTING_TARGET'
   | 'CREATE_REQUIRED'
+  | 'DOCTOR_FAILED'
   | 'GRAPHQL_ERROR'
   | 'HTTP_ERROR'
   | 'INCOMPLETE_TARGET'

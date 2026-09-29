@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 
 import { type ToolingArtifact } from '@/app/types/tooling-result.type';
 import { CliError } from '@/output/cli-error';
@@ -27,10 +27,9 @@ export const readSnapshotFile = async ({
   snapshotDirectory: string;
   artifact: ToolingArtifact;
 }) => {
-  const filesDirectory = join(snapshotDirectory, 'files');
-  const filePath = resolve(filesDirectory, artifact.path);
+  const filePath = resolve(snapshotDirectory, artifact.path);
 
-  if (!isInsideDirectory({ filePath, directory: filesDirectory })) {
+  if (!isInsideDirectory({ filePath, directory: snapshotDirectory })) {
     throw createSnapshotInvalidError({
       message: `The build lists a file outside its snapshot: ${artifact.path}`,
       path: artifact.path,

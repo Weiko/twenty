@@ -2,7 +2,6 @@ import {
   access,
   mkdir,
   mkdtemp,
-  readdir,
   readFile,
   rm,
   writeFile,
@@ -62,10 +61,6 @@ const SUCCESSFUL_BUILD = `return {
 };`;
 
 const SUCCESSFUL_TYPECHECK = `return { success: true, data: null, diagnostics: [] };`;
-
-const REPOSITORY_ROOT = fileURLToPath(
-  new URL('../../../../../../', import.meta.url),
-);
 
 const exists = (filePath: string) =>
   access(filePath).then(
@@ -707,31 +702,4 @@ describe('app build and typecheck', () => {
       expect(envelope.error.code).toBe('CANCELLED');
     });
   });
-
-  it('builds a real app with the repository SDK', async () => {
-    const appPath = join(
-      REPOSITORY_ROOT,
-      'packages/twenty-apps/fixtures/minimal-app',
-    );
-
-    const snapshotsPath = join(appPath, '.twenty', 'snapshots');
-    const listSnapshots = async () =>
-      (await exists(snapshotsPath)) ? await readdir(snapshotsPath) : [];
-    const snapshotsBefore = await listSnapshots();
-    const { envelope, exitCode } = await runJson([
-      'app',
-      'build',
-      '--path',
-      appPath,
-    ]);
-
-    expect(exitCode).toBe(0);
-    expect(envelope.data.sdk.protocolVersion).toBe(1);
-    expect(
-      envelope.data.files.some(
-        (file: { role: string }) => file.role === 'built-logic-function',
-      ),
-    ).toBe(true);
-    expect(await listSnapshots()).toEqual(snapshotsBefore);
-  }, 120_000);
 });

@@ -33,7 +33,10 @@ vi.mock('@/app/get-app-worker-launch', () => ({
     modulePath: fileURLToPath(
       new URL('../../../app/worker/app-worker.ts', import.meta.url),
     ),
-    execArgv: ['--disable-warning=MODULE_TYPELESS_PACKAGE_JSON'],
+    execArgv: [
+      '--disable-warning=ExperimentalWarning',
+      '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON',
+    ],
   }),
 }));
 
@@ -67,8 +70,13 @@ type ServerState = {
   isRegistered: boolean;
   previewActions: unknown[];
   installError?: string;
+  completeError?: string;
   syncError?: string;
+  syncResponseOverride?: unknown;
   failingUploadFileId?: string;
+  hasInvalidFirstUploadUrl: boolean;
+  heldUploadFileId?: string;
+  wasSnapshotPresentDuringHeldUpload?: boolean;
   isSyncHeld: boolean;
   heldSyncResponse?: ServerResponse;
   wasSnapshotPresentAtSync?: boolean;
@@ -78,6 +86,7 @@ type ServerState = {
 const state: ServerState = {
   isRegistered: true,
   previewActions: [CREATE_ACTION],
+  hasInvalidFirstUploadUrl: false,
   isSyncHeld: false,
   snapshotPath: '',
 };
@@ -127,10 +136,26 @@ const getOperation = (request: RecordedRequest) => {
   );
 };
 
-const syncResponse = () => ({
+const readUniversalIdentifier = (variables: Record<string, unknown>) => {
+  const manifest = isPlainObject(variables.manifest)
+    ? variables.manifest
+    : undefined;
+  const application = isPlainObject(manifest?.application)
+    ? manifest.application
+    : undefined;
+  const input = isPlainObject(variables.input) ? variables.input : undefined;
+
+  return [
+    application?.universalIdentifier,
+    input?.universalIdentifier,
+    variables.universalIdentifier,
+  ].find(isString);
+};
+
+const syncResponse = (variables: Record<string, unknown>) => ({
   data: {
     syncApplication: {
-      applicationUniversalIdentifier: APPLICATION.universalIdentifier,
+      applicationUniversalIdentifier: readUniversalIdentifier(variables),
       actions: state.previewActions,
     },
   },
@@ -140,6 +165,17 @@ const server = await startTestServer((request, response) => {
   const operation = getOperation(request);
 
   if (operation === 'put') {
+    if (request.path.endsWith(`/${state.heldUploadFileId}`)) {
+      setTimeout(() => {
+        state.wasSnapshotPresentDuringHeldUpload = existsSync(
+          state.snapshotPath,
+        );
+        sendJson(response, 200, {});
+      }, 300);
+
+      return;
+    }
+
     return sendJson(
       response,
       request.path.endsWith(`/${state.failingUploadFileId}`) ? 500 : 200,
@@ -154,7 +190,7 @@ const server = await startTestServer((request, response) => {
       response,
       200,
       state.isRegistered
-        ? syncResponse()
+        ? syncResponse(variables)
         : graphqlError('NOT_FOUND', 'APPLICATION_NOT_FOUND'),
     );
   }
@@ -167,7 +203,7 @@ const server = await startTestServer((request, response) => {
         createApplicationRegistration: {
           applicationRegistration: {
             id: 'registration-id',
-            universalIdentifier: APPLICATION.universalIdentifier,
+            universalIdentifier: readUniversalIdentifier(variables),
           },
         },
       },
@@ -184,7 +220,7 @@ const server = await startTestServer((request, response) => {
             data: {
               createDevelopmentApplication: {
                 id: 'application-id',
-                universalIdentifier: APPLICATION.universalIdentifier,
+                universalIdentifier: readUniversalIdentifier(variables),
               },
             },
           },
@@ -200,7 +236,10 @@ const server = await startTestServer((request, response) => {
           targets: files.filter(isPlainObject).map((file, index) => ({
             fileId: `file-${index}`,
             filePath: file.filePath,
-            uploadUrl: `${server.url}/upload/file-${index}`,
+            uploadUrl:
+              state.hasInvalidFirstUploadUrl && index === 0
+                ? 'ftp://storage.example.com/upload'
+                : `${server.url}/upload/file-${index}`,
             contentType: 'application/octet-stream',
           })),
           errors: [],
@@ -210,9 +249,13 @@ const server = await startTestServer((request, response) => {
   }
 
   if (operation === 'upload-complete') {
-    return sendJson(response, 200, {
-      data: { completeApplicationFileUploads: { errors: [] } },
-    });
+    return sendJson(
+      response,
+      200,
+      isDefined(state.completeError)
+        ? graphqlError(state.completeError)
+        : { data: { completeApplicationFileUploads: { errors: [] } } },
+    );
   }
 
   if (operation === 'sync') {
@@ -222,13 +265,17 @@ const server = await startTestServer((request, response) => {
       return sendJson(response, 200, graphqlError(state.syncError));
     }
 
+    if (isDefined(state.syncResponseOverride)) {
+      return sendJson(response, 200, state.syncResponseOverride);
+    }
+
     if (state.isSyncHeld) {
       state.heldSyncResponse = response;
 
       return;
     }
 
-    return sendJson(response, 200, syncResponse());
+    return sendJson(response, 200, syncResponse(variables));
   }
 
   return sendJson(response, 400, { errors: [{ message: 'Unexpected' }] });
@@ -262,8 +309,9 @@ describe('app apply', () => {
       let snapshotDirectory;
       exports.buildAppSnapshot = async ({ appPath }) => {
         snapshotDirectory = path.join(appPath, '.twenty', 'snapshots', 'build-test');
+        const filesDirectory = path.join(snapshotDirectory, 'files');
         const files = FILES.map((file) => {
-          const absolutePath = path.join(snapshotDirectory, 'files', file.path);
+          const absolutePath = path.join(filesDirectory, file.path);
           fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
           fs.writeFileSync(absolutePath, file.content);
           return {
@@ -278,7 +326,7 @@ describe('app apply', () => {
           success: true,
           data: {
             buildId: 'build-id',
-            directory: snapshotDirectory,
+            directory: filesDirectory,
             contentHash: 'a'.repeat(64),
             application: ${JSON.stringify(APPLICATION)},
             manifestFormat: 'twenty-application',
@@ -336,8 +384,13 @@ describe('app apply', () => {
       isRegistered: true,
       previewActions: [CREATE_ACTION],
       installError: undefined,
+      completeError: undefined,
       syncError: undefined,
+      syncResponseOverride: undefined,
       failingUploadFileId: undefined,
+      hasInvalidFirstUploadUrl: false,
+      heldUploadFileId: undefined,
+      wasSnapshotPresentDuringHeldUpload: undefined,
       isSyncHeld: false,
       heldSyncResponse: undefined,
       wasSnapshotPresentAtSync: undefined,
@@ -560,6 +613,40 @@ describe('app apply', () => {
     expect(await readReleasedBuildId()).toBe('build-id');
   });
 
+  it('waits for uploads in flight before releasing the snapshot after an upload error', async () => {
+    state.hasInvalidFirstUploadUrl = true;
+    state.heldUploadFileId = 'file-1';
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(1);
+    expect(envelope.error).toMatchObject({
+      code: 'INVALID_RESPONSE',
+      details: {
+        phase: 'upload',
+        outcome: 'unknown',
+        completedPhases: ['build', 'preview', 'installation'],
+      },
+    });
+    expect(state.wasSnapshotPresentDuringHeldUpload).toBe(true);
+    expect(operations()).not.toContain('upload-complete');
+    expect(operations()).not.toContain('sync');
+    expect(await readReleasedBuildId()).toBe('build-id');
+  });
+
+  it('does not claim an untouched workspace once upload targets exist', async () => {
+    state.completeError = 'FORBIDDEN';
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(3);
+    expect(envelope.error).toMatchObject({
+      code: 'PERMISSION_DENIED',
+      details: { phase: 'upload', outcome: 'unknown' },
+    });
+    expect(operations()).not.toContain('sync');
+  });
+
   it('refuses a snapshot file that changed after the build before uploading', async () => {
     await writeSdk({ corruptPath: 'public/logo.svg' });
 
@@ -589,6 +676,65 @@ describe('app apply', () => {
       },
     });
     expect(await readReleasedBuildId()).toBe('build-id');
+  });
+
+  it.each([
+    ['no result', { data: null }],
+    ['an empty result', { data: {} }],
+    [
+      'the wrong application',
+      {
+        data: {
+          syncApplication: {
+            applicationUniversalIdentifier: 'another-app',
+            actions: [],
+          },
+        },
+      },
+    ],
+  ])(
+    'never reports an applied app when the sync answers with %s',
+    async (_description, response) => {
+      state.syncResponseOverride = response;
+
+      const { envelope, exitCode, stdout } = await runJson();
+
+      expect(exitCode).toBe(1);
+      expect(envelope.error).toMatchObject({
+        code: 'INVALID_RESPONSE',
+        details: { phase: 'sync', outcome: 'unknown' },
+      });
+      expect(stdout).not.toContain('Applied');
+    },
+  );
+
+  it('keeps variable values from a failed sync out of the error', async () => {
+    state.syncResponseOverride = {
+      data: {
+        syncApplication: {
+          applicationUniversalIdentifier: APPLICATION.universalIdentifier,
+          actions: [
+            {
+              type: 'create',
+              metadataName: 'applicationVariable',
+              flatEntity: { name: 'API_TOKEN', value: 'super-secret' },
+            },
+          ],
+        },
+      },
+      errors: [
+        { message: 'Partial failure.', extensions: { code: 'BAD_USER_INPUT' } },
+      ],
+    };
+
+    const { envelope, exitCode, stdout } = await runJson();
+
+    expect(exitCode).toBe(1);
+    expect(envelope.error).toMatchObject({
+      code: 'GRAPHQL_ERROR',
+      details: { phase: 'sync', outcome: 'unknown', data: null },
+    });
+    expect(stdout).not.toContain('super-secret');
   });
 
   it('exits with 130 and an unknown sync outcome when cancelled during the sync', async () => {

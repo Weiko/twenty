@@ -54,7 +54,11 @@ export const applyAppBuild = async ({
   isDeletionApproved: boolean;
 }): Promise<AppApplyResult> => {
   const completedPhases: AppApplyPhase[] = ['build'];
-  const upload: AppUploadProgress = { fileCount: 0, byteCount: 0 };
+  const upload: AppUploadProgress = {
+    fileCount: 0,
+    byteCount: 0,
+    hasCreatedTargets: false,
+  };
   const canPrompt = isInteractionAllowed({ options, outputMode });
   const application = build.application;
 
@@ -63,7 +67,7 @@ export const applyAppBuild = async ({
       error,
       phase,
       completedPhases,
-      uploadedFileCount: upload.fileCount,
+      upload,
       signal,
     });
 

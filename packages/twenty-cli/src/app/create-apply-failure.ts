@@ -2,6 +2,7 @@ import {
   type AppApplyOutcome,
   type AppApplyPhase,
 } from '@/app/types/app-apply-phase.type';
+import { type AppUploadProgress } from '@/app/types/app-upload-progress.type';
 import { CliError } from '@/output/cli-error';
 import { toCliError } from '@/output/to-cli-error';
 import { type CliErrorCode } from '@/output/types/cli-error-code.type';
@@ -28,26 +29,28 @@ const REJECTED_BY_SERVER_CODES = new Set<CliErrorCode>([
 const getOutcome = ({
   phase,
   code,
-  uploadedFileCount,
+  upload,
 }: {
   phase: AppApplyPhase;
   code: CliErrorCode;
-  uploadedFileCount: number;
+  upload: AppUploadProgress;
 }): AppApplyOutcome => {
-  if (
-    phase === 'build' ||
-    phase === 'preview' ||
-    phase === 'confirmation' ||
-    REJECTED_BEFORE_EXECUTION_CODES.has(code)
-  ) {
+  if (phase === 'build' || phase === 'preview' || phase === 'confirmation') {
     return 'not-started';
   }
 
-  if (phase === 'upload' && uploadedFileCount > 0) {
+  if (phase === 'upload' && upload.fileCount > 0) {
     return 'partial';
   }
 
-  if (LOCAL_FAILURE_CODES.has(code)) {
+  if (phase === 'upload' && upload.hasCreatedTargets) {
+    return 'unknown';
+  }
+
+  if (
+    REJECTED_BEFORE_EXECUTION_CODES.has(code) ||
+    LOCAL_FAILURE_CODES.has(code)
+  ) {
     return 'not-started';
   }
 
@@ -76,21 +79,17 @@ export const createApplyFailure = ({
   error,
   phase,
   completedPhases,
-  uploadedFileCount,
+  upload,
   signal,
 }: {
   error: unknown;
   phase: AppApplyPhase;
   completedPhases: AppApplyPhase[];
-  uploadedFileCount: number;
+  upload: AppUploadProgress;
   signal: AbortSignal;
 }) => {
   const cliError = toCliError(error, signal);
-  const outcome = getOutcome({
-    phase,
-    code: cliError.code,
-    uploadedFileCount,
-  });
+  const outcome = getOutcome({ phase, code: cliError.code, upload });
 
   return new CliError({
     code: cliError.code,

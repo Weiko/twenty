@@ -75,7 +75,10 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
       completedPhases: applyResult.completedPhases,
       actions: applyResult.appliedActions ?? null,
       summary: summary ?? null,
-      upload: applyResult.upload,
+      upload: {
+        fileCount: applyResult.upload.fileCount,
+        byteCount: applyResult.upload.byteCount,
+      },
       clientGeneration: 'skipped',
       diagnostics,
       durationMilliseconds,

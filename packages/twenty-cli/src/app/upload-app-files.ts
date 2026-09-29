@@ -121,16 +121,23 @@ const runConcurrently = async <TItem>({
   run: (item: TItem) => Promise<void>;
 }) => {
   let nextIndex = 0;
+  let firstFailure: { error: unknown } | undefined;
 
   const runNext = async (): Promise<void> => {
-    if (nextIndex >= items.length) {
+    if (nextIndex >= items.length || isDefined(firstFailure)) {
       return;
     }
 
     const item = items[nextIndex];
 
     nextIndex += 1;
-    await run(item);
+
+    try {
+      await run(item);
+    } catch (error) {
+      firstFailure ??= { error };
+    }
+
     await runNext();
   };
 
@@ -140,6 +147,10 @@ const runConcurrently = async <TItem>({
       runNext,
     ),
   );
+
+  if (isDefined(firstFailure)) {
+    throw firstFailure.error;
+  }
 };
 
 const requestUploadTargets = async ({
@@ -168,6 +179,8 @@ const requestUploadTargets = async ({
   ) {
     throw createInvalidUploadResponseError();
   }
+
+  context.progress.hasCreatedTargets = true;
 
   const refusals = readUploadErrors({
     value: created.errors,

@@ -3,6 +3,7 @@ import { isPlainObject } from 'twenty-shared/utils';
 
 import { createAppNotInstalledError } from '@/app/create-app-not-installed-error';
 import { isApplicationNotFoundError } from '@/app/is-application-not-found-error';
+import { isSameUniversalIdentifier } from '@/app/is-same-universal-identifier';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
 import { sendGraphqlRequest } from '@/transport/graphql/send-graphql-request';
@@ -45,7 +46,10 @@ export const fetchInstalledApp = async ({
   if (
     !isPlainObject(application) ||
     !isNonEmptyString(application.name) ||
-    application.universalIdentifier !== universalIdentifier ||
+    !isSameUniversalIdentifier({
+      value: application.universalIdentifier,
+      universalIdentifier,
+    }) ||
     !isBoolean(application.canBeUninstalled)
   ) {
     throw new CliError({

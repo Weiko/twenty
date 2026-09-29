@@ -1,6 +1,7 @@
 import { isNonEmptyString } from '@sniptt/guards';
 import { isPlainObject } from 'twenty-shared/utils';
 
+import { isSameUniversalIdentifier } from '@/app/is-same-universal-identifier';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
@@ -44,7 +45,10 @@ export const registerApp = async ({
   if (
     !isPlainObject(registration) ||
     !isNonEmptyString(registration.id) ||
-    registration.universalIdentifier !== application.universalIdentifier
+    !isSameUniversalIdentifier({
+      value: registration.universalIdentifier,
+      universalIdentifier: application.universalIdentifier,
+    })
   ) {
     throw new CliError({
       code: 'INVALID_RESPONSE',

@@ -59,7 +59,7 @@ export const runAppUninstallCommand: CommandRun<TargetCommandContext> = async (
     return build.application.universalIdentifier;
   };
 
-  const universalIdentifier = await readApplicationIdentifier();
+  const universalIdentifier = (await readApplicationIdentifier()).toLowerCase();
 
   output.progress(`Checking the app on ${target.apiUrl}…`);
 

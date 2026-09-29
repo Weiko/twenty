@@ -7,7 +7,6 @@ import { toCliError } from '@/output/to-cli-error';
 import { type CliErrorCode } from '@/output/types/cli-error-code.type';
 
 const REJECTED_BEFORE_UNINSTALL_CODES = new Set<CliErrorCode>([
-  'APP_NOT_INSTALLED',
   'AUTH_REQUIRED',
   'PERMISSION_DENIED',
 ]);

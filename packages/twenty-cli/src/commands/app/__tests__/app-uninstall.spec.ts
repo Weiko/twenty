@@ -116,7 +116,9 @@ const server = await startTestServer((request, response) => {
             data: {
               findOneApplication: {
                 name: APPLICATION.displayName,
-                universalIdentifier: variables.universalIdentifier,
+                universalIdentifier: isString(variables.universalIdentifier)
+                  ? variables.universalIdentifier.toLowerCase()
+                  : null,
                 canBeUninstalled: state.canBeUninstalled,
               },
             },
@@ -280,6 +282,27 @@ describe('app uninstall', () => {
     expect(existsSync(join(sdkPath, 'built.txt'))).toBe(false);
   });
 
+  it('sends the canonical form of an uppercase universal identifier', async () => {
+    const { envelope, exitCode } = await runJson(
+      '--universal-identifier',
+      APPLICATION.universalIdentifier.toUpperCase(),
+      '--yes',
+    );
+
+    expect(exitCode).toBe(0);
+    expect(envelope.data.application.universalIdentifier).toBe(
+      APPLICATION.universalIdentifier,
+    );
+    expect(
+      server.requests.map(
+        (request) => readGraphqlRequest(request).variables.universalIdentifier,
+      ),
+    ).toEqual([
+      APPLICATION.universalIdentifier,
+      APPLICATION.universalIdentifier,
+    ]);
+  });
+
   it('rejects a universal identifier that is not a UUID', async () => {
     const { envelope, exitCode } = await runJson(
       '--universal-identifier',
@@ -370,7 +393,7 @@ describe('app uninstall', () => {
       { code: 'NOT_FOUND', subCode: 'APPLICATION_NOT_FOUND' },
       'APP_NOT_INSTALLED',
       4,
-      'not-started',
+      'unknown',
     ],
   ])(
     'reports the uninstall outcome for %s',

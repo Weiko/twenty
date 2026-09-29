@@ -6,9 +6,17 @@ export type AppWorkerRequest =
       operation: AppOperation;
       appPath: string;
       buildEntryPath: string;
+      holdSnapshot: boolean;
     }
+  | { type: 'release' }
   | { type: 'cancel' };
 
 export type AppWorkerResponse =
-  | { type: 'result'; result: unknown; release?: unknown }
+  | {
+      type: 'result';
+      result: unknown;
+      release?: unknown;
+      isSnapshotHeld: boolean;
+    }
+  | { type: 'released'; release: unknown }
   | { type: 'failure'; message: string };

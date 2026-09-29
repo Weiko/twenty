@@ -17,6 +17,9 @@ const toPublicGraphqlError = (error: unknown) => {
       isPlainObject(entry.extensions) && isString(entry.extensions.code)
         ? entry.extensions.code
         : null,
+    ...(isPlainObject(entry.extensions) && isString(entry.extensions.subCode)
+      ? { subCode: entry.extensions.subCode }
+      : {}),
   };
 };
 

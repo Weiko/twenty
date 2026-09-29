@@ -2,7 +2,7 @@
 
 The command line for [Twenty](https://twenty.com).
 
-This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, metadata inspection, record reads, and local app builds and typechecks. Run `twenty commands` for the available commands. To upload, sync or publish an app, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
+This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, metadata inspection, record reads, local app builds and typechecks, and advisory app previews. Run `twenty commands` for the available commands. To upload, sync or publish an app, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
 
 ## Inspect the data model
 
@@ -53,6 +53,19 @@ The CLI builds with the app's own installed `twenty-sdk`, not a copy of its own,
 The SDK runs in a separate worker process. That process does not receive the CLI's connections or credentials: `TWENTY_API_URL`, `TWENTY_API_KEY`, `TWENTY_REMOTE` and every `TWENTY_*` token, key, secret or password variable are removed from its environment. Anything the app or the SDK prints is reported as a `PROJECT_OUTPUT` diagnostic instead of mixing with the CLI's output, and an app that exits the process fails with `WORKER_FAILED`. This separates output and process state; it is not a sandbox for untrusted code.
 
 `app build` compiles the app into a temporary snapshot, reports its files with their upload roles, sizes and SHA-256 checksums, the content hash and the manifest, then deletes the snapshot. Nothing is uploaded or kept. `app typecheck` checks the project without writing files. Build and type errors exit with 1, as `BUILD_FAILED` or `TYPECHECK_FAILED`, with the SDK's diagnostics in `details.diagnostics`. Ctrl+C cancels the SDK operation and exits with 130; a worker that does not stop within a few seconds is killed.
+
+## Preview app changes
+
+```bash
+twenty app plan --remote dev
+twenty app plan --path ./apps/billing --no-delete --json
+```
+
+`app plan` builds once with the project's SDK, releases the temporary snapshot, then requests the server's metadata preview with `dryRun: true`. It uses the usual connection selection and requires the server's `APPLICATIONS` permission. The server enforces authorization, ownership and manifest/version compatibility. No registration, installation, upload or metadata synchronization is performed, and planning never advances a pull base. The local build can generate app artifacts, just as `app build` does.
+
+Plans are advisory, with `advisory: true` in JSON. They are not saved approvals: remote changes can alter what a later apply does. A missing owned application registration returns `PLAN_UNAVAILABLE` (exit 1). Bootstrap the app using the existing SDK CLI, explicitly selecting this same workspace in its own connection configuration, then retry. This package does not implement `app apply` yet.
+
+Entities missing from source are included as deletions by default. `--no-delete` passes `inferDeletionFromMissingEntities: false` to the preview. Human output lists every action, identifies object/field deletions that would remove stored data, and shows the opt-out hint. JSON includes action details and counts. Application-variable values, including previous values in updates, are redacted from all plan actions regardless of their `isSecret` setting. A plan exceeding 10,000 actions or the transport's 16 MiB response limit fails instead of displaying an incomplete preview.
 
 ## Output
 

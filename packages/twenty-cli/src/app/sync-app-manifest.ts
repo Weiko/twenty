@@ -1,5 +1,6 @@
 import { isPlainObject } from 'twenty-shared/utils';
 
+import { isSameUniversalIdentifier } from '@/app/is-same-universal-identifier';
 import { parseAppPlan } from '@/app/parse-app-plan';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
 import { CliError } from '@/output/cli-error';
@@ -72,8 +73,10 @@ export const syncAppManifest = async ({
 
   if (
     !isPlainObject(acknowledgement) ||
-    acknowledgement.applicationUniversalIdentifier !==
-      applicationUniversalIdentifier
+    !isSameUniversalIdentifier({
+      value: acknowledgement.applicationUniversalIdentifier,
+      universalIdentifier: applicationUniversalIdentifier,
+    })
   ) {
     throw new CliError({
       code: 'INVALID_RESPONSE',

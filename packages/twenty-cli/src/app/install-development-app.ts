@@ -1,6 +1,7 @@
 import { isNonEmptyString } from '@sniptt/guards';
 import { isPlainObject } from 'twenty-shared/utils';
 
+import { isSameUniversalIdentifier } from '@/app/is-same-universal-identifier';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
@@ -37,7 +38,10 @@ export const installDevelopmentApp = async ({
   if (
     !isPlainObject(installation) ||
     !isNonEmptyString(installation.id) ||
-    installation.universalIdentifier !== application.universalIdentifier
+    !isSameUniversalIdentifier({
+      value: installation.universalIdentifier,
+      universalIdentifier: application.universalIdentifier,
+    })
   ) {
     throw new CliError({
       code: 'INVALID_RESPONSE',

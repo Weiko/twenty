@@ -151,7 +151,9 @@ const readUniversalIdentifier = (variables: Record<string, unknown>) => {
     application?.universalIdentifier,
     input?.universalIdentifier,
     variables.universalIdentifier,
-  ].find(isString);
+  ]
+    .find(isString)
+    ?.toLowerCase();
 };
 
 const syncResponse = (variables: Record<string, unknown>) => ({
@@ -310,7 +312,13 @@ describe('app apply', () => {
   const readReleasedBuildId = () =>
     readFile(join(sdkPath, 'released.txt'), 'utf8');
 
-  const writeSdk = async ({ corruptPath }: { corruptPath?: string } = {}) => {
+  const writeSdk = async ({
+    corruptPath,
+    application = APPLICATION,
+  }: {
+    corruptPath?: string;
+    application?: typeof APPLICATION;
+  } = {}) => {
     await writeFile(
       join(sdkPath, 'build.cjs'),
       `
@@ -342,9 +350,9 @@ describe('app apply', () => {
             buildId: 'build-id',
             directory: filesDirectory,
             contentHash: 'a'.repeat(64),
-            application: ${JSON.stringify(APPLICATION)},
+            application: ${JSON.stringify(application)},
             manifestFormat: 'twenty-application',
-            manifest: ${JSON.stringify(MANIFEST)},
+            manifest: ${JSON.stringify({ application })},
             files,
           },
           diagnostics: [],
@@ -495,6 +503,20 @@ describe('app apply', () => {
       expect(existsSync(state.snapshotPath)).toBe(false);
     },
   );
+
+  it('accepts the lowercase identifier the server returns for an uppercase manifest identifier', async () => {
+    await writeSdk({
+      application: {
+        ...APPLICATION,
+        universalIdentifier: APPLICATION.universalIdentifier.toUpperCase(),
+      },
+    });
+
+    const { exitCode } = await runJson();
+
+    expect(exitCode).toBe(0);
+    expect(operations().at(-1)).toBe('sync');
+  });
 
   it('refuses to register an unknown app without --create', async () => {
     state.isRegistered = false;

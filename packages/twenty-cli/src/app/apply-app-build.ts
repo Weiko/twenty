@@ -4,6 +4,7 @@ import { formatAppPlanActions } from '@/app/format-app-plan';
 import { getAppPlanSummary } from '@/app/get-app-plan-summary';
 import { installDevelopmentApp } from '@/app/install-development-app';
 import { registerApp } from '@/app/register-app';
+import { requireApproval } from '@/app/require-approval';
 import { resolveSnapshotDirectory } from '@/app/resolve-snapshot-directory';
 import { syncAppManifest } from '@/app/sync-app-manifest';
 import { type AppApplyPhase } from '@/app/types/app-apply-phase.type';
@@ -12,9 +13,7 @@ import { type AppUploadProgress } from '@/app/types/app-upload-progress.type';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
 import { uploadAppFiles } from '@/app/upload-app-files';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';
-import { confirmInTerminal } from '@/input/confirm-in-terminal';
 import { CliError } from '@/output/cli-error';
-import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 import { type CliErrorCode } from '@/output/types/cli-error-code.type';
 import { isInteractionAllowed } from '@/program/is-interaction-allowed';
 
@@ -23,14 +22,6 @@ export type AppApplyResult = {
   isRegistrationCreated: boolean;
   appliedActions: AppPlanAction[] | undefined;
   upload: AppUploadProgress;
-};
-
-type Approval = {
-  isApproved: boolean;
-  question: string;
-  code: CliErrorCode;
-  message: string;
-  hint: string;
 };
 
 const isPlanUnavailable = (error: unknown) =>
@@ -86,41 +77,21 @@ export const applyAppBuild = async ({
     }
   };
 
-  const requireApproval = async ({
-    isApproved,
-    question,
-    code,
-    message,
-    hint,
-  }: Approval) => {
-    if (isApproved) {
-      return;
-    }
-
-    if (!canPrompt) {
-      throw fail(
-        new CliError({ code, exitCode: EXIT_CODE.USAGE, message, hint }),
-        'confirmation',
-      );
-    }
-
-    const isConfirmed = await confirmInTerminal({ question, signal }).catch(
-      (error: unknown) => {
-        throw fail(error, 'confirmation');
-      },
-    );
-
-    if (!isConfirmed) {
-      throw fail(
-        new CliError({
-          code: 'CONFIRMATION_DECLINED',
-          exitCode: EXIT_CODE.USAGE,
-          message: 'Apply stopped at the confirmation prompt.',
-        }),
-        'confirmation',
-      );
-    }
-  };
+  const approve = (approval: {
+    isApproved: boolean;
+    question: string;
+    code: CliErrorCode;
+    message: string;
+    hint: string;
+  }) =>
+    requireApproval({
+      ...approval,
+      canPrompt,
+      declinedMessage: 'Apply stopped at the confirmation prompt.',
+      signal,
+    }).catch((error: unknown) => {
+      throw fail(error, 'confirmation');
+    });
 
   const preview = () =>
     fetchAppPlan({ build, inferDeletionFromMissingEntities, target, signal });
@@ -138,7 +109,7 @@ export const applyAppBuild = async ({
       }
     }
 
-    await requireApproval({
+    await approve({
       isApproved: isCreationApproved,
       question: `${application.displayName} is not registered. Register it and install it on ${target.apiUrl}?`,
       code: 'CREATE_REQUIRED',
@@ -189,7 +160,7 @@ export const applyAppBuild = async ({
         ? 'object or field deletion'
         : 'object or field deletions';
 
-    await requireApproval({
+    await approve({
       isApproved: isDeletionApproved,
       question: `Apply ${summary.destructive} ${deletionLabel} that permanently delete stored data on ${target.apiUrl}?`,
       code: 'CONFIRMATION_REQUIRED',

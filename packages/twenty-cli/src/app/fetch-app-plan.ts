@@ -1,29 +1,11 @@
-import { isArray } from '@sniptt/guards';
 import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
+import { isApplicationNotFoundError } from '@/app/is-application-not-found-error';
 import { parseAppPlan } from '@/app/parse-app-plan';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
 import { sendGraphqlRequest } from '@/transport/graphql/send-graphql-request';
-
-const isMissingApplication = (error: CliError) => {
-  const errors = error.details?.errors;
-
-  if (!isArray(errors) || errors.length !== 1) {
-    return false;
-  }
-
-  const entry: unknown = errors[0];
-
-  return (
-    isPlainObject(entry) &&
-    entry.code === 'NOT_FOUND' &&
-    entry.subCode === 'APPLICATION_NOT_FOUND' &&
-    isArray(entry.path) &&
-    entry.path[0] === 'syncApplication'
-  );
-};
 
 export const fetchAppPlan = async ({
   build,
@@ -69,8 +51,7 @@ export const fetchAppPlan = async ({
   } catch (error) {
     if (
       error instanceof CliError &&
-      error.code === 'GRAPHQL_ERROR' &&
-      isMissingApplication(error)
+      isApplicationNotFoundError({ error, field: 'syncApplication' })
     ) {
       throw new CliError({
         code: 'PLAN_UNAVAILABLE',

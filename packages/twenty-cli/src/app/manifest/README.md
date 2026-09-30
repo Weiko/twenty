@@ -17,10 +17,8 @@ Ported from twenty-sdk at `85902c53835d7f2d21399118a2bdd8896d3eb53c`:
   `objects/is-engine-derived-label-identifier.ts` and
   `conditional-availability/conditional-availability-variable-names.ts`.
 
-SDK source is unchanged. B3 adds these sources to the shared
-[`../sdk-port-sources.json`](../sdk-port-sources.json) drift guard. Compare them
-with the recorded commit when bringing in SDK fixes, mirror the changes and run
-the parity suite before updating the recorded hashes.
+SDK source is unchanged. Compare these paths with the recorded commit when
+bringing in SDK fixes, and run the parity suite against the updated SDK source.
 The existing CLI source loader and locale helpers already carry their own port
 provenance. `uuid` is bundled for the same deterministic identifiers and UUID
 validation as the SDK.

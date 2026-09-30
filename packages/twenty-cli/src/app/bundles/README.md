@@ -21,11 +21,9 @@ Copied from twenty-sdk at `85902c53835d7f2d21399118a2bdd8896d3eb53c`:
 - the external-module list and file-built callback type from the SDK watcher,
   and the front-component translation key and catalog type from its runtime.
 
-The exact files and source hashes are in [`../sdk-port-sources.json`](../sdk-port-sources.json),
-alongside the B2 manifest, validation, config-type and translation sources. The
-drift test runs with the CLI suite and fails when these SDK sources change. Mirror
-the upstream fix, re-run parity and update the recorded source together. The SDK,
-create-twenty-app, client SDK and server are unchanged in this slice.
+Compare these paths with the recorded commit when bringing in SDK fixes, and run
+the parity suite against the updated SDK source. The SDK, create-twenty-app,
+client SDK and server are unchanged in this slice.
 
 ## Preserved behavior
 
@@ -79,7 +77,7 @@ SDK. Cleanup never removes legacy output or another build's snapshot.
 After building shared, SDK and UI dependencies, from `packages/twenty-cli`:
 
 ```bash
-node ../../node_modules/vitest/vitest.mjs run --config vitest.config.ts --maxWorkers=1 src/app/snapshots src/app/bundles src/app/__tests__/resolve-snapshot-directory.spec.ts src/app/__tests__/sdk-port-drift.spec.ts src/commands/app/__tests__/app-real-sdk.spec.ts
+node ../../node_modules/vitest/vitest.mjs run --config vitest.config.ts --maxWorkers=1 src/app/snapshots src/app/bundles src/app/__tests__/resolve-snapshot-directory.spec.ts src/commands/app/__tests__/app-real-sdk.spec.ts
 ```
 
 The parity suite builds all five repository fixtures and a fresh CLI-created app

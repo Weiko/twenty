@@ -51062,6 +51062,7 @@ __metadata:
     semver: "npm:7.6.3"
     twenty-client-sdk: "workspace:*"
     twenty-shared: "workspace:*"
+    undici: "npm:^7.29.0"
     vite: "npm:^8.0.0"
     vitest: "npm:^4.1.0"
   bin:

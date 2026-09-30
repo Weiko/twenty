@@ -224,6 +224,8 @@ Exit codes:
 
 The CLI-owned [source loader](src/app/source/README.md) powers app pull and prepares for build migration. Build, typecheck and client generation still use the existing SDK build API.
 
+The internal CLI build pipeline now includes [typechecking with the app's own TypeScript](src/app/typecheck/README.md). It fails on configuration errors and unbuilt project references, requires TypeScript in the app or its workspace, and never borrows the globally installed CLI's compiler. Public command migration remains a separate step.
+
 The internal [manifest builder](src/app/manifest/README.md) ports manifest validation and translation compilation into the CLI. It is checked against the SDK on every fixture and a fresh app; public build and apply commands switch over in a later slice.
 
 The internal [bundler and snapshot pipeline](src/app/bundles/README.md) now produces CLI-owned snapshots under `.twenty/cli/snapshots`, checked against SDK bundle bytes and hashes. Typechecking is the next migration slice; public commands still use the SDK pipeline.

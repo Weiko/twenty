@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { isDefined } from 'twenty-shared/utils';
 
+import { hasYarnPlugAndPlay } from '@/app/has-yarn-plug-and-play';
 import { listAncestorDirectories } from '@/app/list-ancestor-directories';
 import { readJsonObject } from '@/app/read-json-object';
 import { CliError } from '@/output/cli-error';
@@ -34,21 +35,6 @@ const findInstalledSdk = async (appPath: string) => {
   }
 
   return undefined;
-};
-
-const hasYarnPlugAndPlay = async (appPath: string) => {
-  for (const directory of listAncestorDirectories(appPath)) {
-    const hasLoader = await access(join(directory, '.pnp.cjs')).then(
-      () => true,
-      () => false,
-    );
-
-    if (hasLoader) {
-      return true;
-    }
-  }
-
-  return false;
 };
 
 const throwMissingSdk = async (appPath: string): Promise<never> => {

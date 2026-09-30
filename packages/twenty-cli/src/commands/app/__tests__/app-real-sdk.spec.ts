@@ -273,6 +273,7 @@ describe.each(['SDK', 'CLI'])('app commands with %s snapshots', (mode) => {
         'twenty-ui',
         'react',
         'react-dom',
+        'typescript',
         '@types',
       ]) {
         await symlink(

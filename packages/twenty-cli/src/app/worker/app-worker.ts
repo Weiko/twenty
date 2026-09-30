@@ -84,7 +84,8 @@ const parseRequest = (message: unknown): AppWorkerRequest | undefined => {
 
   if (
     message.type === 'readSourceIdentity' ||
-    message.type === 'buildManifest'
+    message.type === 'buildManifest' ||
+    message.type === 'typecheckSource'
   ) {
     return isNonEmptyString(message.appPath)
       ? { type: message.type, appPath: message.appPath }
@@ -377,6 +378,21 @@ process.on('message', (message: unknown) => {
             : respond(response),
         (error: unknown) => respond(toFailure(error)),
       );
+
+    return;
+  }
+
+  if (request.type === 'typecheckSource') {
+    import('@/app/typecheck/typecheck-application')
+      .then(async ({ typecheckApplication }) => {
+        const result = await typecheckApplication({
+          appPath: request.appPath,
+          signal: abortController.signal,
+        });
+
+        respond({ type: 'result', result, isSnapshotHeld: false });
+      })
+      .catch((error: unknown) => respond(toFailure(error)));
 
     return;
   }

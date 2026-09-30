@@ -19,6 +19,7 @@ import { isDefined, isPlainObject } from 'twenty-shared/utils';
 import {
   afterAll,
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -32,17 +33,40 @@ import {
 } from '@/__tests__/utils/run-cli-for-test';
 import { sendJson, startTestServer } from '@/__tests__/utils/start-test-server';
 
-vi.mock('@/app/get-app-worker-launch', () => ({
-  getAppWorkerLaunch: () => ({
-    modulePath: fileURLToPath(
-      new URL('../../../app/worker/app-worker.ts', import.meta.url),
-    ),
-    execArgv: [
-      '--disable-warning=ExperimentalWarning',
-      '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON',
-    ],
-  }),
+import { type runAppWorker } from '@/app/run-app-worker';
+import { buildTestAppWorker } from '@/app/__tests__/utils/build-test-app-worker';
+
+const buildMode = vi.hoisted(() => ({
+  value: 'SDK',
+  launch: { modulePath: '', execArgv: [] as string[] },
 }));
+
+vi.mock('@/app/get-app-worker-launch', () => ({
+  getAppWorkerLaunch: () => buildMode.launch,
+}));
+
+vi.mock('@/app/run-app-worker', async (importOriginal) => {
+  const original = await importOriginal<{
+    runAppWorker: typeof runAppWorker;
+  }>();
+
+  return {
+    runAppWorker: (options: Parameters<typeof original.runAppWorker>[0]) =>
+      original.runAppWorker({
+        ...options,
+        request:
+          buildMode.value === 'CLI' &&
+          options.request.type === 'run' &&
+          options.request.operation === 'build'
+            ? {
+                type: 'bundleSnapshot',
+                appPath: options.request.appPath,
+                holdSnapshot: options.request.holdSnapshot,
+              }
+            : options.request,
+      }),
+  };
+});
 
 const REPOSITORY_ROOT = fileURLToPath(
   new URL('../../../../../../', import.meta.url),
@@ -53,10 +77,18 @@ const APP_PATH = join(
   'packages/twenty-apps/fixtures/minimal-app',
 );
 
-const SNAPSHOTS_PATH = join(APP_PATH, '.twenty', 'snapshots');
+const snapshotsPath = (appPath: string) =>
+  join(
+    appPath,
+    '.twenty',
+    ...(buildMode.value === 'CLI' ? ['cli'] : []),
+    'snapshots',
+  );
 
 const listSnapshots = async () =>
-  existsSync(SNAPSHOTS_PATH) ? await readdir(SNAPSHOTS_PATH) : [];
+  existsSync(snapshotsPath(APP_PATH))
+    ? await readdir(snapshotsPath(APP_PATH))
+    : [];
 
 const readGraphqlBody = (body: string) => {
   const parsed: unknown = JSON.parse(body);
@@ -182,8 +214,22 @@ const runJson = async (args: string[]) => {
   return { ...result, envelope: parseSingleJsonLine(result.stdout) };
 };
 
-describe('app commands with the repository SDK', () => {
+let workerDirectory: string;
+
+beforeAll(async () => {
+  workerDirectory = await mkdtemp(join(tmpdir(), 'twenty-real-apply-worker-'));
+  await buildTestAppWorker(workerDirectory);
+  buildMode.launch.modulePath = join(workerDirectory, 'app-worker.cjs');
+}, 60000);
+
+afterAll(async () => {
+  await server.close();
+  await rm(workerDirectory, { recursive: true, force: true });
+});
+
+describe.each(['SDK', 'CLI'])('app commands with %s snapshots', (mode) => {
   beforeEach(() => {
+    buildMode.value = mode;
     vi.stubEnv('TWENTY_API_URL', server.url);
     vi.stubEnv('TWENTY_API_KEY', 'real-sdk-test-key');
     vi.stubEnv('TWENTY_REMOTE', '');
@@ -192,8 +238,6 @@ describe('app commands with the repository SDK', () => {
   });
 
   afterEach(() => vi.unstubAllEnvs());
-
-  afterAll(() => server.close());
 
   it('builds a real app', async () => {
     const snapshotsBefore = await listSnapshots();
@@ -285,7 +329,7 @@ describe('app commands with the repository SDK', () => {
           expect.objectContaining({ fileFolder: 'BuiltLogicFunction' }),
         ]),
       });
-      expect(await readdir(join(appPath, '.twenty', 'snapshots'))).toEqual([]);
+      expect(await readdir(snapshotsPath(appPath))).toEqual([]);
       expect(
         await readFile(
           join(clientPath, 'dist', 'core/generated/schema.graphql'),

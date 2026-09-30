@@ -91,6 +91,16 @@ const parseRequest = (message: unknown): AppWorkerRequest | undefined => {
       : undefined;
   }
 
+  if (message.type === 'bundleSnapshot') {
+    return isNonEmptyString(message.appPath)
+      ? {
+          type: 'bundleSnapshot',
+          appPath: message.appPath,
+          holdSnapshot: message.holdSnapshot === true,
+        }
+      : undefined;
+  }
+
   if (message.type === 'pull') {
     if (
       !isNonEmptyString(message.appPath) ||
@@ -232,6 +242,19 @@ const runOperation = async ({
     });
   }
 
+  return runSnapshotBuild({ buildModule, appPath, holdSnapshot });
+};
+
+const runSnapshotBuild = async ({
+  buildModule,
+  appPath,
+  holdSnapshot,
+}: {
+  buildModule: BuildApi;
+  appPath: string;
+  holdSnapshot: boolean;
+}): Promise<AppWorkerResponse> => {
+  const signal = abortController.signal;
   const result = await buildModule.buildAppSnapshot({ appPath, signal });
   const buildId = readSuccessfulBuildId(result);
 
@@ -332,6 +355,29 @@ process.on('message', (message: unknown) => {
         respond({ type: 'result', result, isSnapshotHeld: false });
       })
       .catch((error: unknown) => respond(toFailure(error)));
+    return;
+  }
+
+  if (request.type === 'bundleSnapshot') {
+    import('@/app/worker/build-source-snapshot')
+      .then(({ buildSourceSnapshot, releaseSourceSnapshot }) =>
+        runSnapshotBuild({
+          buildModule: {
+            buildAppSnapshot: buildSourceSnapshot,
+            releaseAppSnapshot: releaseSourceSnapshot,
+          },
+          appPath: request.appPath,
+          holdSnapshot: request.holdSnapshot,
+        }),
+      )
+      .then(
+        (response) =>
+          response.type === 'result' && response.isSnapshotHeld
+            ? sendHeldResult(response)
+            : respond(response),
+        (error: unknown) => respond(toFailure(error)),
+      );
+
     return;
   }
 

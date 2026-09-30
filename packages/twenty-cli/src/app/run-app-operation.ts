@@ -121,7 +121,7 @@ export const runAppOperation = async <TData>({
     output.warn({
       code: 'SNAPSHOT_RELEASE_FAILED',
       message:
-        'The temporary build snapshot could not be removed. You can delete .twenty/snapshots once no build is running.',
+        'The temporary build snapshot could not be removed. You can delete .twenty/snapshots and .twenty/cli/snapshots once no build is running.',
     });
   }
 

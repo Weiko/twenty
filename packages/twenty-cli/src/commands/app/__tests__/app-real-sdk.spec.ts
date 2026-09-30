@@ -34,6 +34,7 @@ import {
 import { sendJson, startTestServer } from '@/__tests__/utils/start-test-server';
 
 import { type runAppWorker } from '@/app/run-app-worker';
+import { installTestClientSdk } from '@/app/__tests__/utils/install-test-client-sdk';
 import { buildTestAppWorker } from '@/app/__tests__/utils/build-test-app-worker';
 
 const buildMode = vi.hoisted(() => ({
@@ -51,20 +52,32 @@ vi.mock('@/app/run-app-worker', async (importOriginal) => {
   }>();
 
   return {
-    runAppWorker: (options: Parameters<typeof original.runAppWorker>[0]) =>
-      original.runAppWorker({
+    runAppWorker: (options: Parameters<typeof original.runAppWorker>[0]) => {
+      const request = options.request;
+      if (buildMode.value === 'CLI' && request.type === 'generateClient') {
+        return original.runAppWorker({
+          ...options,
+          request: {
+            type: 'generateSourceClient',
+            appPath: request.appPath,
+            schema: request.schema,
+          },
+        });
+      }
+      return original.runAppWorker({
         ...options,
         request:
           buildMode.value === 'CLI' &&
-          options.request.type === 'run' &&
-          options.request.operation === 'build'
+          request.type === 'run' &&
+          request.operation === 'build'
             ? {
                 type: 'bundleSnapshot',
-                appPath: options.request.appPath,
-                holdSnapshot: options.request.holdSnapshot,
+                appPath: request.appPath,
+                holdSnapshot: request.holdSnapshot,
               }
-            : options.request,
-      }),
+            : request,
+      });
+    },
   };
 });
 
@@ -258,7 +271,7 @@ describe.each(['SDK', 'CLI'])('app commands with %s snapshots', (mode) => {
     expect(await listSnapshots()).toEqual(snapshotsBefore);
   }, 120_000);
 
-  it('uploads a real build, releases its snapshot and generates an isolated client with the project SDK', async () => {
+  it('uploads a real build, releases its snapshot and generates an isolated client', async () => {
     const appPath = await mkdtemp(join(tmpdir(), 'twenty-cli-real-apply-'));
 
     try {
@@ -284,11 +297,7 @@ describe.each(['SDK', 'CLI'])('app commands with %s snapshots', (mode) => {
       }
       const clientPath = join(appPath, 'node_modules', 'twenty-client-sdk');
 
-      await mkdir(join(clientPath, 'dist'), { recursive: true });
-      await writeFile(
-        join(clientPath, 'package.json'),
-        JSON.stringify({ name: 'twenty-client-sdk' }),
-      );
+      await installTestClientSdk(clientPath);
       await writeFile(
         join(clientPath, 'dist', 'metadata.cjs'),
         'metadata client',

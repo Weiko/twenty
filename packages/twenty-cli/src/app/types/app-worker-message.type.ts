@@ -16,6 +16,7 @@ export type AppWorkerRequest =
       buildEntryPath: string;
       schema: string;
     }
+  | { type: 'generateSourceClient'; appPath: string; schema: string }
   | { type: 'readSourceIdentity'; appPath: string }
   | { type: 'buildManifest'; appPath: string }
   | { type: 'typecheckSource'; appPath: string }

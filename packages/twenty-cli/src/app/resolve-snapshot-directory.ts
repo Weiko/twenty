@@ -27,11 +27,15 @@ export const resolveSnapshotDirectory = ({
     !isInsideDirectory({
       filePath: build.directory,
       directory: join(appPath, '.twenty', 'snapshots'),
+    }) &&
+    !isInsideDirectory({
+      filePath: build.directory,
+      directory: join(appPath, '.twenty', 'cli', 'snapshots'),
     })
   ) {
     throw new CliError({
       code: 'SNAPSHOT_INVALID',
-      message: `The build snapshot ${build.directory} is outside the app's .twenty/snapshots folder.`,
+      message: `The build snapshot ${build.directory} is outside the app's .twenty/snapshots and .twenty/cli/snapshots folders.`,
       details: { directory: build.directory },
     });
   }

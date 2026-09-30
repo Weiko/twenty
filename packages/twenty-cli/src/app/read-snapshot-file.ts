@@ -16,7 +16,7 @@ const createSnapshotInvalidError = ({
   new CliError({
     code: 'SNAPSHOT_INVALID',
     message,
-    hint: 'Build again. If it keeps happening, check that nothing else writes to .twenty/snapshots.',
+    hint: 'Build again. If it keeps happening, check that nothing else writes to the snapshot directory.',
     details: { path },
   });
 

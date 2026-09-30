@@ -132,14 +132,24 @@ describe('open', () => {
 
   it.each([
     'https://evil.example/login',
+    'http:evil.example/login',
     '//evil.example/login',
+    '/\\evil.example/login',
+    '/.//evil.example/login',
+    'foo/..//evil.example/login',
+    '/%2e//evil.example/login',
     'javascript:alert(1)',
-  ])('refuses %s as a page before contacting the server', async (page) => {
+  ])('refuses %s as a page', async (page) => {
     const { envelope, exitCode } = await runJson([page, '--url-only']);
 
     expect(exitCode).toBe(2);
+    expect(envelope.ok).toBe(false);
     expect(envelope.error.code).toBe('USAGE');
-    expect(server.requests).toHaveLength(0);
+
+    const human = await runCliForTest(['open', page]);
+
+    expect(human.exitCode).toBe(2);
+    expect(openBrowser).not.toHaveBeenCalled();
   });
 
   it.each([

@@ -1,12 +1,10 @@
-import { isDefined } from 'twenty-shared/utils';
-
 import {
   readBooleanOption,
   readStringArgument,
 } from '@/catalog/read-command-values';
 import { type CommandRun } from '@/catalog/types/command-run.type';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';
-import { parseWorkspacePage } from '@/commands/open/parse-workspace-page';
+import { resolveWorkspacePageUrl } from '@/commands/open/resolve-workspace-page-url';
 import { openBrowser } from '@/oauth/open-browser';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
@@ -21,8 +19,6 @@ export const runOpenCommand: CommandRun<TargetCommandContext> = async ({
   signal,
 }) => {
   const isUrlOnly = readBooleanOption(options, 'urlOnly');
-  const page = readStringArgument(commandArguments, 0);
-  const pagePath = isDefined(page) ? parseWorkspacePage(page) : '/';
 
   if (!isUrlOnly && !isInteractionAllowed({ options, outputMode })) {
     throw new CliError({
@@ -34,8 +30,10 @@ export const runOpenCommand: CommandRun<TargetCommandContext> = async ({
     });
   }
 
-  const url = new URL(pagePath, await fetchWorkspaceUrl({ target, signal }))
-    .href;
+  const url = resolveWorkspacePageUrl({
+    workspaceUrl: await fetchWorkspaceUrl({ target, signal }),
+    page: readStringArgument(commandArguments, 0),
+  });
 
   if (isUrlOnly) {
     return { data: { url }, human: url };

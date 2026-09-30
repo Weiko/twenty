@@ -3,12 +3,24 @@ import { isDefined } from 'twenty-shared/utils';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 
-const PLACEHOLDER_ORIGIN = 'http://workspace.invalid';
+export const resolveWorkspacePageUrl = ({
+  workspaceUrl,
+  page,
+}: {
+  workspaceUrl: URL;
+  page: string | undefined;
+}) => {
+  if (!isDefined(page)) {
+    return workspaceUrl.href;
+  }
 
-export const parseWorkspacePage = (page: string) => {
-  const pageUrl = URL.parse(page, `${PLACEHOLDER_ORIGIN}/`);
+  const pageUrl = URL.parse(page, workspaceUrl);
 
-  if (!isDefined(pageUrl) || pageUrl.origin !== PLACEHOLDER_ORIGIN) {
+  if (
+    !isDefined(pageUrl) ||
+    pageUrl.origin !== workspaceUrl.origin ||
+    pageUrl.pathname.startsWith('//')
+  ) {
     throw new CliError({
       code: 'USAGE',
       exitCode: EXIT_CODE.USAGE,
@@ -17,5 +29,5 @@ export const parseWorkspacePage = (page: string) => {
     });
   }
 
-  return `${pageUrl.pathname}${pageUrl.search}${pageUrl.hash}`;
+  return pageUrl.href;
 };

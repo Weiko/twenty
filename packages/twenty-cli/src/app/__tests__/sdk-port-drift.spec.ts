@@ -4,13 +4,13 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import sources from '@/app/bundles/sdk-port-sources.json';
+import sources from '@/app/sdk-port-sources.json';
 
 const sdkSource = fileURLToPath(
-  new URL('../../../../../twenty-sdk/src/', import.meta.url),
+  new URL('../../../../twenty-sdk/src/', import.meta.url),
 );
 
-describe('SDK bundle port source drift', () => {
+describe('SDK manifest and bundle port source drift', () => {
   it.each(Object.entries(sources.files))(
     'still matches the reviewed source of %s',
     async (path, checksum) => {

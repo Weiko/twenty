@@ -2,6 +2,8 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { access, cp, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 
+import { hasErrorCode } from '@/utils/has-error-code';
+
 export const pathExists = async (filePath: string): Promise<boolean> => {
   try {
     await access(filePath);
@@ -24,7 +26,7 @@ export const emptyDir = async (dirPath: string): Promise<void> => {
   try {
     entries = await readdir(dirPath);
   } catch (error: unknown) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+    if (hasErrorCode(error, 'ENOENT')) {
       await mkdir(dirPath, { recursive: true });
       return;
     }

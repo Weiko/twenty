@@ -9,7 +9,7 @@ API or a way to bypass checks in `twenty app build`.
 
 ## Source
 
-Copied from twenty-sdk at `8723c7526e16f56026dcd9e66ba97a2b9c867e0f`:
+Copied from twenty-sdk at `85902c53835d7f2d21399118a2bdd8896d3eb53c`:
 
 - `src/cli/utilities/build/common`: one-shot build, result processing, static
   file copying, define stubs and front-component plugins, including shared
@@ -21,9 +21,10 @@ Copied from twenty-sdk at `8723c7526e16f56026dcd9e66ba97a2b9c867e0f`:
 - the external-module list and file-built callback type from the SDK watcher,
   and the front-component translation key and catalog type from its runtime.
 
-The exact files and source hashes are in `sdk-port-sources.json`. The drift test
-runs with the CLI suite and fails when these SDK sources change. Mirror the
-upstream fix, re-run parity and update the recorded source together. The SDK,
+The exact files and source hashes are in [`../sdk-port-sources.json`](../sdk-port-sources.json),
+alongside the B2 manifest, validation, config-type and translation sources. The
+drift test runs with the CLI suite and fails when these SDK sources change. Mirror
+the upstream fix, re-run parity and update the recorded source together. The SDK,
 create-twenty-app, client SDK and server are unchanged in this slice.
 
 ## Preserved behavior
@@ -50,8 +51,8 @@ SDK. Cleanup never removes legacy output or another build's snapshot.
 ## CLI adaptations
 
 - Imports point to the CLI ports, reusing the B1 loader, B2 manifest and
-  translations, and existing filesystem helpers. Only the callback and external
-  module list move from the watcher; watch and typecheck remain later slices.
+  translations, existing filesystem helpers and `hasErrorCode` for filesystem
+  errors. Only the callback and external module list move from the watcher; watch and typecheck remain later slices.
 - The define stub reads `twenty-sdk/define` from the app's installed SDK instead
   of importing the SDK's own source barrel. Its factory/plain-data/proxy
   partition and emitted JavaScript are unchanged. This keeps runtime constants
@@ -78,7 +79,7 @@ SDK. Cleanup never removes legacy output or another build's snapshot.
 After building shared, SDK and UI dependencies, from `packages/twenty-cli`:
 
 ```bash
-node ../../node_modules/vitest/vitest.mjs run --config vitest.config.ts --maxWorkers=1 src/app/snapshots src/app/bundles src/app/__tests__/resolve-snapshot-directory.spec.ts src/commands/app/__tests__/app-real-sdk.spec.ts
+node ../../node_modules/vitest/vitest.mjs run --config vitest.config.ts --maxWorkers=1 src/app/snapshots src/app/bundles src/app/__tests__/resolve-snapshot-directory.spec.ts src/app/__tests__/sdk-port-drift.spec.ts src/commands/app/__tests__/app-real-sdk.spec.ts
 ```
 
 The parity suite builds all five repository fixtures and a fresh CLI-created app

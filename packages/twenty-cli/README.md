@@ -88,6 +88,11 @@ twenty app init billing --path ./apps/billing --display-name Billing --json
 
 The name must be a valid npm package name, otherwise the command fails with `INVALID_APP_NAME` (exit 2). The app is created in `./<name>` unless `--path` says otherwise; `--display-name` and `--description` set what Twenty shows. The target must not exist yet or be an empty directory; anything else fails with `APP_PATH_UNAVAILABLE` (exit 6) and nothing is written. The template is rendered in a hidden sibling directory and moved into place only after every placeholder was filled, so a failure or Ctrl+C does not leave a half-created app behind. An existing empty directory is filled with create-only writes, so a file that appears there meanwhile is never overwritten.
 
+New apps declare `engines.twenty` as `>=` the template release version. The server
+checks this range against the workspace's completed upgrade version on apply.
+Upgrade the workspace before deploying a newer template, including during local
+development. Adjust the range only after testing the app against older versions.
+
 ## Build and check an app
 
 ```bash

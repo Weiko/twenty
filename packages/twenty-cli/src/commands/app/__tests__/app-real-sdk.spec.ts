@@ -80,6 +80,8 @@ const readManifestIdentifier = (variables: Record<string, unknown>) => {
     : undefined;
 };
 
+let syncedManifest: unknown;
+
 const server = await startTestServer((request, response) => {
   if (request.method === 'PUT') {
     return sendJson(response, 200, {});
@@ -88,6 +90,9 @@ const server = await startTestServer((request, response) => {
   const { query, variables } = readGraphqlBody(request.body);
 
   if (query.includes('syncApplication')) {
+    if (!query.includes('dryRun: true')) {
+      syncedManifest = variables.manifest;
+    }
     return sendJson(response, 200, {
       data: {
         syncApplication: {
@@ -130,6 +135,33 @@ const server = await startTestServer((request, response) => {
   if (query.includes('completeApplicationFileUploads')) {
     return sendJson(response, 200, {
       data: { completeApplicationFileUploads: { errors: [] } },
+    });
+  }
+
+  if (query.includes('currentWorkspace')) {
+    return sendJson(response, 200, {
+      data: {
+        currentWorkspace: { id: '48eb6ca1-dbd6-492e-8b53-5785a266c454' },
+      },
+    });
+  }
+
+  if (query.includes('exportApplication')) {
+    return sendJson(response, 200, {
+      data: {
+        exportApplication: {
+          application: {
+            ...(isPlainObject(syncedManifest) &&
+            isPlainObject(syncedManifest.application)
+              ? syncedManifest.application
+              : {}),
+            sourceType: 'LOCAL',
+          },
+          manifest: syncedManifest,
+          coverage: [],
+          files: [],
+        },
+      },
     });
   }
 
@@ -231,8 +263,15 @@ describe('app commands with the repository SDK', () => {
 
       expect(exitCode, JSON.stringify(envelope)).toBe(0);
       expect(envelope.data.clientGeneration).toBe('generated');
-      expect(envelope.data.completedPhases.slice(-2)).toEqual([
+      expect(envelope.data.pullBase).toBe('recorded');
+      expect(
+        JSON.parse(
+          await readFile(join(appPath, '.twenty/cli/pull-base.json'), 'utf8'),
+        ).manifest,
+      ).toEqual(syncedManifest);
+      expect(envelope.data.completedPhases.slice(-3)).toEqual([
         'sync',
+        'pullBase',
         'clientGeneration',
       ]);
       expect(envelope.data.upload.fileCount).toBeGreaterThan(0);

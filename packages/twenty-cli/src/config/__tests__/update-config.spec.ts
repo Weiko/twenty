@@ -8,9 +8,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { type ConfigFile } from '@/config/types/config-file.type';
 import { updateConfig } from '@/config/update-config';
 
+const { configLock, SHORT_CONFIG_LOCK } = vi.hoisted(() => {
+  const SHORT_CONFIG_LOCK = {
+    TIMEOUT_MILLISECONDS: 500,
+    RETRY_MILLISECONDS: 10,
+  };
+
+  return { SHORT_CONFIG_LOCK, configLock: { ...SHORT_CONFIG_LOCK } };
+});
+
 vi.mock('@/config/constants/config-lock.constant', () => ({
-  CONFIG_LOCK: { TIMEOUT_MILLISECONDS: 500, RETRY_MILLISECONDS: 10 },
+  CONFIG_LOCK: configLock,
 }));
+
+const CONCURRENT_UPDATE_LOCK_TIMEOUT_MILLISECONDS = 4_000;
 
 const INITIAL_CONFIG: ConfigFile = {
   version: 1,
@@ -35,6 +46,7 @@ describe('updateConfig', () => {
     const directory = await mkdtemp(join(tmpdir(), 'twenty-cli-update-'));
 
     configPath = join(directory, '.twenty', 'config.json');
+    Object.assign(configLock, SHORT_CONFIG_LOCK);
   });
 
   it('creates a private config directory and file', async () => {
@@ -51,6 +63,9 @@ describe('updateConfig', () => {
 
   it('keeps every write when updates run concurrently', async () => {
     const names = Array.from({ length: 20 }, (_, index) => `remote-${index}`);
+
+    configLock.TIMEOUT_MILLISECONDS =
+      CONCURRENT_UPDATE_LOCK_TIMEOUT_MILLISECONDS;
 
     await Promise.all(
       names.map((name) =>

@@ -1,4 +1,4 @@
-import { pathExists } from '@/app/pull/fs-utils';
+import { pathExists } from '@/app/fs-utils';
 import { type PullDeletion, type PullWrite } from '@/app/pull/plan-pull-writes';
 import {
   type PulledLocaleCatalog,

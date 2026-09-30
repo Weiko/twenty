@@ -1,4 +1,4 @@
-import { pathExists } from '@/app/pull/fs-utils';
+import { pathExists } from '@/app/fs-utils';
 import { stat } from 'node:fs/promises';
 import path from 'path';
 

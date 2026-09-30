@@ -1,5 +1,4 @@
-import { pathExists } from '@/app/pull/fs-utils';
-import { readJson } from '@/app/manifest/read-json';
+import { pathExists, readJson } from '@/app/fs-utils';
 import path from 'path';
 import { isDefined } from 'twenty-shared/utils';
 

@@ -27,7 +27,7 @@ import {
   ensureDir,
   pathExists,
   pathExistsSync,
-} from '@/app/pull/fs-utils';
+} from '@/app/fs-utils';
 import { FRONT_COMPONENT_TRANSLATIONS_KEY } from '@/app/bundles/constants/front-component-translations-key';
 
 export type AppBuildOptions = {

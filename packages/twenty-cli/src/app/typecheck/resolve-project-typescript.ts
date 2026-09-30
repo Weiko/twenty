@@ -7,7 +7,7 @@ import type ts from 'typescript';
 import { hasYarnPlugAndPlay } from '@/app/has-yarn-plug-and-play';
 import { isTypeScriptCompilerApi } from '@/app/typecheck/is-typescript-compiler-api';
 import { listAncestorDirectories } from '@/app/list-ancestor-directories';
-import { pathExists } from '@/app/pull/fs-utils';
+import { pathExists } from '@/app/fs-utils';
 import { readJsonObject } from '@/app/read-json-object';
 import { CliError } from '@/output/cli-error';
 import { isInsideDirectory } from '@/utils/is-inside-directory';

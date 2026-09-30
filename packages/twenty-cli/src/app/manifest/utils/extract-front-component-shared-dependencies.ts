@@ -1,6 +1,5 @@
 import { normalizeFrontComponentSharedDependencies } from '@/app/manifest/utils/normalize-front-component-shared-dependencies';
-import { pathExists } from '@/app/pull/fs-utils';
-import { readJson } from '@/app/manifest/read-json';
+import { pathExists, readJson } from '@/app/fs-utils';
 import { isNonEmptyArray, isNonEmptyString } from '@sniptt/guards';
 import path from 'path';
 import {

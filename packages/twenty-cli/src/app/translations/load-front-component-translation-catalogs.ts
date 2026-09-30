@@ -4,11 +4,10 @@ import path from 'path';
 import { SOURCE_LOCALE } from 'twenty-shared/translations';
 
 import { type TranslationCatalogsByLocale } from '@/app/translations/types/translation-catalogs-by-locale.type';
-import { pathExists } from '@/app/pull/fs-utils';
+import { pathExists, readJson } from '@/app/fs-utils';
 import { compileCatalogToMessageIds } from '@/app/translations/compile-catalog-to-message-ids';
 import { LOCALES_DIR } from '@/app/translations/constants';
 
-import { readJson } from '@/app/manifest/read-json';
 import { isSupportedLocale } from '@/app/translations/is-supported-locale';
 
 export const loadFrontComponentTranslationCatalogs = async (

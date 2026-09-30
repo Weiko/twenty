@@ -2,8 +2,7 @@ import { readdir } from 'node:fs/promises';
 import path from 'path';
 
 import { compileCatalogToMessageIds } from '@/app/translations/compile-catalog-to-message-ids';
-import { pathExists } from '@/app/pull/fs-utils';
-import { readJson } from '@/app/manifest/read-json';
+import { pathExists, readJson } from '@/app/fs-utils';
 import {
   COMPILED_LOCALES_DIR,
   LOCALES_DIR,

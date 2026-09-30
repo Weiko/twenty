@@ -6,7 +6,7 @@ import { isDefined } from 'twenty-shared/utils';
 import { generateCoverImage } from '@/app/bundles/cover/generate-cover-image';
 import { type GeneratedAsset } from '@/app/bundles/cover/generated-asset.type';
 import { GENERATED_COVER_PATH } from '@/app/bundles/cover/generated-cover-path';
-import { pathExists } from '@/app/pull/fs-utils';
+import { pathExists } from '@/app/fs-utils';
 
 const isAbsoluteUrl = (url: string): boolean =>
   url.startsWith('http://') || url.startsWith('https://');

@@ -1,6 +1,14 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { access, cp, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import {
+  access,
+  cp,
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 
 import { hasErrorCode } from '@/utils/has-error-code';
 
@@ -49,3 +57,7 @@ export const writeJson = async (
 ): Promise<void> => {
   await writeFile(filePath, JSON.stringify(data, null, 2) + '\n');
 };
+
+export const readJson = async <TData = unknown>(
+  filePath: string,
+): Promise<TData> => JSON.parse(await readFile(filePath, 'utf-8')) as TData;

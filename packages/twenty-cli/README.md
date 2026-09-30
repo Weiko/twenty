@@ -4,6 +4,19 @@ The command line for [Twenty](https://twenty.com).
 
 This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, opening the workspace in a browser, metadata inspection, record reads, creating an app from a template, local app builds and typechecks, advisory app previews, and applying a development app to a workspace or uninstalling it. Run `twenty commands` for the available commands. To publish an app or develop in watch mode, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
 
+## Expired browser sessions
+
+For commands that use a workspace, interactive OAuth sessions are checked before
+the command starts. If a session is rejected or cannot be refreshed, the CLI
+offers to sign in again once, validates the new session, and saves its credentials
+without changing the remote's URL, default selection or other settings.
+
+API keys, JSON/NDJSON output, `--no-input`, redirected stdin and CI never trigger
+this prompt. Permission errors do not trigger sign-in either. If authentication
+fails after a command starts, the CLI stops with the login hint; it does not
+replay requests or restart an app apply. A remote changed during sign-in is left
+as-is, and the command stops with `CONFLICT`.
+
 ## Diagnose your setup
 
 ```bash

@@ -31,6 +31,7 @@ const TEMPLATE_PACKAGE_JSON = {
   name: 'template-app',
   version: '0.1.0',
   license: 'MIT',
+  engines: { node: '^24.5.0', yarn: '>=4.0.2', twenty: 'TO-BE-GENERATED' },
   scripts: { twenty: 'twenty' },
   dependencies: {},
   devDependencies: {
@@ -149,6 +150,11 @@ describe('copyBaseApplicationProject', () => {
       join(testAppDirectory, 'package.json'),
     );
     expect(packageJson.name).toBe('my-test-app');
+    expect(packageJson.engines).toEqual({
+      node: '^24.5.0',
+      yarn: '>=4.0.2',
+      twenty: `>=${createTwentyAppPackageJson.version}`,
+    });
     expect(packageJson.devDependencies['twenty-sdk']).toBe(
       createTwentyAppPackageJson.version,
     );
@@ -159,6 +165,26 @@ describe('copyBaseApplicationProject', () => {
       createTwentyAppPackageJson.version,
     );
   });
+
+  it.each(['2.43.0', '2.44.0-beta.1'])(
+    'uses the selected release %s for both the SDK and server requirement',
+    async (packageVersion) => {
+      await copyBaseApplicationProject({
+        appName: 'my-test-app',
+        appDisplayName: 'My Test App',
+        appDescription: 'A test application',
+        appDirectory: testAppDirectory,
+        packageVersion,
+      });
+
+      const packageJson = await fs.readJson(
+        join(testAppDirectory, 'package.json'),
+      );
+
+      expect(packageJson.engines.twenty).toBe(`>=${packageVersion}`);
+      expect(packageJson.devDependencies['twenty-sdk']).toBe(packageVersion);
+    },
+  );
 
   it('should create an empty public directory in the scaffolded project', async () => {
     await copyBaseApplicationProject({

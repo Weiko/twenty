@@ -104,6 +104,9 @@ describe('app init', () => {
     expect(await readdir(appDirectory)).not.toContain('node_modules');
     expect(await readPackageJson(appDirectory)).toMatchObject({
       name: 'my-app',
+      engines: {
+        twenty: `>=${TEMPLATE_PACKAGE_VERSION}`,
+      },
       devDependencies: {
         'twenty-client-sdk': TEMPLATE_PACKAGE_VERSION,
         'twenty-sdk': TEMPLATE_PACKAGE_VERSION,

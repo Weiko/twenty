@@ -37,7 +37,10 @@ export const runAppWorker = async ({
   signal,
   useHeldSnapshot,
 }: {
-  request: Extract<AppWorkerRequest, { type: 'run' | 'generateClient' }>;
+  request: Extract<
+    AppWorkerRequest,
+    { type: 'run' | 'generateClient' | 'readSourceIdentity' }
+  >;
   signal: AbortSignal;
   useHeldSnapshot?: (heldBuild: HeldBuild) => Promise<void>;
 }) => {
@@ -175,8 +178,8 @@ export const runAppWorker = async ({
           new CliError({
             code: 'WORKER_FAILED',
             message: isDefined(failureResponse)
-              ? `The SDK worker failed: ${failureResponse.message}`
-              : `The SDK worker stopped before finishing (${stopReason}). The app or the SDK may have exited the process.`,
+              ? `The app worker failed: ${failureResponse.message}`
+              : `The app worker stopped before finishing (${stopReason}). The app or the SDK may have exited the process.`,
             details: { exitCode, signal: exitSignal, output },
           }),
         );
@@ -213,7 +216,7 @@ export const runAppWorker = async ({
         reject(
           new CliError({
             code: 'WORKER_FAILED',
-            message: `The SDK worker could not run: ${error.message}`,
+            message: `The app worker could not run: ${error.message}`,
           }),
         ),
       ),

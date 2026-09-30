@@ -160,6 +160,8 @@ Exit codes:
 
 ## Development
 
+The CLI-owned [source loader](src/app/source/README.md) is being prepared for app pull and build migration. It uses public SDK authoring exports; current app commands still use the existing SDK build API.
+
 ```bash
 npx nx build twenty-cli
 node packages/twenty-cli/dist/cli.cjs --help

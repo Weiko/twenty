@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@/': `${path.resolve(__dirname, 'src')}/`,
+      '@create-twenty-app/': `${path.resolve(__dirname, '../create-twenty-app/src')}/`,
     },
   },
   test: {

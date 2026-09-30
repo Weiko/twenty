@@ -2,7 +2,7 @@
 
 The command line for [Twenty](https://twenty.com).
 
-This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, metadata inspection, record reads, local app builds and typechecks, advisory app previews, and applying a development app to a workspace or uninstalling it. Run `twenty commands` for the available commands. To publish an app or develop in watch mode, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
+This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, metadata inspection, record reads, creating an app from a template, local app builds and typechecks, advisory app previews, and applying a development app to a workspace or uninstalling it. Run `twenty commands` for the available commands. To publish an app or develop in watch mode, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
 
 ## Diagnose your setup
 
@@ -52,6 +52,17 @@ These commands resolve the same exact singular/plural API names as metadata insp
 
 Use explicit `--format ndjson` for larger traversals. It emits numbered `start`, `record`, page `progress`, and terminal `result`/`error` events, reading one page at a time and waiting for stdout when the reader is slow. `resumeCursor` advances only after a complete page has been written. After a partial page or a failure, resume with the last reported cursor and the same filter/order; records from the partial page may repeat. With no completed page, use the original cursor or restart without one. A stream without a terminal event is incomplete. Without `--all`, NDJSON still reads only one page.
 
+## Create an app
+
+```bash
+twenty app init my-app
+twenty app init billing --path ./apps/billing --display-name Billing --json
+```
+
+`app init` creates a new app from the template bundled with this CLI, the same template `create-twenty-app` uses, with fresh universal identifiers and `twenty-client-sdk`, `twenty-sdk` and `twenty-ui` pinned to the exact version the CLI was built with. It needs no installed SDK, saved remote or network access, and it only writes files: it does not install dependencies, create a Git repository, start a server, sign in or sync anything. The next steps it prints, and returns as `data.nextSteps` in JSON, cover the rest, and name the remote when you pass `--remote`.
+
+The name must be a valid npm package name, otherwise the command fails with `INVALID_APP_NAME` (exit 2). The app is created in `./<name>` unless `--path` says otherwise; `--display-name` and `--description` set what Twenty shows. The target must not exist yet or be an empty directory; anything else fails with `APP_PATH_UNAVAILABLE` (exit 6) and nothing is written. The template is rendered in a hidden sibling directory and moved into place only after every placeholder was filled, so a failure or Ctrl+C does not leave a half-created app behind. An existing empty directory is filled with create-only writes, so a file that appears there meanwhile is never overwritten.
+
 ## Build and check an app
 
 ```bash
@@ -62,7 +73,7 @@ twenty app build --path ./apps/billing --json
 
 These commands run inside an app project: the nearest folder, from the current one upwards, whose `package.json` depends on `twenty-sdk`. Pass `--path` to choose another app. In a folder that contains several apps, `--path` is required, and the error lists them.
 
-The CLI builds with the app's own installed `twenty-sdk`, not a copy of its own, through the SDK's `twenty-sdk/build` API. Before loading any SDK code it reads `twenty-sdk/build/descriptor.json` and checks the protocol version, the capabilities and the Node version the SDK needs. An app without `twenty-sdk` installed fails with `SDK_NOT_INSTALLED`; an SDK without the build API, or with an incompatible protocol, fails with `TOOLING_UNSUPPORTED`; a Node version the SDK does not support fails with `NODE_VERSION_UNSUPPORTED`. The CLI never installs packages or falls back to another SDK. Yarn Plug'n'Play is not supported; use `nodeLinker: node-modules`.
+The CLI builds with the app's own installed `twenty-sdk`, not a copy of its own, through the SDK's `twenty-sdk/build` API. Before loading any SDK code it reads `twenty-sdk/build/descriptor.json` and checks the protocol version, the capabilities and the Node version the SDK needs. An app without `twenty-sdk` installed fails with `SDK_NOT_INSTALLED`; an SDK without the build API, or with an incompatible protocol, fails with `TOOLING_UNSUPPORTED`; a Node version the SDK does not support fails with `NODE_VERSION_UNSUPPORTED`. The CLI never installs packages or falls back to another SDK. Yarn Plug'n'Play is not supported; use `nodeLinker: node-modules`. TypeScript configuration and project-reference errors fail the build: an app created by an older `create-twenty-app` whose `tsconfig.json` references `tsconfig.spec.json` reports `TS6305` for every source file until that `references` entry is removed.
 
 The SDK runs in a separate worker process. That process does not receive the CLI's connections or credentials: `TWENTY_API_URL`, `TWENTY_API_KEY`, `TWENTY_REMOTE` and every `TWENTY_*` token, key, secret or password variable are removed from its environment. Anything the app or the SDK prints is reported as a `PROJECT_OUTPUT` diagnostic instead of mixing with the CLI's output, and an app that exits the process fails with `WORKER_FAILED`. This separates output and process state; it is not a sandbox for untrusted code.
 

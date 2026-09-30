@@ -82,9 +82,12 @@ const parseRequest = (message: unknown): AppWorkerRequest | undefined => {
     return { type: message.type };
   }
 
-  if (message.type === 'readSourceIdentity') {
+  if (
+    message.type === 'readSourceIdentity' ||
+    message.type === 'buildManifest'
+  ) {
     return isNonEmptyString(message.appPath)
-      ? { type: 'readSourceIdentity', appPath: message.appPath }
+      ? { type: message.type, appPath: message.appPath }
       : undefined;
   }
 
@@ -329,6 +332,21 @@ process.on('message', (message: unknown) => {
         respond({ type: 'result', result, isSnapshotHeld: false });
       })
       .catch((error: unknown) => respond(toFailure(error)));
+    return;
+  }
+
+  if (request.type === 'buildManifest') {
+    import('@/app/worker/build-source-manifest')
+      .then(async ({ buildSourceManifest }) => {
+        const result = await buildSourceManifest({
+          appPath: request.appPath,
+          signal: abortController.signal,
+        });
+
+        respond({ type: 'result', result, isSnapshotHeld: false });
+      })
+      .catch((error: unknown) => respond(toFailure(error)));
+
     return;
   }
 

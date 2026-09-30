@@ -39,7 +39,14 @@ export const runAppWorker = async ({
 }: {
   request: Extract<
     AppWorkerRequest,
-    { type: 'run' | 'generateClient' | 'readSourceIdentity' | 'pull' }
+    {
+      type:
+        | 'run'
+        | 'generateClient'
+        | 'readSourceIdentity'
+        | 'buildManifest'
+        | 'pull';
+    }
   >;
   signal: AbortSignal;
   useHeldSnapshot?: (heldBuild: HeldBuild) => Promise<void>;

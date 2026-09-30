@@ -224,6 +224,8 @@ Exit codes:
 
 The CLI-owned [source loader](src/app/source/README.md) powers app pull and prepares for build migration. Build, typecheck and client generation still use the existing SDK build API.
 
+The internal [manifest builder](src/app/manifest/README.md) ports manifest validation and translation compilation into the CLI. It is checked against the SDK on every fixture and a fresh app; public build and apply commands switch over in a later slice.
+
 ```bash
 npx nx build twenty-cli
 node packages/twenty-cli/dist/cli.cjs --help

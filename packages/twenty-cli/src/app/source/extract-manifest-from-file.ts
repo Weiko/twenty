@@ -86,16 +86,21 @@ const manifestMockPlugin: esbuild.Plugin = {
   },
 };
 
-export const extractManifestFromFile = async ({
+export const extractManifestFromFile = async <
+  TConfig = Record<string, unknown>,
+>({
   filePath,
   appPath,
 }: {
   filePath: string;
   appPath: string;
-}): Promise<SourceValidationResult> => {
+}): Promise<SourceValidationResult<TConfig>> => {
   const module = await loadModule({ filePath, appPath });
 
-  return extractDefaultConfigFromModuleOrThrow(module, filePath);
+  return extractDefaultConfigFromModuleOrThrow(
+    module,
+    filePath,
+  ) as SourceValidationResult<TConfig>;
 };
 
 const loadModule = async ({

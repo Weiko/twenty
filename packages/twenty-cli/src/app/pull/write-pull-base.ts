@@ -6,7 +6,7 @@ import { type ExportedManifest } from '@/app/types/exported-manifest.type';
 
 import { PULL_BASE_FILE_PATH } from '@/app/constants/pull-base-file-path.constant';
 import { assertPullPaths } from '@/app/pull/assert-pull-paths';
-import { normalizePullTarget } from '@/app/pull/normalize-pull-target';
+import { createPullBaseWrite } from '@/app/pull/create-pull-base-write';
 import { type PullTarget } from '@/app/types/pull-target.type';
 import { CliError } from '@/output/cli-error';
 
@@ -31,17 +31,7 @@ export const writePullBase = async ({
     await mkdir(dirname(basePath), { recursive: true });
     temporaryFile = await open(temporaryPath, 'wx', 0o600);
     await temporaryFile.writeFile(
-      `${JSON.stringify(
-        {
-          version: 2,
-          target: normalizePullTarget(target),
-          applicationUniversalIdentifier:
-            manifest.application.universalIdentifier,
-          manifest,
-        },
-        null,
-        2,
-      )}\n`,
+      createPullBaseWrite({ manifest, target }).content,
     );
     await temporaryFile.sync();
     await temporaryFile.close();

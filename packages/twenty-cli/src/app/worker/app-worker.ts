@@ -88,6 +88,31 @@ const parseRequest = (message: unknown): AppWorkerRequest | undefined => {
       : undefined;
   }
 
+  if (message.type === 'pull') {
+    if (
+      !isNonEmptyString(message.appPath) ||
+      !isPlainObject(message.target) ||
+      !isNonEmptyString(message.target.apiUrl) ||
+      !isNonEmptyString(message.target.workspaceId) ||
+      !isPlainObject(message.applicationExport) ||
+      !isPlainObject(message.applicationExport.application) ||
+      !isNonEmptyString(
+        message.applicationExport.application.universalIdentifier,
+      )
+    ) {
+      return undefined;
+    }
+    return {
+      type: 'pull',
+      appPath: message.appPath,
+      target: {
+        apiUrl: message.target.apiUrl,
+        workspaceId: message.target.workspaceId,
+      },
+      applicationExport: message.applicationExport,
+    };
+  }
+
   if (message.type === 'generateClient') {
     if (
       !isNonEmptyString(message.appPath) ||
@@ -291,6 +316,19 @@ process.on('message', (message: unknown) => {
       (error: unknown) => respond(toFailure(error)),
     );
 
+    return;
+  }
+
+  if (request.type === 'pull') {
+    import('@/app/worker/pull-source')
+      .then(async ({ pullSource }) => {
+        const result = await pullSource({
+          ...request,
+          signal: abortController.signal,
+        });
+        respond({ type: 'result', result, isSnapshotHeld: false });
+      })
+      .catch((error: unknown) => respond(toFailure(error)));
     return;
   }
 

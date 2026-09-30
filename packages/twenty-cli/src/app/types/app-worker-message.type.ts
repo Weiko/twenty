@@ -1,3 +1,5 @@
+import { type PullTarget } from '@/app/types/pull-target.type';
+
 import { type AppOperation } from '@/app/types/app-operation.type';
 
 export type AppWorkerRequest =
@@ -15,6 +17,12 @@ export type AppWorkerRequest =
       schema: string;
     }
   | { type: 'readSourceIdentity'; appPath: string }
+  | {
+      type: 'pull';
+      appPath: string;
+      applicationExport: unknown;
+      target: PullTarget;
+    }
   | { type: 'release' }
   | { type: 'cancel' };
 

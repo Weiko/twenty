@@ -114,7 +114,13 @@ export const parseToolingResult = <TData>({
   ) {
     return {
       success: false,
-      error: { code: value.error.code, message: value.error.message },
+      error: {
+        code: value.error.code,
+        message: value.error.message,
+        ...(isPlainObject(value.error.details)
+          ? { details: value.error.details }
+          : {}),
+      },
       diagnostics,
     };
   }

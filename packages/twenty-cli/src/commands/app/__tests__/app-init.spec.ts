@@ -1,4 +1,5 @@
 import {
+  copyFile,
   cp,
   mkdir,
   mkdtemp,
@@ -8,11 +9,13 @@ import {
   stat,
   writeFile,
 } from 'node:fs/promises';
+import type * as fileSystemPromises from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { TEMPLATE_PACKAGE_VERSION } from '@create-twenty-app/constants/template-package-version';
+import { isDefined } from 'twenty-shared/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -24,6 +27,12 @@ import { getAppTemplateDirectory } from '@/app/get-app-template-directory';
 vi.mock('@/app/get-app-template-directory', () => ({
   getAppTemplateDirectory: vi.fn(),
 }));
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof fileSystemPromises>();
+
+  return { ...actual, copyFile: vi.fn(actual.copyFile) };
+});
 
 const TEMPLATE_DIRECTORY = fileURLToPath(
   new URL(
@@ -204,6 +213,87 @@ describe('app init', () => {
       ),
     ).toEqual(['yarn install', LOGIN_STEP, 'twenty app apply --create']);
   });
+
+  it('never overwrites a file that appears in the empty directory while the app is copied in', async () => {
+    const appDirectory = join(workDirectory, 'my-app');
+    const actualFileSystem =
+      await vi.importActual<typeof fileSystemPromises>('node:fs/promises');
+    let concurrentFile = '';
+
+    await mkdir(appDirectory);
+    vi.mocked(copyFile).mockImplementationOnce(
+      async (source, destination, mode) => {
+        concurrentFile = String(destination);
+        await actualFileSystem.writeFile(
+          destination,
+          'concurrent user contents',
+        );
+
+        return actualFileSystem.copyFile(source, destination, mode);
+      },
+    );
+
+    const result = await runJson(['my-app']);
+    const remainingFiles = (
+      await readdir(appDirectory, { recursive: true, withFileTypes: true })
+    )
+      .filter((entry) => entry.isFile())
+      .map((entry) => join(entry.parentPath, entry.name));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.envelope.error.code).toBe('APP_INIT_FAILED');
+    expect(remainingFiles).toEqual([concurrentFile]);
+    expect(await readFile(concurrentFile, 'utf8')).toBe(
+      'concurrent user contents',
+    );
+    expect(await readdir(workDirectory)).toEqual(['my-app']);
+  });
+
+  it.each([
+    {
+      title: 'a saved remote',
+      config: {
+        version: 1,
+        defaultRemote: 'production',
+        remotes: {
+          production: { apiUrl: 'https://crm.example.com', apiKey: 'key' },
+          staging: {
+            apiUrl: 'https://staging.example.com',
+            apiKey: 'staging-key',
+          },
+        },
+      },
+      expectedCommands: ['twenty app apply --create --remote staging'],
+    },
+    {
+      title: 'a remote that is not saved yet',
+      config: undefined,
+      expectedCommands: [
+        'twenty auth login --url <url> --name staging',
+        'twenty app apply --create --remote staging',
+      ],
+    },
+  ])(
+    'points the next steps at $title passed with --remote',
+    async ({ config, expectedCommands }) => {
+      if (isDefined(config)) {
+        await mkdir(join(root, 'home', '.twenty'));
+        await writeFile(
+          join(root, 'home', '.twenty', 'config.json'),
+          JSON.stringify(config),
+        );
+      }
+
+      const result = await runJson(['remote-app', '--remote', 'staging']);
+
+      expect(result.exitCode, result.stdout).toBe(0);
+      expect(
+        result.envelope.data.nextSteps
+          .map(({ command }: { command: string }) => command)
+          .slice(2),
+      ).toEqual(expectedCommands);
+    },
+  );
 
   it.each([
     {

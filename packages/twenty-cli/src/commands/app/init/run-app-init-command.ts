@@ -76,12 +76,14 @@ export const runAppInitCommand: CommandRun = async ({
     signal,
   });
 
+  const remoteName = readStringOption(options, 'remote');
   const nextSteps = getAppInitNextSteps({
     displayPath,
     isTargetConfigured: await hasConfiguredTarget({
       environment: process.env,
-      remoteFlag: readStringOption(options, 'remote'),
+      remoteFlag: remoteName,
     }),
+    remoteName,
   });
   const packageNames = [...TEMPLATE_FIRST_PARTY_PACKAGES];
 

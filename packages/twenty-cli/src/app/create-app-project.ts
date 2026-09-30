@@ -1,11 +1,15 @@
+import { constants } from 'node:fs';
 import {
+  copyFile,
   mkdir,
   mkdtemp,
   readdir,
   readFile,
   rename,
   rm,
+  rmdir,
   stat,
+  unlink,
 } from 'node:fs/promises';
 import { basename, dirname, join, relative } from 'node:path';
 
@@ -87,23 +91,39 @@ const findUnrenderedFiles = async (directory: string) => {
   return unrenderedFiles;
 };
 
-const moveIntoEmptyDirectory = async ({
+const copyIntoEmptyDirectory = async ({
   stagingDirectory,
   appDirectory,
 }: {
   stagingDirectory: string;
   appDirectory: string;
 }) => {
-  const movedEntries: string[] = [];
+  const createdEntries: { createdPath: string; isDirectory: boolean }[] = [];
 
   try {
-    for (const entry of await readdir(stagingDirectory)) {
-      await rename(join(stagingDirectory, entry), join(appDirectory, entry));
-      movedEntries.push(entry);
+    for (const entry of await readdir(stagingDirectory, {
+      recursive: true,
+      withFileTypes: true,
+    })) {
+      const sourcePath = join(entry.parentPath, entry.name);
+      const createdPath = join(
+        appDirectory,
+        relative(stagingDirectory, sourcePath),
+      );
+
+      if (entry.isDirectory()) {
+        await mkdir(createdPath);
+      } else {
+        await copyFile(sourcePath, createdPath, constants.COPYFILE_EXCL);
+      }
+
+      createdEntries.push({ createdPath, isDirectory: entry.isDirectory() });
     }
   } catch (error) {
-    for (const entry of movedEntries) {
-      await rm(join(appDirectory, entry), { recursive: true, force: true });
+    for (const { createdPath, isDirectory } of createdEntries.reverse()) {
+      await (isDirectory ? rmdir(createdPath) : unlink(createdPath)).catch(
+        () => undefined,
+      );
     }
 
     throw error;
@@ -159,7 +179,7 @@ export const createAppProject = async ({
     signal.throwIfAborted();
 
     if ((await readAvailableAppDirectory(appDirectory)) === 'empty') {
-      await moveIntoEmptyDirectory({ stagingDirectory, appDirectory });
+      await copyIntoEmptyDirectory({ stagingDirectory, appDirectory });
     } else {
       await rename(stagingDirectory, appDirectory);
     }
@@ -173,7 +193,7 @@ export const createAppProject = async ({
     throw new CliError({
       code: 'APP_INIT_FAILED',
       message: `Could not create ${appDirectory}: ${error instanceof Error ? error.message : String(error)}`,
-      hint: 'Nothing was left in that directory. Fix the cause, then run the command again.',
+      hint: 'Files this command had written there were removed. Fix the cause, then run the command again.',
       details: { path: appDirectory },
     });
   }

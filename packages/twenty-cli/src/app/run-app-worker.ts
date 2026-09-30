@@ -45,6 +45,7 @@ export const runAppWorker = async ({
         | 'generateClient'
         | 'readSourceIdentity'
         | 'buildManifest'
+        | 'typecheckSource'
         | 'bundleSnapshot'
         | 'pull';
     }

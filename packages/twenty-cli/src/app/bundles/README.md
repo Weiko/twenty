@@ -2,8 +2,9 @@
 
 B3 ports the SDK's one-shot application bundler and snapshot lifecycle into the
 CLI. The internal `bundleSnapshot` worker request builds and holds or releases a
-snapshot under `.twenty/cli/snapshots/build-*`. It does not typecheck yet, that is
-B4. No public command sends this request: build, plan and apply still use the
+snapshot under `.twenty/cli/snapshots/build-*`. B4 adds the app's own TypeScript
+compiler through the [typecheck port](../typecheck/README.md). No public command
+sends this request: build, plan and apply still use the
 SDK pipeline until B6. This request is an internal migration seam, not a public
 API or a way to bypass checks in `twenty app build`.
 
@@ -50,7 +51,8 @@ SDK. Cleanup never removes legacy output or another build's snapshot.
 
 - Imports point to the CLI ports, reusing the B1 loader, B2 manifest and
   translations, existing filesystem helpers and `hasErrorCode` for filesystem
-  errors. Only the callback and external module list move from the watcher; watch and typecheck remain later slices.
+  errors. Only the callback and external module list move from the watcher;
+  watch remains a later slice.
 - The define stub reads `twenty-sdk/define` from the app's installed SDK instead
   of importing the SDK's own source barrel. Its factory/plain-data/proxy
   partition and emitted JavaScript are unchanged. This keeps runtime constants
@@ -59,9 +61,9 @@ SDK. Cleanup never removes legacy output or another build's snapshot.
   When unavailable, cover generation produces the existing warning and the
   build continues. When available, the algorithm is unchanged. Vite embeds the
   original backdrop PNG as a data URI so it works in the standalone package.
-- `compileApplication` temporarily omits the typecheck phase. The parity
-  reference replaces only the SDK typechecker with a successful no-op, comparing
-  the real SDK bundler and snapshot collector. This is not typecheck parity.
+- `compileApplication` runs the CLI typecheck after bundling, in the SDK's
+  existing order. Both parity pipelines run their real typecheck phase with the
+  same compiler; the CLI resolves it from the app.
 - Snapshot storage moves to `.twenty/cli/snapshots`. Upload validation accepts
   both this directory and `.twenty/snapshots`, retaining the existing path and
   per-file hash checks. Neither producer can upload from sibling folders.
@@ -84,7 +86,11 @@ The parity suite builds all five repository fixtures and a fresh CLI-created app
 through the SDK reference and the production CLI worker. The app has a copy of
 the real authoring SDK without its build/CLI exports or implementation files.
 Successful builds have identical manifests, artifact roles/paths/sizes/hashes
-and content hashes. The invalid fixture fails in both pipelines.
+and content hashes. The invalid fixture and the function-execute fixture's
+obsolete application `icon` property fail in both pipelines. The fresh template
+first reports its legacy SDK test-harness import; excluding that harness from
+the temporary app's build config produces identical successful builds. See the
+[typecheck migration notes](../typecheck/README.md).
 
 Only build IDs/directories and JSON-omitted `undefined` properties are normalized
 in snapshot comparisons. File bytes, including the manifest, are exact except

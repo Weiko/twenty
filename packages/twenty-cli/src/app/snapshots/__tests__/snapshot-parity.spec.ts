@@ -189,11 +189,14 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
       'sharp',
       'react',
       'react-dom',
+      '@types',
       '@sniptt/guards',
       'uuid',
       'esbuild',
       'typescript',
       'tinyglobby',
+      'vitest',
+      'vite-tsconfig-paths',
       'twenty-shared',
       'twenty-client-sdk',
       'twenty-ui',
@@ -252,21 +255,6 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
       platform: 'node',
       format: 'cjs',
       target: 'node24',
-      plugins: [
-        {
-          name: 'defer-sdk-typecheck-to-b4',
-          setup(build) {
-            build.onLoad(
-              { filter: /application-build\/typecheck-application\.ts$/ },
-              () => ({
-                contents:
-                  'export const typecheckApplication = async () => ({ success: true, data: null, diagnostics: [] });',
-                loader: 'ts',
-              }),
-            );
-          },
-        },
-      ],
     });
     sdk = createRequire(import.meta.url)(oraclePath) as SdkReference;
 
@@ -295,11 +283,25 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
     'matches artifacts, checksums, manifest, content hash and diagnostics for %s',
     async (name) => {
       const result = await compareSnapshot(await copyFixture(name));
-      expect(result.success).toBe(name !== 'invalid-app');
+      expect(result.success, JSON.stringify(result)).toBe(
+        !['invalid-app', 'function-execute-app'].includes(name),
+      );
+      if (name === 'function-execute-app') {
+        expect(result).toMatchObject({
+          error: { code: 'TYPECHECK_FAILED' },
+          diagnostics: expect.arrayContaining([
+            expect.objectContaining({
+              code: 'TS2353',
+              file: 'application.config.ts',
+              message: expect.stringContaining("'icon'"),
+            }),
+          ]),
+        });
+      }
     },
     60000,
   );
-  it('matches a freshly initialized app', async () => {
+  it('matches the template legacy test-harness diagnostic with an authoring-only SDK', async () => {
     const appPath = join(root, 'fresh-app');
     await createAppProject({
       appDirectory: appPath,
@@ -309,7 +311,24 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
       signal: new AbortController().signal,
     });
     await symlink(join(root, 'node_modules'), join(appPath, 'node_modules'));
-    expect((await compareSnapshot(appPath)).success).toBe(true);
+    const result = await compareSnapshot(appPath);
+    expect(result).toMatchObject({
+      success: false,
+      error: { code: 'TYPECHECK_FAILED' },
+      diagnostics: expect.arrayContaining([
+        expect.objectContaining({
+          code: 'TS2307',
+          file: 'src/__tests__/global-setup.ts',
+          message: expect.stringContaining('twenty-sdk/cli'),
+        }),
+      ]),
+    });
+    const configPath = join(appPath, 'tsconfig.json');
+    const config = JSON.parse(await readFile(configPath, 'utf8'));
+    config.exclude.push('src/__tests__', 'vitest*.config.ts');
+    await writeFile(configPath, JSON.stringify(config));
+    const applicationOnly = await compareSnapshot(appPath);
+    expect(applicationOnly.success, JSON.stringify(applicationOnly)).toBe(true);
   }, 60000);
   it('matches CSS, baked translations, README selection and immutable symlinked assets', async () => {
     const appPath = await copyFixture('minimal-app');
@@ -487,6 +506,55 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
     });
   }, 60000);
 
+  it.each(['source error', 'unbuilt project reference'])(
+    'matches a build failure for %s and removes only the failed snapshot',
+    async (failure) => {
+      const appPath = await copyFixture('minimal-app');
+      const snapshotsPath = join(appPath, '.twenty/cli/snapshots');
+      await mkdir(join(snapshotsPath, 'build-existing'), { recursive: true });
+      const expectedCode = failure === 'source error' ? 'TS2322' : 'TS6305';
+      if (failure === 'source error') {
+        await writeFile(
+          join(appPath, 'type-error.ts'),
+          'export const broken: number = "bad";',
+        );
+      } else {
+        await mkdir(join(appPath, 'referenced'));
+        await writeFile(
+          join(appPath, 'referenced/source.ts'),
+          'export const value = 1;',
+        );
+        await writeFile(
+          join(appPath, 'referenced/tsconfig.json'),
+          JSON.stringify({
+            compilerOptions: { composite: true, outDir: 'dist', types: [] },
+            files: ['source.ts'],
+          }),
+        );
+        const configPath = join(appPath, 'tsconfig.json');
+        const config = JSON.parse(await readFile(configPath, 'utf8'));
+        config.references = [{ path: './referenced' }];
+        await writeFile(configPath, JSON.stringify(config));
+      }
+      const expected = await sdk.buildSnapshot({ appPath });
+      const response = await runAppWorker({
+        request: { type: 'bundleSnapshot', appPath, holdSnapshot: true },
+        signal: new AbortController().signal,
+      });
+      expect(response.result).toEqual(json(expected));
+      expect(response.result).toMatchObject({
+        success: false,
+        error: { code: 'TYPECHECK_FAILED' },
+        diagnostics: expect.arrayContaining([
+          expect.objectContaining({ code: expectedCode }),
+        ]),
+      });
+      expect(response.isSnapshotHeld).toBe(false);
+      expect(await readdir(snapshotsPath)).toEqual(['build-existing']);
+    },
+    60000,
+  );
+
   it('releases the held snapshot when its consumer fails', async () => {
     const appPath = await copyFixture('minimal-app');
     await expect(
@@ -514,7 +582,15 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
       join(sdkPath, 'custom-define.cjs'),
       `module.exports = { ...require(${JSON.stringify(defineEntry)}), CUSTOM_RUNTIME_CONSTANT: 42 };`,
     );
-    packageJson.exports['./define'] = './custom-define.cjs';
+    await writeFile(
+      join(sdkPath, 'custom-define.d.ts'),
+      "export * from './dist/define/index'; export declare const CUSTOM_RUNTIME_CONSTANT: 42;",
+    );
+    packageJson.exports['./define'] = {
+      types: './custom-define.d.ts',
+      import: './custom-define.cjs',
+      require: './custom-define.cjs',
+    };
     await writeFile(packagePath, JSON.stringify(packageJson));
     const functionPath = join(appPath, 'my.function.ts');
     await writeFile(

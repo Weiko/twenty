@@ -18,6 +18,7 @@ export type AppWorkerRequest =
     }
   | { type: 'readSourceIdentity'; appPath: string }
   | { type: 'buildManifest'; appPath: string }
+  | { type: 'typecheckSource'; appPath: string }
   | { type: 'bundleSnapshot'; appPath: string; holdSnapshot: boolean }
   | {
       type: 'pull';

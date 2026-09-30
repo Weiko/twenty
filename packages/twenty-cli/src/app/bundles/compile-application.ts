@@ -12,6 +12,7 @@ import { applyGeneratedCover } from '@/app/bundles/cover/apply-generated-cover';
 import { buildAndValidateManifest } from '@/app/manifest/build-and-validate-manifest';
 import { manifestUpdateChecksums } from '@/app/manifest/manifest-update-checksums';
 import { writeManifestToOutput } from '@/app/manifest/manifest-writer';
+import { typecheckApplication } from '@/app/typecheck/typecheck-application';
 import { compileApplicationTranslations } from '@/app/translations/compile-application-translations';
 
 export const compileApplication = async ({
@@ -21,6 +22,7 @@ export const compileApplication = async ({
   onProgress,
   onTranslationWarning,
   signal,
+  typecheck = typecheckApplication,
 }: {
   appPath: string;
   outputDir?: string;
@@ -28,6 +30,7 @@ export const compileApplication = async ({
   onProgress?: (message: string) => void;
   onTranslationWarning?: (message: string) => void;
   signal?: AbortSignal;
+  typecheck?: typeof typecheckApplication;
 }): Promise<
   ToolingResult<{
     manifest: Manifest;
@@ -93,7 +96,14 @@ export const compileApplication = async ({
     dereferenceSymlinks,
   });
 
-  signal?.throwIfAborted();
+  onProgress?.('Running typecheck...');
+  const typecheckResult = await typecheck({ appPath, signal });
+
+  diagnostics.push(...typecheckResult.diagnostics);
+
+  if (!typecheckResult.success) {
+    return { ...typecheckResult, diagnostics };
+  }
 
   const updatedManifest = {
     ...manifestUpdateChecksums({ manifest, builtFileInfos, outputDir }),

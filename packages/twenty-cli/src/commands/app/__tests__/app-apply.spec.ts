@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import {
   mkdir,
@@ -418,10 +419,12 @@ describe('app apply', () => {
     corruptPath,
     application = APPLICATION,
     generateClientBody,
+    editDuringBuild,
   }: {
     corruptPath?: string;
     application?: typeof APPLICATION;
     generateClientBody?: string;
+    editDuringBuild?: { relativePath: string; content: string };
   } = {}) => {
     await writeFile(
       join(sdkPath, 'build.cjs'),
@@ -431,9 +434,13 @@ describe('app apply', () => {
       const { createHash } = require('node:crypto');
       const FILES = ${JSON.stringify(FILES)};
       const CORRUPT_PATH = ${JSON.stringify(corruptPath ?? null)};
+      const EDIT_DURING_BUILD = ${JSON.stringify(editDuringBuild ?? null)};
       const sha256 = (content) => createHash('sha256').update(content).digest('hex');
       let snapshotDirectory;
       exports.buildAppSnapshot = async ({ appPath }) => {
+        if (EDIT_DURING_BUILD) {
+          fs.writeFileSync(path.join(appPath, EDIT_DURING_BUILD.relativePath), EDIT_DURING_BUILD.content);
+        }
         snapshotDirectory = path.join(appPath, '.twenty', 'snapshots', 'build-test');
         const filesDirectory = path.join(snapshotDirectory, 'files');
         const files = FILES.map((file) => {
@@ -684,6 +691,11 @@ describe('app apply', () => {
       target: { apiUrl: server.url, workspaceId: WORKSPACE_ID },
       applicationUniversalIdentifier: APPLICATION.universalIdentifier,
       manifest: EXPORTED_MANIFEST,
+      sourceFingerprints: {
+        'application.ts': createHash('sha256')
+          .update('unrelated local edits')
+          .digest('hex'),
+      },
     });
     expect(await readFile(legacyBasePath, 'utf8')).toBe('legacy baseline');
     expect(await readFile(sourcePath, 'utf8')).toBe('unrelated local edits');
@@ -699,6 +711,37 @@ describe('app apply', () => {
     expect(await readdir(join(appPath, '.twenty/cli'))).toEqual([
       'pull-base.json',
     ]);
+  });
+
+  it('fingerprints the source files as they were built, not as edited during the build', async () => {
+    await mkdir(join(appPath, 'src'), { recursive: true });
+    await writeFile(join(appPath, 'src/role.ts'), 'applied role');
+    await mkdir(join(appPath, 'locales'), { recursive: true });
+    await writeFile(join(appPath, 'locales/fr-FR.json'), '{"Pet":"Animal"}');
+    await writeSdk({
+      editDuringBuild: {
+        relativePath: 'src/role.ts',
+        content: 'edited during the build',
+      },
+    });
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(0);
+    expect(envelope.data.pullBase).toBe('recorded');
+    expect(
+      JSON.parse(
+        await readFile(join(appPath, '.twenty/cli/pull-base.json'), 'utf8'),
+      ).sourceFingerprints,
+    ).toEqual({
+      'locales/fr-FR.json': createHash('sha256')
+        .update('{"Pet":"Animal"}')
+        .digest('hex'),
+      'src/role.ts': createHash('sha256').update('applied role').digest('hex'),
+    });
+    expect(await readFile(join(appPath, 'src/role.ts'), 'utf8')).toBe(
+      'edited during the build',
+    );
   });
 
   it.each([

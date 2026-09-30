@@ -14,11 +14,13 @@ export const writePullBase = async ({
   appPath,
   manifest,
   target,
+  sourceFingerprints,
   signal,
 }: {
   appPath: string;
   manifest: ExportedManifest;
   target: PullTarget;
+  sourceFingerprints?: Record<string, string>;
   signal: AbortSignal;
 }) => {
   const basePath = join(appPath, PULL_BASE_FILE_PATH);
@@ -31,7 +33,7 @@ export const writePullBase = async ({
     await mkdir(dirname(basePath), { recursive: true });
     temporaryFile = await open(temporaryPath, 'wx', 0o600);
     await temporaryFile.writeFile(
-      createPullBaseWrite({ manifest, target }).content,
+      createPullBaseWrite({ manifest, target, sourceFingerprints }).content,
     );
     await temporaryFile.sync();
     await temporaryFile.close();

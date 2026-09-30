@@ -19,6 +19,7 @@ import { buildManifestEntityLabelByUniversalIdentifier } from '@/app/pull/build-
 import { planPullWrites } from '@/app/pull/plan-pull-writes';
 import { planTranslationWrites } from '@/app/pull/plan-translation-writes';
 import { scanProjectSourceFiles } from '@/app/source/scan-project-source-files';
+import { updateSourceFingerprints } from '@/app/pull/update-source-fingerprints';
 
 export const pullApplication = async (
   options: PullAppOptions,
@@ -112,6 +113,11 @@ export const pullApplication = async (
         protectedIdentifiers,
       }),
       unreconciledUniversalIdentifiers: [...unreconciledUniversalIdentifiers],
+      sourceFingerprints: updateSourceFingerprints({
+        sourceFingerprints: base.sourceFingerprints,
+        writes,
+        deletions,
+      }),
     });
 
     await assertPullPaths({
@@ -132,6 +138,7 @@ export const pullApplication = async (
       unreconciledUniversalIdentifiers: new Set(
         base.unreconciledUniversalIdentifiers,
       ),
+      sourceFingerprints: base.sourceFingerprints,
     });
     const entityLabelByUniversalIdentifier =
       buildManifestEntityLabelByUniversalIdentifier(manifest);

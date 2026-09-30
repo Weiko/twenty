@@ -11,10 +11,12 @@ export type PullBaseRecording = 'recorded' | 'failed' | 'unsupported';
 export const recordPullBase = async ({
   appPath,
   universalIdentifier,
+  sourceFingerprints,
   context: { target, signal, output },
 }: {
   appPath: string;
   universalIdentifier: string;
+  sourceFingerprints?: Record<string, string>;
   context: TargetCommandContext;
 }): Promise<PullBaseRecording> => {
   output.progress('Recording the pull base…');
@@ -31,6 +33,7 @@ export const recordPullBase = async ({
       appPath,
       manifest: applicationExport.manifest,
       target: { apiUrl: target.apiUrl, workspaceId },
+      sourceFingerprints,
       signal,
     });
 

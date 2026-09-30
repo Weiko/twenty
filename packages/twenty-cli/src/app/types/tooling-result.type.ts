@@ -33,6 +33,10 @@ export type ToolingResult<TData> =
   | { success: true; data: TData; diagnostics: ToolingDiagnostic[] }
   | {
       success: false;
-      error: { code: string; message: string };
+      error: {
+        code: string;
+        message: string;
+        details?: Record<string, unknown>;
+      };
       diagnostics: ToolingDiagnostic[];
     };

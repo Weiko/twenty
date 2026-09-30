@@ -3,12 +3,8 @@ import { isPlainObject } from 'twenty-shared/utils';
 
 import { createAppNotInstalledError } from '@/app/create-app-not-installed-error';
 import { isApplicationNotFoundError } from '@/app/is-application-not-found-error';
-import { isSameUniversalIdentifier } from '@/app/is-same-universal-identifier';
-import { isExportedManifest } from '@/app/pull/is-exported-manifest';
-import {
-  type AppExport,
-  type AppExportCoverageEntry,
-} from '@/app/types/app-export.type';
+import { parseAppExport } from '@/app/parse-app-export';
+import { type AppExport } from '@/app/types/app-export.type';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
 import { sendGraphqlRequest } from '@/transport/graphql/send-graphql-request';
@@ -85,13 +81,6 @@ const isNotExportableError = (error: unknown): error is CliError => {
   );
 };
 
-const isCoverageEntry = (value: unknown): value is AppExportCoverageEntry =>
-  isPlainObject(value) &&
-  isString(value.metadataName) &&
-  isString(value.universalIdentifier) &&
-  isString(value.status) &&
-  (isString(value.reason) || isNull(value.reason));
-
 export const fetchAppExport = async ({
   universalIdentifier,
   target,
@@ -133,50 +122,8 @@ export const fetchAppExport = async ({
 
     throw error;
   });
-  const applicationExport = data?.exportApplication;
-
-  if (
-    !isPlainObject(applicationExport) ||
-    !isPlainObject(applicationExport.application) ||
-    !isString(applicationExport.application.universalIdentifier) ||
-    !isSameUniversalIdentifier({
-      value: applicationExport.application.universalIdentifier,
-      universalIdentifier,
-    }) ||
-    !isString(applicationExport.application.displayName) ||
-    !isString(applicationExport.application.sourceType) ||
-    !isExportedManifest(applicationExport.manifest) ||
-    !isSameUniversalIdentifier({
-      value: applicationExport.manifest.application.universalIdentifier,
-      universalIdentifier,
-    }) ||
-    !isArray(applicationExport.coverage) ||
-    !applicationExport.coverage.every(isCoverageEntry) ||
-    !isArray(applicationExport.files)
-  ) {
-    throw new CliError({
-      code: 'INVALID_RESPONSE',
-      message: `The server returned an export of ${universalIdentifier} that this CLI cannot read.`,
-    });
-  }
-
-  if (applicationExport.files.length > 0) {
-    throw new CliError({
-      code: 'TOOLING_UNSUPPORTED',
-      message:
-        'The application export contains source or dependency files that this CLI cannot reconcile. The pull base was not changed.',
-      hint: 'Use a CLI version that supports this export format.',
-    });
-  }
-
-  return {
-    application: {
-      universalIdentifier: applicationExport.application.universalIdentifier,
-      displayName: applicationExport.application.displayName,
-      sourceType: applicationExport.application.sourceType,
-    },
-    manifest: applicationExport.manifest,
-    coverage: applicationExport.coverage,
-    files: [],
-  };
+  return parseAppExport({
+    value: data?.exportApplication,
+    universalIdentifier,
+  });
 };

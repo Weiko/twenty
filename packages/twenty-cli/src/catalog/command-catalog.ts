@@ -2,6 +2,7 @@ import { type CommandDefinition } from '@/catalog/types/command-definition.type'
 import { APP_APPLY_COMMAND_DEFINITION } from '@/commands/app/apply/app-apply.command-definition';
 import { APP_BUILD_COMMAND_DEFINITION } from '@/commands/app/build/app-build.command-definition';
 import { APP_INIT_COMMAND_DEFINITION } from '@/commands/app/init/app-init.command-definition';
+import { APP_PULL_COMMAND_DEFINITION } from '@/commands/app/pull/app-pull.command-definition';
 import { APP_PLAN_COMMAND_DEFINITION } from '@/commands/app/plan/app-plan.command-definition';
 import { APP_TYPECHECK_COMMAND_DEFINITION } from '@/commands/app/typecheck/app-typecheck.command-definition';
 import { APP_UNINSTALL_COMMAND_DEFINITION } from '@/commands/app/uninstall/app-uninstall.command-definition';
@@ -31,6 +32,7 @@ export const COMMAND_CATALOG: CommandDefinition[] = [
   APP_BUILD_COMMAND_DEFINITION,
   APP_INIT_COMMAND_DEFINITION,
   APP_PLAN_COMMAND_DEFINITION,
+  APP_PULL_COMMAND_DEFINITION,
   APP_TYPECHECK_COMMAND_DEFINITION,
   APP_UNINSTALL_COMMAND_DEFINITION,
   AUTH_LOGIN_COMMAND_DEFINITION,

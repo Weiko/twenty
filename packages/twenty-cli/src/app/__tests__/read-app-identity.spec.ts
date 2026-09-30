@@ -1,19 +1,9 @@
-import {
-  access,
-  mkdir,
-  mkdtemp,
-  rm,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
-import { createRequire } from 'node:module';
+import { access, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { setTimeout } from 'node:timers/promises';
 
-import { isDefined } from 'twenty-shared/utils';
-import { build, loadConfigFromFile } from 'vite';
+import { buildTestAppWorker } from '@/app/__tests__/utils/build-test-app-worker';
 import {
   afterAll,
   afterEach,
@@ -46,47 +36,7 @@ describe('isolated CLI source worker', () => {
   beforeAll(async () => {
     workerPath = await mkdtemp(join(tmpdir(), 'twenty-source-worker-'));
     launch.modulePath = join(workerPath, 'app-worker.cjs');
-    const cliRoot = fileURLToPath(new URL('../../../', import.meta.url));
-
-    const loaded = await loadConfigFromFile(
-      { command: 'build', mode: 'production' },
-      join(cliRoot, 'vite.config.ts'),
-    );
-
-    if (!isDefined(loaded)) {
-      throw new Error('Could not load the CLI bundle configuration.');
-    }
-
-    vi.stubEnv('NODE_ENV', 'production');
-
-    try {
-      await build({
-        ...loaded.config,
-        configFile: false,
-        plugins: [],
-        build: {
-          ...loaded.config.build,
-          outDir: workerPath,
-          lib: {
-            entry: {
-              'app-worker': join(cliRoot, 'src/app/worker/app-worker.ts'),
-            },
-            formats: ['cjs'],
-          },
-        },
-      });
-    } finally {
-      vi.unstubAllEnvs();
-    }
-    await mkdir(join(workerPath, 'node_modules'));
-    const resolve = createRequire(import.meta.url).resolve;
-
-    for (const name of ['esbuild', 'typescript', 'tinyglobby']) {
-      await symlink(
-        dirname(resolve(`${name}/package.json`)),
-        join(workerPath, 'node_modules', name),
-      );
-    }
+    await buildTestAppWorker(workerPath);
   });
   afterAll(async () => rm(workerPath, { recursive: true, force: true }));
 
@@ -189,8 +139,9 @@ describe('isolated CLI source worker', () => {
           () => false,
         ))
       ) {
-        if (Date.now() > deadline)
+        if (Date.now() > deadline) {
           throw new Error('The source worker did not start.');
+        }
         await setTimeout(20);
       }
     } finally {

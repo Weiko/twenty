@@ -3,6 +3,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  readdir,
   rm,
   symlink,
   writeFile,
@@ -53,6 +54,34 @@ const APPLICATION = {
   displayName: 'Apply App',
 };
 const MANIFEST = { application: APPLICATION };
+const WORKSPACE_ID = '48eb6ca1-dbd6-492e-8b53-5785a266c454';
+const EXPORTED_MANIFEST = {
+  application: { ...APPLICATION, displayName: 'Server-normalized app' },
+  objects: [],
+  fields: [],
+  logicFunctions: [],
+  frontComponents: [],
+  permissionFlags: [],
+  roles: [],
+  skills: [],
+  agents: [],
+  views: [],
+  viewFields: [],
+  navigationMenuItems: [],
+  pageLayouts: [],
+  pageLayoutTabs: [],
+  pageLayoutWidgets: [],
+  commandMenuItems: [],
+  timelineActivityTypes: [],
+  settingsMenuItems: [],
+  publicAssets: [],
+};
+const APPLICATION_EXPORT = {
+  application: { ...APPLICATION, sourceType: 'LOCAL' },
+  manifest: EXPORTED_MANIFEST,
+  coverage: [],
+  files: [],
+};
 const FILES = [
   {
     path: 'logic-functions/hello.mjs',
@@ -92,6 +121,11 @@ type ServerState = {
   heldSyncResponse?: ServerResponse;
   wasSnapshotPresentAtSync?: boolean;
   snapshotPath: string;
+  workspaceResponse?: unknown;
+  exportResponse?: unknown;
+  exportStatus?: number;
+  isExportHeld?: boolean;
+  heldExportResponse?: ServerResponse;
   schemaResponse?: unknown;
   schemaError?: string;
   isSchemaHeld?: boolean;
@@ -147,6 +181,8 @@ const getOperation = (request: RecordedRequest) => {
       ['completeApplicationFileUploads', 'upload-complete'],
       ['syncApplication', 'sync'],
       ['applicationCoreGraphqlSchema', 'schema'],
+      ['currentWorkspace', 'workspace'],
+      ['exportApplication', 'export'],
     ].find(([field]) => query.includes(field))?.[1] ?? 'unknown'
   );
 };
@@ -305,6 +341,30 @@ const server = await startTestServer((request, response) => {
     }
 
     return sendJson(response, 200, syncResponse(variables));
+  }
+
+  if (operation === 'workspace') {
+    return sendJson(
+      response,
+      200,
+      state.workspaceResponse ?? {
+        data: { currentWorkspace: { id: WORKSPACE_ID } },
+      },
+    );
+  }
+
+  if (operation === 'export') {
+    if (state.isExportHeld) {
+      state.heldExportResponse = response;
+      return;
+    }
+    return sendJson(
+      response,
+      state.exportStatus ?? 200,
+      state.exportResponse ?? {
+        data: { exportApplication: APPLICATION_EXPORT },
+      },
+    );
   }
 
   if (operation === 'schema') {
@@ -482,6 +542,11 @@ describe('app apply', () => {
       heldSyncResponse: undefined,
       wasSnapshotPresentAtSync: undefined,
       snapshotPath: join(appPath, '.twenty', 'snapshots', 'build-test'),
+      workspaceResponse: undefined,
+      exportResponse: undefined,
+      exportStatus: undefined,
+      isExportHeld: false,
+      heldExportResponse: undefined,
       schemaResponse: undefined,
       schemaError: undefined,
       isSchemaHeld: false,
@@ -492,6 +557,7 @@ describe('app apply', () => {
 
   afterEach(() => {
     state.heldSyncResponse?.end();
+    state.heldExportResponse?.end();
     state.heldSchemaResponse?.end();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
@@ -511,7 +577,14 @@ describe('app apply', () => {
         application: APPLICATION,
         inferDeletionFromMissingEntities: inferDeletion,
         registrationCreated: false,
-        completedPhases: ['build', 'preview', 'installation', 'upload', 'sync'],
+        completedPhases: [
+          'build',
+          'preview',
+          'installation',
+          'upload',
+          'sync',
+          'pullBase',
+        ],
         actions: [CREATE_ACTION],
         summary: { create: 1, update: 0, delete: 0, destructive: 0 },
         upload: { fileCount: 2, byteCount: 40 },
@@ -528,10 +601,14 @@ describe('app apply', () => {
         'put',
         'upload-complete',
         'sync',
+        'workspace',
+        'export',
       ]);
 
       const [preview, , uploadTargets] = server.requests;
-      const sync = server.requests.at(-1);
+      const sync = server.requests.find(
+        (request) => getOperation(request) === 'sync',
+      );
 
       expect(readGraphqlRequest(preview).variables).toMatchObject({
         manifest: MANIFEST,
@@ -583,7 +660,415 @@ describe('app apply', () => {
     const { exitCode } = await runJson();
 
     expect(exitCode).toBe(0);
-    expect(operations().at(-1)).toBe('sync');
+    expect(operations().at(-1)).toBe('export');
+  });
+
+  it('records the fresh remote export without changing the legacy base or local source', async () => {
+    const legacyBasePath = join(appPath, '.twenty', 'pull-base.json');
+    const sourcePath = join(appPath, 'application.ts');
+    await mkdir(join(appPath, '.twenty'), { recursive: true });
+    await writeFile(legacyBasePath, 'legacy baseline');
+    await writeFile(sourcePath, 'unrelated local edits');
+    vi.stubEnv('TWENTY_API_URL', `${server.url}/`);
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(0);
+    expect(envelope.data.pullBase).toBe('recorded');
+    expect(
+      JSON.parse(
+        await readFile(join(appPath, '.twenty/cli/pull-base.json'), 'utf8'),
+      ),
+    ).toEqual({
+      version: 2,
+      target: { apiUrl: server.url, workspaceId: WORKSPACE_ID },
+      applicationUniversalIdentifier: APPLICATION.universalIdentifier,
+      manifest: EXPORTED_MANIFEST,
+    });
+    expect(await readFile(legacyBasePath, 'utf8')).toBe('legacy baseline');
+    expect(await readFile(sourcePath, 'utf8')).toBe('unrelated local edits');
+    const exportRequest = server.requests.find(
+      (request) => getOperation(request) === 'export',
+    );
+    expect(exportRequest?.headers.authorization).toBe('Bearer apply-test-key');
+    expect(
+      exportRequest && readGraphqlRequest(exportRequest).variables,
+    ).toEqual({
+      universalIdentifier: APPLICATION.universalIdentifier,
+    });
+    expect(await readdir(join(appPath, '.twenty/cli'))).toEqual([
+      'pull-base.json',
+    ]);
+  });
+
+  it.each([
+    ['missing workspace', { data: { currentWorkspace: null } }, undefined],
+    [
+      'invalid workspace UUID',
+      { data: { currentWorkspace: { id: 'not-a-uuid' } } },
+      undefined,
+    ],
+    [
+      'invalid settings menu items',
+      undefined,
+      {
+        data: {
+          exportApplication: {
+            ...APPLICATION_EXPORT,
+            manifest: { ...EXPORTED_MANIFEST, settingsMenuItems: null },
+          },
+        },
+      },
+    ],
+    ['missing export', undefined, { data: { exportApplication: null } }],
+    [
+      'wrong app',
+      undefined,
+      {
+        data: {
+          exportApplication: {
+            ...APPLICATION_EXPORT,
+            application: {
+              ...APPLICATION_EXPORT.application,
+              universalIdentifier: WORKSPACE_ID,
+            },
+          },
+        },
+      },
+    ],
+    [
+      'wrong manifest',
+      undefined,
+      {
+        data: {
+          exportApplication: {
+            ...APPLICATION_EXPORT,
+            manifest: {
+              ...EXPORTED_MANIFEST,
+              application: {
+                ...APPLICATION,
+                universalIdentifier: WORKSPACE_ID,
+              },
+            },
+          },
+        },
+      },
+    ],
+    [
+      'incomplete manifest',
+      undefined,
+      {
+        data: {
+          exportApplication: { ...APPLICATION_EXPORT, manifest: MANIFEST },
+        },
+      },
+    ],
+    [
+      'unsupported coverage status',
+      undefined,
+      {
+        data: {
+          exportApplication: {
+            ...APPLICATION_EXPORT,
+            coverage: [
+              {
+                metadataName: 'object',
+                universalIdentifier: WORKSPACE_ID,
+                status: 'UNKNOWN',
+                reason: null,
+              },
+            ],
+          },
+        },
+      },
+    ],
+  ])(
+    'preserves the previous base after a successful sync and %s',
+    async (_description, workspaceResponse, exportResponse) => {
+      const basePath = join(appPath, '.twenty/cli/pull-base.json');
+      await mkdir(join(appPath, '.twenty/cli'), { recursive: true });
+      await writeFile(basePath, 'previous baseline');
+      state.workspaceResponse = workspaceResponse;
+      state.exportResponse = exportResponse;
+      await enableClientGeneration(
+        'return { success: true, data: null, diagnostics: [] };',
+      );
+
+      const { envelope, exitCode } = await runJson();
+
+      expect(exitCode).toBe(0);
+      expect(envelope.data).toMatchObject({
+        pullBase: 'failed',
+        clientGeneration: 'generated',
+      });
+      expect(envelope.data.completedPhases).not.toContain('pullBase');
+      expect(envelope.warnings).toEqual([
+        expect.objectContaining({ code: 'PULL_BASE_NOT_RECORDED' }),
+      ]);
+      expect(await readFile(basePath, 'utf8')).toBe('previous baseline');
+      expect(operations()).toContain('schema');
+    },
+  );
+
+  it('refuses source exports before changing the base', async () => {
+    state.exportResponse = {
+      data: {
+        exportApplication: {
+          ...APPLICATION_EXPORT,
+          files: [
+            {
+              folder: 'Source',
+              path: 'application.ts',
+              content: 'export default {};',
+            },
+          ],
+        },
+      },
+    };
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(0);
+    expect(envelope.data.pullBase).toBe('failed');
+    expect(envelope.warnings).toContainEqual(
+      expect.objectContaining({ code: 'PULL_BASE_NOT_RECORDED' }),
+    );
+    expect(existsSync(join(appPath, '.twenty/cli'))).toBe(false);
+  });
+
+  it('keeps permission failures separate from an unapplied app', async () => {
+    state.exportResponse = graphqlError('FORBIDDEN');
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(0);
+    expect(envelope.data.pullBase).toBe('failed');
+    expect(envelope.warnings).toContainEqual(
+      expect.objectContaining({ code: 'PULL_BASE_NOT_RECORDED' }),
+    );
+    expect(existsSync(join(appPath, '.twenty/cli'))).toBe(false);
+  });
+
+  it.each(['.twenty', '.twenty/cli', '.twenty/cli/pull-base.json'])(
+    'does not follow a symlink at %s while recording the base',
+    async (relativePath) => {
+      const externalPath = await mkdtemp(
+        join(tmpdir(), 'twenty-external-base-'),
+      );
+      const destination = join(appPath, relativePath);
+      const isFile = relativePath.endsWith('.json');
+      const target = isFile ? join(externalPath, 'base.json') : externalPath;
+      if (isFile) {
+        await writeFile(target, 'external baseline');
+      }
+      await mkdir(join(destination, '..'), { recursive: true });
+      await symlink(target, destination);
+
+      try {
+        const { envelope, exitCode } = await runJson();
+
+        expect(exitCode).toBe(0);
+        expect(envelope.data.pullBase).toBe('failed');
+        expect(envelope.warnings).toContainEqual(
+          expect.objectContaining({ code: 'PULL_BASE_NOT_RECORDED' }),
+        );
+        expect(await readdir(externalPath)).toEqual(
+          isFile
+            ? ['base.json']
+            : relativePath === '.twenty'
+              ? ['snapshots']
+              : [],
+        );
+        if (isFile) {
+          expect(await readFile(target, 'utf8')).toBe('external baseline');
+        }
+      } finally {
+        await rm(externalPath, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it('cleans up staged files when the base cannot be replaced', async () => {
+    const basePath = join(appPath, '.twenty/cli/pull-base.json');
+    await mkdir(basePath, { recursive: true });
+    await writeFile(join(basePath, 'keep.txt'), 'user contents');
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(0);
+    expect(envelope.data.pullBase).toBe('failed');
+    expect(envelope.warnings).toContainEqual(
+      expect.objectContaining({ code: 'PULL_BASE_NOT_RECORDED' }),
+    );
+    expect(await readFile(join(basePath, 'keep.txt'), 'utf8')).toBe(
+      'user contents',
+    );
+    expect(await readdir(join(appPath, '.twenty/cli'))).toEqual([
+      'pull-base.json',
+    ]);
+  });
+
+  it('records exports from servers predating settings menu items', async () => {
+    const { settingsMenuItems: _settingsMenuItems, ...manifest } =
+      EXPORTED_MANIFEST;
+    state.exportResponse = {
+      data: { exportApplication: { ...APPLICATION_EXPORT, manifest } },
+    };
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(0);
+    expect(envelope.data.pullBase).toBe('recorded');
+    expect(
+      JSON.parse(
+        await readFile(join(appPath, '.twenty/cli/pull-base.json'), 'utf8'),
+      ).manifest,
+    ).toEqual(EXPORTED_MANIFEST);
+  });
+
+  it.each([
+    [
+      400,
+      undefined,
+      'Cannot query field "exportApplication" on type "Query".',
+      'unsupported',
+    ],
+    [
+      400,
+      undefined,
+      'Cannot query field "exportApplication" on type "Query". Did you mean "application"?',
+      'unsupported',
+    ],
+    [
+      200,
+      'GRAPHQL_VALIDATION_FAILED',
+      'Cannot query field "exportApplication" on type "Query".',
+      'unsupported',
+    ],
+    [
+      200,
+      'GRAPHQL_VALIDATION_FAILED',
+      'Cannot query field "exportApplication" on type "Query". Did you mean "application"?',
+      'unsupported',
+    ],
+    [
+      200,
+      'GRAPHQL_VALIDATION_FAILED',
+      'Cannot query field "coverage" on type "ApplicationExport".',
+      'failed',
+    ],
+    [
+      400,
+      undefined,
+      'Cannot query field "coverage" on type "ApplicationExport".',
+      'failed',
+    ],
+    [
+      200,
+      undefined,
+      'Cannot query field "exportApplication" on type "Query".',
+      'failed',
+    ],
+    [
+      400,
+      'INTERNAL_SERVER_ERROR',
+      'Cannot query field "exportApplication" on type "Query".',
+      'failed',
+    ],
+  ])(
+    'classifies only a missing export API as unsupported: %s %s %s',
+    async (httpStatus, code, message, status) => {
+      const basePath = join(appPath, '.twenty/cli/pull-base.json');
+      await mkdir(join(appPath, '.twenty/cli'), { recursive: true });
+      await writeFile(basePath, 'previous baseline');
+      state.exportStatus = httpStatus;
+      state.exportResponse = {
+        errors: [
+          {
+            message,
+            locations: [{ line: 1, column: 27 }],
+            ...(isDefined(code) ? { extensions: { code } } : {}),
+          },
+        ],
+      };
+      await enableClientGeneration(
+        'return { success: true, data: null, diagnostics: [] };',
+      );
+
+      const { envelope, exitCode } = await runJson();
+
+      expect(exitCode).toBe(0);
+      expect(envelope.data).toMatchObject({
+        pullBase: status,
+        clientGeneration: 'generated',
+      });
+      expect(envelope.data.completedPhases).not.toContain('pullBase');
+      expect(envelope.warnings).toEqual(
+        status === 'unsupported'
+          ? []
+          : [expect.objectContaining({ code: 'PULL_BASE_NOT_RECORDED' })],
+      );
+      expect(await readFile(basePath, 'utf8')).toBe('previous baseline');
+    },
+  );
+
+  it('does not mistake an execution error for a missing export API', async () => {
+    state.exportStatus = 400;
+    state.exportResponse = {
+      errors: [
+        {
+          message: 'Cannot query field "exportApplication" on type "Query".',
+          path: ['exportApplication'],
+        },
+      ],
+    };
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(0);
+    expect(envelope.data.pullBase).toBe('failed');
+    expect(envelope.warnings).toContainEqual(
+      expect.objectContaining({ code: 'PULL_BASE_NOT_RECORDED' }),
+    );
+  });
+
+  it('keeps a generation failure distinct from an earlier baseline warning', async () => {
+    state.exportResponse = graphqlError('FORBIDDEN');
+    await enableClientGeneration("throw new Error('generation failed');");
+
+    const { envelope, exitCode } = await runJson();
+
+    expect(exitCode).toBe(1);
+    expect(envelope.error.details).toMatchObject({
+      phase: 'clientGeneration',
+      outcome: 'applied',
+    });
+    expect(envelope.error.details.completedPhases).not.toContain('pullBase');
+    expect(envelope.warnings).toEqual([
+      expect.objectContaining({ code: 'PULL_BASE_NOT_RECORDED' }),
+    ]);
+  });
+
+  it('reports an applied app if export fetching is cancelled and preserves the base', async () => {
+    const basePath = join(appPath, '.twenty/cli/pull-base.json');
+    await mkdir(join(appPath, '.twenty/cli'), { recursive: true });
+    await writeFile(basePath, 'previous baseline');
+    state.isExportHeld = true;
+    const pending = runJson();
+    await vi.waitFor(() => expect(state.heldExportResponse).toBeDefined(), {
+      timeout: 10_000,
+    });
+    process.emit('SIGINT');
+
+    const { envelope, exitCode } = await pending;
+
+    expect(exitCode).toBe(130);
+    expect(envelope.error).toMatchObject({
+      code: 'CANCELLED',
+      details: { phase: 'pullBase', outcome: 'applied' },
+    });
+    expect(await readFile(basePath, 'utf8')).toBe('previous baseline');
+    expect(operations()).not.toContain('schema');
   });
 
   it('generates with the project SDK after sync and snapshot release, keeping target credentials in the CLI', async () => {
@@ -610,6 +1095,7 @@ describe('app apply', () => {
         'installation',
         'upload',
         'sync',
+        'pullBase',
         'clientGeneration',
       ],
       diagnostics: expect.arrayContaining([
@@ -619,7 +1105,12 @@ describe('app apply', () => {
       ]),
     });
     expect(envelope.warnings).toEqual([]);
-    expect(operations().slice(-2)).toEqual(['sync', 'schema']);
+    expect(operations().slice(-4)).toEqual([
+      'sync',
+      'workspace',
+      'export',
+      'schema',
+    ]);
     expect(
       operations().filter((operation) => operation === 'sync'),
     ).toHaveLength(1);
@@ -680,7 +1171,14 @@ describe('app apply', () => {
     expect(exitCode).toBe(0);
     expect(envelope.data).toMatchObject({
       clientGeneration: 'skipped',
-      completedPhases: ['build', 'preview', 'installation', 'upload', 'sync'],
+      completedPhases: [
+        'build',
+        'preview',
+        'installation',
+        'upload',
+        'sync',
+        'pullBase',
+      ],
     });
     expect(envelope.warnings).toEqual([
       {
@@ -781,6 +1279,7 @@ describe('app apply', () => {
             'installation',
             'upload',
             'sync',
+            'pullBase',
           ],
         },
       });
@@ -989,6 +1488,7 @@ describe('app apply', () => {
         'preview',
         'upload',
         'sync',
+        'pullBase',
       ],
     });
     expect(operations()).toEqual([
@@ -1001,6 +1501,8 @@ describe('app apply', () => {
       'put',
       'upload-complete',
       'sync',
+      'workspace',
+      'export',
     ]);
     expect(server.requests[1].body).not.toContain('clientSecret');
   });
@@ -1085,11 +1587,11 @@ describe('app apply', () => {
       delete: 1,
       destructive: 1,
     });
-    expect(operations().at(-1)).toBe('sync');
+    expect(operations().at(-1)).toBe('export');
   });
 
   it.each([
-    ['y\n', 0, 'sync'],
+    ['y\n', 0, 'export'],
     ['n\n', 2, 'preview'],
   ])(
     'asks before deleting objects in an interactive terminal (answer %j)',
@@ -1173,6 +1675,31 @@ describe('app apply', () => {
       details: { phase: 'upload', outcome: 'not-started' },
     });
     expect(operations()).toEqual(['preview', 'installation']);
+  });
+
+  it('keeps an existing base unchanged while planning or after an unacknowledged sync', async () => {
+    const basePath = join(appPath, '.twenty/cli/pull-base.json');
+    await mkdir(join(appPath, '.twenty/cli'), { recursive: true });
+    await writeFile(basePath, 'previous baseline');
+    const plan = await runCliForTest([
+      'app',
+      'plan',
+      '--path',
+      appPath,
+      '--json',
+    ]);
+
+    expect(plan.exitCode).toBe(0);
+    expect(await readFile(basePath, 'utf8')).toBe('previous baseline');
+    expect(operations()).not.toContain('export');
+    state.syncResponseOverride = { data: null };
+
+    const { exitCode } = await runJson();
+
+    expect(exitCode).toBe(1);
+    expect(await readFile(basePath, 'utf8')).toBe('previous baseline');
+    expect(operations()).not.toContain('export');
+    expect(operations()).not.toContain('workspace');
   });
 
   it('reports an unknown outcome when the sync fails', async () => {

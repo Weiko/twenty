@@ -1,12 +1,13 @@
 import { isDefined } from 'twenty-shared/utils';
 
 import { type AppApplyResult, applyAppBuild } from '@/app/apply-app-build';
-import { createClientGenerationFailure } from '@/app/create-client-generation-failure';
+import { createPostSyncFailure } from '@/app/create-post-sync-failure';
 import { formatApplySummary } from '@/app/format-apply-summary';
 import { generateAppClient } from '@/app/generate-app-client';
 import { getAppPlanSummary } from '@/app/get-app-plan-summary';
 import { getClientGenerationSkipReason } from '@/app/get-client-generation-skip-reason';
 import { parseBuildData } from '@/app/parse-tooling-result';
+import { type PullBaseRecording, recordPullBase } from '@/app/record-pull-base';
 import { runAppOperation } from '@/app/run-app-operation';
 import { readBooleanOption } from '@/catalog/read-command-values';
 import { type CommandRun } from '@/catalog/types/command-run.type';
@@ -61,6 +62,28 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
     });
   }
 
+  let pullBase: PullBaseRecording;
+
+  try {
+    pullBase = await recordPullBase({
+      appPath: project.path,
+      universalIdentifier: applyResult.acknowledgedUniversalIdentifier,
+      context,
+    });
+    if (pullBase === 'recorded') {
+      applyResult.completedPhases.push('pullBase');
+    }
+  } catch (error) {
+    throw createPostSyncFailure({
+      error,
+      phase: 'pullBase',
+      applicationName: build.application.displayName,
+      apiUrl: context.target.apiUrl,
+      completedPhases: applyResult.completedPhases,
+      signal: context.signal,
+    });
+  }
+
   const clientGenerationSkipReason = await getClientGenerationSkipReason({
     appPath: project.path,
     sdk,
@@ -86,8 +109,9 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
       clientGeneration = 'generated';
       applyResult.completedPhases.push('clientGeneration');
     } catch (error) {
-      throw createClientGenerationFailure({
+      throw createPostSyncFailure({
         error,
+        phase: 'clientGeneration',
         applicationName: build.application.displayName,
         apiUrl: context.target.apiUrl,
         completedPhases: applyResult.completedPhases,
@@ -114,6 +138,7 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
         byteCount: applyResult.upload.byteCount,
       },
       clientGeneration,
+      pullBase,
       diagnostics,
       durationMilliseconds,
     },

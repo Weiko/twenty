@@ -6,6 +6,7 @@ export type AppApplyPhase =
   | 'installation'
   | 'upload'
   | 'sync'
+  | 'pullBase'
   | 'clientGeneration';
 
 export type AppApplyOutcome = 'not-started' | 'partial' | 'unknown' | 'applied';

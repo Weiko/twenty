@@ -19,7 +19,7 @@ const readAppIdentity = ({ appPath }: { appPath: string }) =>
   readSourceIdentity({ appPath, signal: new AbortController().signal });
 import { type PullTarget as AppPullTarget } from '@/app/types/pull-target.type';
 import { type ToolingResult as BuildResult } from '@/app/types/tooling-result.type';
-import * as fileUtilities from '@/app/pull/fs-utils';
+import * as fileUtilities from '@/app/fs-utils';
 import { type AppExportCoverageEntry } from '@/app/types/app-export.type';
 import * as sourceScanner from '@/app/source/scan-project-source-files';
 

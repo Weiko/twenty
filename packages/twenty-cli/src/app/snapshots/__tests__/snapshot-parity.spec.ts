@@ -20,7 +20,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildTestAppWorker } from '@/app/__tests__/utils/build-test-app-worker';
 import { createAppProject } from '@/app/create-app-project';
-import { pathExists } from '@/app/pull/fs-utils';
+import { pathExists } from '@/app/fs-utils';
 import { runAppWorker } from '@/app/run-app-worker';
 import { buildSnapshot, releaseSnapshot } from '@/app/snapshots/build-snapshot';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { OUTPUT_DIR } from 'twenty-shared/application';
 
 import { copyBuildFile } from '@/app/bundles/copy-build-file';
-import { ensureDir } from '@/app/pull/fs-utils';
+import { ensureDir } from '@/app/fs-utils';
 
 const README_FILE_NAME_REGEX = /^readme(\.[^.]+)?$/i;
 

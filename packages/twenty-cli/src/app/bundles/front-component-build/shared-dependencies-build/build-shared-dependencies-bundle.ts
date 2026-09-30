@@ -4,7 +4,7 @@ import { type SharedDependenciesBuildContext } from '@/app/bundles/front-compone
 import { enumerateSharedDependenciesExportNames } from '@/app/bundles/front-component-build/shared-dependencies-build/utils/enumerate-shared-dependencies-export-names';
 import { getSharedDependenciesEntrySource } from '@/app/bundles/front-component-build/shared-dependencies-build/utils/get-shared-dependencies-entry-source';
 import { getSharedDependenciesNamespaceCollisions } from '@/app/bundles/front-component-build/shared-dependencies-build/utils/get-shared-dependencies-namespace-collisions';
-import { ensureDir } from '@/app/pull/fs-utils';
+import { ensureDir } from '@/app/fs-utils';
 import crypto from 'crypto';
 import * as esbuild from 'esbuild';
 import { readFile } from 'node:fs/promises';

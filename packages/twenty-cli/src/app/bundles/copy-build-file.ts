@@ -1,6 +1,6 @@
 import { copyFile } from 'node:fs/promises';
 
-import { copy } from '@/app/pull/fs-utils';
+import { copy } from '@/app/fs-utils';
 
 export const copyBuildFile = ({
   sourcePath,

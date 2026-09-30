@@ -4,6 +4,16 @@ The command line for [Twenty](https://twenty.com).
 
 This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, opening the workspace in a browser, metadata inspection, record reads, creating an app from a template, local app builds and typechecks, advisory app previews, pulling workspace metadata into an existing app, and applying a development app to a workspace or uninstalling it. Run `twenty commands` for the available commands. To publish an app or develop in watch mode, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
 
+## Network proxies
+
+API requests, browser sign-in requests and app uploads honor `HTTP_PROXY`,
+`HTTPS_PROXY` and `NO_PROXY` (also their lowercase equivalents, which take
+precedence). `HTTP_PROXY` also covers HTTPS when `HTTPS_PROXY` is unset.
+Use `NO_PROXY=localhost,127.0.0.1` to bypass a proxy for local development,
+or `NO_PROXY=*` to bypass it for all hosts. Proxies must support HTTP CONNECT.
+For a corporate certificate authority, set `NODE_EXTRA_CA_CERTS` before starting
+the CLI. TLS certificate verification stays enabled.
+
 ## Diagnose your setup
 
 ```bash

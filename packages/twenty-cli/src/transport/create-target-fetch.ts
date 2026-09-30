@@ -6,6 +6,7 @@ import { type ResolvedTarget } from '@/target/types/resolved-target.type';
 import { assertUrlWithinTarget } from '@/transport/assert-url-within-target';
 import { REQUEST_TIMEOUT_MILLISECONDS } from '@/transport/constants/request-timeout-milliseconds.constant';
 import { RESPONSE_BYTE_LIMIT } from '@/transport/constants/response-byte-limit.constant';
+import { fetchWithProxy } from '@/transport/fetch-with-proxy';
 import { readBoundedBody } from '@/transport/read-bounded-body';
 
 const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
@@ -99,7 +100,7 @@ export const createBoundedFetch =
     }
 
     try {
-      const response = await fetch(url, {
+      const response = await fetchWithProxy(url, {
         ...init,
         headers,
         redirect: 'manual',

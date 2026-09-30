@@ -19,6 +19,7 @@ import { METADATA_OBJECT_DESCRIBE_COMMAND_DEFINITION } from '@/commands/metadata
 import { METADATA_FIELD_LIST_COMMAND_DEFINITION } from '@/commands/metadata/field/list/metadata-field-list.command-definition';
 import { METADATA_FIELD_DESCRIBE_COMMAND_DEFINITION } from '@/commands/metadata/field/describe/metadata-field-describe.command-definition';
 import { METADATA_OBJECT_LIST_COMMAND_DEFINITION } from '@/commands/metadata/object/list/metadata-object-list.command-definition';
+import { OPEN_COMMAND_DEFINITION } from '@/commands/open/open.command-definition';
 import { REMOTE_LIST_COMMAND_DEFINITION } from '@/commands/remote/list/remote-list.command-definition';
 import { REMOTE_REMOVE_COMMAND_DEFINITION } from '@/commands/remote/remove/remote-remove.command-definition';
 import { REMOTE_RENAME_COMMAND_DEFINITION } from '@/commands/remote/rename/remote-rename.command-definition';
@@ -50,5 +51,6 @@ export const COMMAND_CATALOG: CommandDefinition[] = [
   METADATA_OBJECT_DESCRIBE_COMMAND_DEFINITION,
   METADATA_FIELD_LIST_COMMAND_DEFINITION,
   METADATA_FIELD_DESCRIBE_COMMAND_DEFINITION,
+  OPEN_COMMAND_DEFINITION,
   VERSION_COMMAND_DEFINITION,
 ];

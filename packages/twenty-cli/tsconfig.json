@@ -11,7 +11,8 @@
     "lib": ["es2024"],
     "types": ["node"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@create-twenty-app/*": ["../create-twenty-app/src/*"]
     }
   },
   "include": ["src/**/*.ts", "vite.config.ts", "vitest.config.ts"]

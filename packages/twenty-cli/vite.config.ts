@@ -1,3 +1,4 @@
+import { cp } from 'node:fs/promises';
 import { builtinModules } from 'node:module';
 import path from 'node:path';
 import { defineConfig } from 'vite';
@@ -9,10 +10,25 @@ const NODE_BUILTIN_MODULES = new Set([
 
 export default defineConfig({
   root: __dirname,
+  plugins: [
+    {
+      name: 'copy-app-template',
+      closeBundle: () =>
+        cp(
+          path.resolve(
+            __dirname,
+            '../create-twenty-app/src/constants/template',
+          ),
+          path.resolve(__dirname, 'dist/app-template'),
+          { recursive: true },
+        ),
+    },
+  ],
   cacheDir: '../../node_modules/.vite/packages/twenty-cli',
   resolve: {
     alias: {
       '@/': `${path.resolve(__dirname, 'src')}/`,
+      '@create-twenty-app/': `${path.resolve(__dirname, '../create-twenty-app/src')}/`,
     },
   },
   build: {

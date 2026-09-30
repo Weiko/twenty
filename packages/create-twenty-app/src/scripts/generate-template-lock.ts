@@ -88,7 +88,6 @@ const resolveYarnBinary = (templatePackageManager: string) => {
 
 const buildTemplateManifest = (version: string) => {
   const manifest = fs.readJsonSync(TEMPLATE_MANIFEST_PATH);
-  manifest.engines.twenty = `>=${version}`;
 
   for (const packageName of TEMPLATE_FIRST_PARTY_PACKAGES) {
     manifest.devDependencies[packageName] = version;

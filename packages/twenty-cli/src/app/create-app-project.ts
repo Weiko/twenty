@@ -10,9 +10,11 @@ import {
   rmdir,
   stat,
   unlink,
+  writeFile,
 } from 'node:fs/promises';
 import { basename, dirname, join, relative } from 'node:path';
 
+import { TEMPLATE_PACKAGE_VERSION } from '@create-twenty-app/constants/template-package-version';
 import { copyBaseApplicationProject } from '@create-twenty-app/utils/app-template';
 import { isDefined, isNonEmptyArray } from 'twenty-shared/utils';
 
@@ -164,6 +166,18 @@ export const createAppProject = async ({
       templateDirectory: getAppTemplateDirectory(),
     });
     signal.throwIfAborted();
+
+    const packageJsonPath = join(stagingDirectory, 'package.json');
+    const packageJson: { engines: Record<string, string> } = JSON.parse(
+      await readFile(packageJsonPath, 'utf8'),
+    );
+
+    packageJson.engines = {
+      ...packageJson.engines,
+      twenty: `>=${TEMPLATE_PACKAGE_VERSION}`,
+    };
+
+    await writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
     const unrenderedFiles = await findUnrenderedFiles(stagingDirectory);
 

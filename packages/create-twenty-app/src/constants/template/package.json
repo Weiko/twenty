@@ -5,7 +5,6 @@
   "engines": {
     "node": "^24.5.0",
     "npm": "please-use-yarn",
-    "twenty": "TO-BE-GENERATED",
     "yarn": ">=4.0.2"
   },
   "keywords": [],

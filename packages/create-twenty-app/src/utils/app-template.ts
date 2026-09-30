@@ -142,10 +142,6 @@ const updatePackageJson = async ({
   // rewrites from package.json without re-resolving a single dependency. Renaming
   // it here would move the entry out of sort order and break `--immutable`.
   packageJson.name = appName;
-  packageJson.engines = {
-    ...packageJson.engines,
-    twenty: `>=${packageVersion}`,
-  };
 
   for (const packageName of TEMPLATE_FIRST_PARTY_PACKAGES) {
     packageJson.devDependencies[packageName] = packageVersion;

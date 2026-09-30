@@ -105,7 +105,10 @@ describe('app init', () => {
     expect(await readPackageJson(appDirectory)).toMatchObject({
       name: 'my-app',
       engines: {
+        node: '^24.5.0',
+        npm: 'please-use-yarn',
         twenty: `>=${TEMPLATE_PACKAGE_VERSION}`,
+        yarn: '>=4.0.2',
       },
       devDependencies: {
         'twenty-client-sdk': TEMPLATE_PACKAGE_VERSION,

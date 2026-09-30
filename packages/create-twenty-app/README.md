@@ -28,14 +28,6 @@ The scaffolder will:
 2. Start a local Twenty server via Docker (pulls the latest image automatically)
 3. Authenticate with the development API key
 
-New apps declare `engines.twenty` as `>=` the template release version, alongside
-matching SDK package pins. The SDK copies this range into the app manifest, and
-the server checks it against the workspace's completed upgrade version before
-syncing. Upgrade the workspace before deploying a newer template. Adjust the
-range only after checking the app on the older server version you want to support.
-The existing server check uses standard semver rules, including prerelease
-matching; local development servers need completed workspace upgrades too.
-
 ## Options
 
 | Flag                               | Description                                                           |

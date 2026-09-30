@@ -50,6 +50,11 @@ warnings. It reads catalogs without rewriting them.
   its shared source and ignore globs. Enum references become
   the loader's string literals; the unreachable public-assets switch case is
   omitted. The loader's existing validation-result shape check still applies.
+- Source and public-asset discovery is sorted. The SDK processes files in
+  tinyglobby's order, which changes between runs, so its warnings, errors and
+  entity file lists can come out in a different order for the same app. The
+  manifest itself was already sorted. The parity suites sort the SDK
+  reference's discovery the same way, so their comparisons stay exact.
 - The loader result accepts a compile-time config type, with the same runtime
   shape check. Config types are copied locally rather than importing the SDK.
   Handler parameters use `never` and return `unknown`; front components expose

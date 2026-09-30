@@ -25,7 +25,7 @@ Definitions are bundled using the app's tsconfig and imports, then evaluated wit
 
 An ordinary extraction failure marks a scanned definition unreadable, retaining its path so reconciliation can avoid overwriting it. SDK validation errors still leave the config available, as in the old scanner. Reading identity evaluates only application definitions, rejects duplicate or invalid application UUIDs, and returns `null` when no application is declared.
 
-Intentional additions are the static SDK gate, validation-result shape checks, and cancellation checks between files. Detection still uses the function name rather than its import origin: a local helper named `defineObject`, for example, must be renamed if it returns an incompatible shape. Such a mismatch now fails the scan instead of leaving an unmatched config. Source rewriting and reconciliation live in the adjacent `pull` module.
+Intentional additions are the static SDK gate, validation-result shape checks, cancellation checks between files, and a sorted file order: the loader, the identity reader and the scanner share `listApplicationSourceFiles`, so results do not depend on filesystem timing. Detection still uses the function name rather than its import origin: a local helper named `defineObject`, for example, must be renamed if it returns an incompatible shape. Such a mismatch now fails the scan instead of leaving an unmatched config. Source rewriting and reconciliation live in the adjacent `pull` module.
 
 ## Verification
 

@@ -2,15 +2,11 @@ import { readFile, stat } from 'node:fs/promises';
 import { isAbsolute, relative } from 'node:path';
 
 import { isString } from '@sniptt/guards';
-import { glob } from 'tinyglobby';
 import { isDefined, isValidUuid } from 'twenty-shared/utils';
 
-import {
-  APPLICATION_SOURCE_GLOBS,
-  APPLICATION_SOURCE_IGNORED_GLOBS,
-} from '@/app/source/application-source-globs';
 import { extractDefineEntity } from '@/app/source/extract-define-entity';
 import { extractManifestFromFile } from '@/app/source/extract-manifest-from-file';
+import { listApplicationSourceFiles } from '@/app/source/list-application-source-files';
 import { type AppSourceIdentity } from '@/app/source/types/app-source-identity.type';
 
 export const readApplicationIdentity = async ({
@@ -26,12 +22,7 @@ export const readApplicationIdentity = async ({
     throw new Error('The app path must be an absolute directory path.');
   }
 
-  const filePaths = await glob(APPLICATION_SOURCE_GLOBS, {
-    cwd: appPath,
-    absolute: true,
-    ignore: APPLICATION_SOURCE_IGNORED_GLOBS,
-    onlyFiles: true,
-  });
+  const filePaths = await listApplicationSourceFiles(appPath);
   let application: AppSourceIdentity['application'] = null;
 
   for (const filePath of filePaths) {

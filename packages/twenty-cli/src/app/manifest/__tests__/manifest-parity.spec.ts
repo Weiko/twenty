@@ -25,6 +25,7 @@ import {
 } from 'vitest';
 
 import { buildTestAppWorker } from '@/app/__tests__/utils/build-test-app-worker';
+import { SORTED_GLOB_PLUGIN } from '@/app/__tests__/utils/sorted-glob-plugin';
 import { buildAndValidateManifest } from '@/app/manifest/build-and-validate-manifest';
 import { buildManifest } from '@/app/manifest/manifest-build';
 import { createAppProject } from '@/app/create-app-project';
@@ -239,6 +240,7 @@ export { compileApplicationTranslations } from './cli/utilities/translations/com
       platform: 'node',
       format: 'cjs',
       target: 'node24',
+      plugins: [SORTED_GLOB_PLUGIN],
     });
     sdk = createRequire(import.meta.url)(oraclePath) as SdkReference;
 

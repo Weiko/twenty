@@ -1,7 +1,4 @@
-import {
-  APPLICATION_SOURCE_GLOBS,
-  APPLICATION_SOURCE_IGNORED_GLOBS,
-} from '@/app/source/application-source-globs';
+import { listApplicationSourceFiles } from '@/app/source/list-application-source-files';
 import { type EntityFilePaths } from '@/app/manifest/types/entity-file-paths.type';
 import {
   extractDefineEntity,
@@ -68,21 +65,17 @@ import {
 } from 'twenty-shared/logic-function';
 import { assertUnreachable, isDefined } from 'twenty-shared/utils';
 
-const loadSources = async (appPath: string): Promise<string[]> => {
-  return await glob(APPLICATION_SOURCE_GLOBS, {
-    cwd: appPath,
-    absolute: true,
-    ignore: APPLICATION_SOURCE_IGNORED_GLOBS,
-    onlyFiles: true,
-  });
-};
+const loadSources = (appPath: string): Promise<string[]> =>
+  listApplicationSourceFiles(appPath);
 
 const loadAssets = async (appPath: string) => {
-  return await glob([`${ASSETS_DIR}/**/*`], {
+  const assetPaths = await glob([`${ASSETS_DIR}/**/*`], {
     cwd: appPath,
     absolute: true,
     onlyFiles: true,
   });
+
+  return assetPaths.sort();
 };
 
 const loadReadme = async (appPath: string): Promise<string | undefined> => {

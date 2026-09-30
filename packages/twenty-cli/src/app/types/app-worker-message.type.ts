@@ -14,6 +14,7 @@ export type AppWorkerRequest =
       buildEntryPath: string;
       schema: string;
     }
+  | { type: 'readSourceIdentity'; appPath: string }
   | { type: 'release' }
   | { type: 'cancel' };
 

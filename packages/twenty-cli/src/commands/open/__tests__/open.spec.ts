@@ -24,13 +24,29 @@ vi.mock('@/oauth/open-browser', () => ({ openBrowser: vi.fn() }));
 
 const SUBDOMAIN_URL = 'https://acme.twenty.com';
 
-const state: { workspaceUrls: unknown } = { workspaceUrls: null };
+const state: {
+  workspaceUrls: unknown;
+  discovery: unknown;
+  discoveryStatus: number;
+  metadataStatus: number;
+} = {
+  workspaceUrls: null,
+  discovery: null,
+  discoveryStatus: 200,
+  metadataStatus: 200,
+};
 
-const server = await startTestServer((_request, response) =>
-  sendJson(response, 200, {
+const server = await startTestServer((request, response) => {
+  if (request.path === '/.well-known/oauth-authorization-server') {
+    sendJson(response, state.discoveryStatus, state.discovery);
+
+    return;
+  }
+
+  sendJson(response, state.metadataStatus, {
     data: { currentWorkspace: { workspaceUrls: state.workspaceUrls } },
-  }),
-);
+  });
+});
 
 const stubStandardInput = ({ isTerminal }: { isTerminal: boolean }) =>
   vi
@@ -52,6 +68,11 @@ describe('open', () => {
     vi.stubEnv('TWENTY_REMOTE', '');
     stubStandardInput({ isTerminal: true });
     state.workspaceUrls = { customUrl: null, subdomainUrl: SUBDOMAIN_URL };
+    state.discovery = {
+      authorization_endpoint: 'https://frontend.example/authorize?iss=api',
+    };
+    state.discoveryStatus = 200;
+    state.metadataStatus = 200;
     server.requests.length = 0;
   });
 
@@ -152,11 +173,96 @@ describe('open', () => {
     expect(openBrowser).not.toHaveBeenCalled();
   });
 
+  it.each([null, {}, { customUrl: null, subdomainUrl: '' }])(
+    'uses the discovery frontend origin when workspace URLs are missing: %j',
+    async (workspaceUrls) => {
+      state.workspaceUrls = workspaceUrls;
+      state.discovery = {
+        authorization_endpoint:
+          'https://ignored-user:ignored-password@frontend.example/authorize?iss=api#fragment',
+      };
+
+      const { envelope, exitCode } = await runJson([
+        'settings/applications',
+        '--url-only',
+      ]);
+
+      expect(exitCode).toBe(0);
+      expect(envelope.data.url).toBe(
+        'https://frontend.example/settings/applications',
+      );
+      expect(server.requests.map((request) => request.path)).toEqual([
+        '/metadata',
+        '/.well-known/oauth-authorization-server',
+      ]);
+      expect(server.requests[1].headers.authorization).toBeUndefined();
+
+      const human = await runCliForTest(['open']);
+
+      expect(human.exitCode).toBe(0);
+      expect(openBrowser).toHaveBeenCalledWith('https://frontend.example/');
+    },
+  );
+
+  it.each([
+    undefined,
+    '',
+    'javascript:alert(1)',
+    'file:///etc/passwd',
+    '/authorize',
+  ])(
+    'rejects an invalid discovery frontend: %s',
+    async (authorizationEndpoint) => {
+      state.workspaceUrls = null;
+      state.discovery = { authorization_endpoint: authorizationEndpoint };
+
+      const { envelope, exitCode } = await runJson(['--url-only']);
+
+      expect(exitCode).toBe(1);
+      expect(envelope.error.code).toBe('INVALID_RESPONSE');
+      expect(openBrowser).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects a failed discovery response', async () => {
+    state.workspaceUrls = null;
+    state.discoveryStatus = 404;
+
+    const { envelope, exitCode } = await runJson(['--url-only']);
+
+    expect(exitCode).toBe(1);
+    expect(envelope.error.code).toBe('INVALID_RESPONSE');
+  });
+
+  it('does not hide an authentication failure with the fallback', async () => {
+    state.workspaceUrls = null;
+    state.metadataStatus = 401;
+
+    const { envelope, exitCode } = await runJson(['--url-only']);
+
+    expect(exitCode).toBe(3);
+    expect(envelope.error.code).toBe('AUTH_REQUIRED');
+    expect(server.requests.map((request) => request.path)).toEqual([
+      '/metadata',
+    ]);
+  });
+
+  it('still rejects pages that leave the discovered frontend', async () => {
+    state.workspaceUrls = null;
+
+    const { envelope, exitCode } = await runJson([
+      '/.//evil.example/login',
+      '--url-only',
+    ]);
+
+    expect(exitCode).toBe(2);
+    expect(envelope.error.code).toBe('USAGE');
+    expect(openBrowser).not.toHaveBeenCalled();
+  });
+
   it.each([
     { customUrl: null, subdomainUrl: 'javascript:alert(1)' },
     { customUrl: 'file:///etc/passwd', subdomainUrl: SUBDOMAIN_URL },
-    { customUrl: null, subdomainUrl: '' },
-    null,
   ])(
     'refuses a workspace address it cannot open: %j',
     async (workspaceUrls) => {

@@ -1,3 +1,7 @@
+import {
+  APPLICATION_SOURCE_GLOBS,
+  APPLICATION_SOURCE_IGNORED_GLOBS,
+} from '@/app/source/application-source-globs';
 import { type EntityFilePaths } from '@/app/manifest/types/entity-file-paths.type';
 import {
   extractDefineEntity,
@@ -65,10 +69,10 @@ import {
 import { assertUnreachable, isDefined } from 'twenty-shared/utils';
 
 const loadSources = async (appPath: string): Promise<string[]> => {
-  return await glob(['**/*.ts', '**/*.tsx'], {
+  return await glob(APPLICATION_SOURCE_GLOBS, {
     cwd: appPath,
     absolute: true,
-    ignore: ['**/node_modules/**', '**/*.d.ts', '**/dist/**', '**/.twenty/**'],
+    ignore: APPLICATION_SOURCE_IGNORED_GLOBS,
     onlyFiles: true,
   });
 };

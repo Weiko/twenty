@@ -46,7 +46,8 @@ warnings. It reads catalogs without rewriting them.
 
 ## CLI adaptations
 
-- Definition detection and evaluation reuse `app/source`. Enum references become
+- Definition discovery, detection and evaluation reuse `app/source`, including
+  its shared source and ignore globs. Enum references become
   the loader's string literals; the unreachable public-assets switch case is
   omitted. The loader's existing validation-result shape check still applies.
 - The loader result accepts a compile-time config type, with the same runtime

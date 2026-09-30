@@ -2,7 +2,7 @@
 
 The command line for [Twenty](https://twenty.com).
 
-This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, metadata inspection, record reads, creating an app from a template, local app builds and typechecks, advisory app previews, and applying a development app to a workspace or uninstalling it. Run `twenty commands` for the available commands. To publish an app or develop in watch mode, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
+This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, opening the workspace in a browser, metadata inspection, record reads, creating an app from a template, local app builds and typechecks, advisory app previews, and applying a development app to a workspace or uninstalling it. Run `twenty commands` for the available commands. To publish an app or develop in watch mode, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
 
 ## Diagnose your setup
 
@@ -17,6 +17,16 @@ twenty doctor --offline
 By default it sends one read-only request to the selected workspace's metadata endpoint to check access. This does not prove access to every object or app operation. `--offline` disables network requests. Doctor never imports app or SDK code, builds an app, installs packages, repairs files, or refreshes credentials. An expired OAuth access token skips the network check: it produces a warning when a refresh token is saved (renewal remains unverified), or a failure when there is none. Renew through `twenty auth status` for the same remote, or sign in again.
 
 Each check has an `id`, `status` (`pass`, `warning`, `fail`, or `skipped`), message, and optional code, hint and details. Failed checks exit 1 with `DOCTOR_FAILED`; JSON includes the checklist in `error.details.checks`. Otherwise exit 0, with the same checklist in `data.checks`, including warnings and skipped checks. Human output includes the full checklist in either case. Ctrl+C exits 130. Output omits credentials, server response bodies and user identity information, but includes local paths and the selected API URL.
+
+## Open the workspace
+
+```bash
+twenty open
+twenty open settings/applications
+twenty open --remote staging --url-only --json
+```
+
+`open` asks the selected workspace for its web address, which is its custom domain when one is enabled and its subdomain otherwise. It then opens that address, or a page inside it, in your default browser. The address carries no credentials, so sign in to the workspace in the browser if needed. A browser only opens in an interactive terminal: with `--no-input`, JSON output, redirected stdin or in CI, the command stops with `USAGE` (exit 2) unless `--url-only` is set, which prints the address instead. A page is a path inside the workspace; one that would lead to another site is refused with `USAGE`.
 
 ## Inspect the data model
 

@@ -284,20 +284,8 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
     async (name) => {
       const result = await compareSnapshot(await copyFixture(name));
       expect(result.success, JSON.stringify(result)).toBe(
-        !['invalid-app', 'function-execute-app'].includes(name),
+        name !== 'invalid-app',
       );
-      if (name === 'function-execute-app') {
-        expect(result).toMatchObject({
-          error: { code: 'TYPECHECK_FAILED' },
-          diagnostics: expect.arrayContaining([
-            expect.objectContaining({
-              code: 'TS2353',
-              file: 'application.config.ts',
-              message: expect.stringContaining("'icon'"),
-            }),
-          ]),
-        });
-      }
     },
     60000,
   );

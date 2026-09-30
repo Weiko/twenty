@@ -128,6 +128,35 @@ describe('target-bound CLI pull base', () => {
     expect((await stat(basePath)).mode & 0o777).toBe(0o600);
   });
 
+  it('stores source fingerprints sorted by path and reads them back', async () => {
+    const roleFingerprint = 'a'.repeat(64);
+    const objectFingerprint = 'b'.repeat(64);
+
+    await writePullBase({
+      appPath,
+      manifest: MANIFEST,
+      target: TARGET,
+      sourceFingerprints: {
+        'src/role.ts': roleFingerprint,
+        'src/object.ts': objectFingerprint,
+      },
+      signal: controller.signal,
+    });
+
+    expect(await read()).toMatchObject({
+      status: 'used',
+      sourceFingerprints: {
+        'src/object.ts': objectFingerprint,
+        'src/role.ts': roleFingerprint,
+      },
+    });
+    expect(
+      Object.keys(
+        JSON.parse(await readFile(basePath, 'utf8')).sourceFingerprints,
+      ),
+    ).toEqual(['src/object.ts', 'src/role.ts']);
+  });
+
   it.each([
     [
       { ...TARGET, apiUrl: 'https://other.example.test/api' },
@@ -222,6 +251,19 @@ describe('target-bound CLI pull base', () => {
         ...BASE,
         unreconciledUniversalIdentifiers: ['invalid'],
       }),
+      'unreadable',
+    ],
+    [
+      'invalid source fingerprint',
+      JSON.stringify({
+        ...BASE,
+        sourceFingerprints: { 'src/role.ts': 'not-a-sha256' },
+      }),
+      'unreadable',
+    ],
+    [
+      'non-object source fingerprints',
+      JSON.stringify({ ...BASE, sourceFingerprints: ['src/role.ts'] }),
       'unreadable',
     ],
   ])(

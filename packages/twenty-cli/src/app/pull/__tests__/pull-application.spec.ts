@@ -7,12 +7,15 @@ import {
   symlink,
   writeFile,
 } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateMessageId } from 'twenty-shared/i18n';
 
+import { collectSourceFingerprints } from '@/app/pull/collect-source-fingerprints';
 import { pullApplication } from '@/app/pull/pull-application';
+import { writePullBase } from '@/app/pull/write-pull-base';
 import { parseAppExport } from '@/app/parse-app-export';
 import { readSourceIdentity } from '@/app/worker/read-source-identity';
 const readAppIdentity = ({ appPath }: { appPath: string }) =>
@@ -110,6 +113,9 @@ const createExport = ({
   files: [],
 });
 
+const sha256 = (content: string) =>
+  createHash('sha256').update(content).digest('hex');
+
 const requireSuccess = <TData>(result: BuildResult<TData>): TData => {
   expect(result.success, JSON.stringify(result)).toBe(true);
   if (!result.success) {
@@ -145,6 +151,17 @@ describe('programmatic application pull', () => {
       };
     }
   };
+  const recordAppliedBase = async () =>
+    writePullBase({
+      appPath,
+      manifest: parseAppExport({
+        value: createExport(),
+        universalIdentifier: APPLICATION_IDENTIFIER,
+      }).manifest,
+      target: TARGET,
+      sourceFingerprints: await collectSourceFingerprints(appPath),
+      signal: new AbortController().signal,
+    });
   beforeEach(async () => {
     appPath = await mkdtemp(join(tmpdir(), 'twenty-sdk-pull-'));
     await mkdir(join(appPath, 'node_modules'));
@@ -271,6 +288,55 @@ describe('programmatic application pull', () => {
       requireSuccess(await pull(createExport({ label: 'Remote pet' })))
         .overwrittenLocalChanges,
     ).toEqual([]);
+  });
+  it('does not report a hand-written file that is unchanged since apply fingerprinted it', async () => {
+    requireSuccess(await pull());
+    await writeFile(
+      join(appPath, OBJECT_PATH),
+      (await read(OBJECT_PATH)).replace(
+        "labelSingular: 'Pet'",
+        'labelSingular: "Pet"',
+      ),
+    );
+    await recordAppliedBase();
+    const changed = requireSuccess(
+      await pull(createExport({ label: 'Remote pet' })),
+    );
+    expect(changed.overwrittenLocalChanges).toEqual([]);
+    expect(await read(OBJECT_PATH)).toContain("labelSingular: 'Remote pet'");
+  });
+  it('reports an edit made after apply fingerprinted the file', async () => {
+    requireSuccess(await pull());
+    await recordAppliedBase();
+    await writeFile(
+      join(appPath, OBJECT_PATH),
+      (await read(OBJECT_PATH)).replace(
+        "labelSingular: 'Pet'",
+        "labelSingular: 'My local pet'",
+      ),
+    );
+    expect(
+      requireSuccess(await pull(createExport({ label: 'Remote pet' })))
+        .overwrittenLocalChanges,
+    ).toEqual([
+      { universalIdentifier: OBJECT_IDENTIFIER, relativePath: OBJECT_PATH },
+    ]);
+  });
+  it('carries fingerprints across pulls, updating rewritten files and dropping deleted ones', async () => {
+    requireSuccess(await pull());
+    await recordAppliedBase();
+    const applied = JSON.parse(await read(BASE_PATH)).sourceFingerprints;
+    requireSuccess(await pull(createExport({ label: 'Remote pet' })));
+    const pulled = JSON.parse(await read(BASE_PATH)).sourceFingerprints;
+    expect(pulled[OBJECT_PATH]).toBe(sha256(await read(OBJECT_PATH)));
+    expect(pulled[OBJECT_PATH]).not.toBe(applied[OBJECT_PATH]);
+    expect(pulled['src/application.config.ts']).toBe(
+      applied['src/application.config.ts'],
+    );
+    requireSuccess(await pull(createExport({ includeObject: false })));
+    expect(
+      JSON.parse(await read(BASE_PATH)).sourceFingerprints,
+    ).not.toHaveProperty([OBJECT_PATH]);
   });
   it.each(APPLICATION_EXPORT_COVERAGE_STATUSES)(
     'preserves a base entity still mentioned by %s coverage',

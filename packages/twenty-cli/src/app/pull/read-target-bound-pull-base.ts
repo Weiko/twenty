@@ -7,6 +7,7 @@ import { PULL_BASE_FILE_PATH } from '@/app/constants/pull-base-file-path.constan
 import { assertPullPaths } from '@/app/pull/assert-pull-paths';
 import { normalizePullTarget } from '@/app/pull/normalize-pull-target';
 import { isExportedManifest } from '@/app/pull/is-exported-manifest';
+import { isSourceFingerprints } from '@/app/pull/is-source-fingerprints';
 import { type ExportedManifest } from '@/app/types/exported-manifest.type';
 import { type PullTarget } from '@/app/types/pull-target.type';
 import { hasErrorCode } from '@/utils/has-error-code';
@@ -23,6 +24,7 @@ export const readTargetBoundPullBase = async ({
   status: 'used' | 'missing' | 'other-target' | 'unbound' | 'unreadable';
   manifest: ExportedManifest | null;
   unreconciledUniversalIdentifiers?: string[];
+  sourceFingerprints?: Record<string, string>;
 }> => {
   await assertPullPaths({ appPath, relativePaths: [PULL_BASE_FILE_PATH] });
 
@@ -51,7 +53,9 @@ export const readTargetBoundPullBase = async ({
         (!isArray(base.unreconciledUniversalIdentifiers) ||
           !base.unreconciledUniversalIdentifiers.every(
             (identifier) => isString(identifier) && isValidUuid(identifier),
-          )))
+          ))) ||
+      (isDefined(base.sourceFingerprints) &&
+        !isSourceFingerprints(base.sourceFingerprints))
     ) {
       return { status: 'unreadable', manifest: null };
     }
@@ -76,6 +80,9 @@ export const readTargetBoundPullBase = async ({
       unreconciledUniversalIdentifiers: base.unreconciledUniversalIdentifiers
         ?.filter(isString)
         .map((identifier) => identifier.toLowerCase()),
+      sourceFingerprints: isSourceFingerprints(base.sourceFingerprints)
+        ? base.sourceFingerprints
+        : undefined,
     };
   } catch (error) {
     return {

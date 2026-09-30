@@ -7,9 +7,14 @@ import { generateAppClient } from '@/app/generate-app-client';
 import { getAppPlanSummary } from '@/app/get-app-plan-summary';
 import { getClientGenerationSkipReason } from '@/app/get-client-generation-skip-reason';
 import { parseBuildData } from '@/app/parse-tooling-result';
+import { collectSourceFingerprints } from '@/app/pull/collect-source-fingerprints';
 import { type PullBaseRecording, recordPullBase } from '@/app/record-pull-base';
+import { resolveAppProject } from '@/app/resolve-app-project';
 import { runAppOperation } from '@/app/run-app-operation';
-import { readBooleanOption } from '@/catalog/read-command-values';
+import {
+  readBooleanOption,
+  readStringOption,
+} from '@/catalog/read-command-values';
 import { type CommandRun } from '@/catalog/types/command-run.type';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';
 import { CliError } from '@/output/cli-error';
@@ -20,6 +25,13 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
   const startedAt = performance.now();
   const inferDeletionFromMissingEntities = context.options.delete !== false;
   let applyResult: AppApplyResult | undefined;
+  const appProject = await resolveAppProject({
+    explicitPath: readStringOption(context.options, 'path'),
+    workingDirectory: process.cwd(),
+  });
+  const sourceFingerprints = await collectSourceFingerprints(
+    appProject.path,
+  ).catch(() => undefined);
 
   const {
     project,
@@ -68,6 +80,7 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
     pullBase = await recordPullBase({
       appPath: project.path,
       universalIdentifier: applyResult.acknowledgedUniversalIdentifier,
+      sourceFingerprints,
       context,
     });
     if (pullBase === 'recorded') {

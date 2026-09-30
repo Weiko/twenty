@@ -43,6 +43,7 @@ export const runAppWorker = async ({
       type:
         | 'run'
         | 'generateClient'
+        | 'generateSourceClient'
         | 'readSourceIdentity'
         | 'buildManifest'
         | 'typecheckSource'

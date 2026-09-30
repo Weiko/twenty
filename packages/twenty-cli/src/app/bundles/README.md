@@ -103,4 +103,5 @@ and CSS, README selection, immutable symlink copies, concurrent snapshots,
 release ownership, failed/cancelled builds and failed snapshot consumers. The
 existing build/apply contract runs with both SDK and CLI snapshots against a
 local HTTP fixture, including uploads, sync, pull-base recording, release and
-SDK client generation. It does not contact a live Twenty workspace.
+client generation through the respective SDK or CLI wrapper. It does not contact
+a live Twenty workspace.

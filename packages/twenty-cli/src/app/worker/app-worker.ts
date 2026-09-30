@@ -127,6 +127,16 @@ const parseRequest = (message: unknown): AppWorkerRequest | undefined => {
     };
   }
 
+  if (message.type === 'generateSourceClient') {
+    return isNonEmptyString(message.appPath) && isString(message.schema)
+      ? {
+          type: 'generateSourceClient',
+          appPath: message.appPath,
+          schema: message.schema,
+        }
+      : undefined;
+  }
+
   if (message.type === 'generateClient') {
     if (
       !isNonEmptyString(message.appPath) ||
@@ -417,6 +427,22 @@ process.on('message', (message: unknown) => {
       .then(async ({ readSourceIdentity }) => {
         const result = await readSourceIdentity({
           appPath: request.appPath,
+          signal: abortController.signal,
+        });
+
+        respond({ type: 'result', result, isSnapshotHeld: false });
+      })
+      .catch((error: unknown) => respond(toFailure(error)));
+
+    return;
+  }
+
+  if (request.type === 'generateSourceClient') {
+    import('@/app/client/generate-application-client')
+      .then(async ({ generateApplicationClient }) => {
+        const result = await generateApplicationClient({
+          appPath: request.appPath,
+          schema: request.schema,
           signal: abortController.signal,
         });
 

@@ -14,8 +14,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { build as bundle, stop } from 'esbuild';
-import { isDefined } from 'twenty-shared/utils';
-import { build, loadConfigFromFile } from 'vite';
 import {
   afterAll,
   afterEach,
@@ -26,6 +24,7 @@ import {
   vi,
 } from 'vitest';
 
+import { buildTestAppWorker } from '@/app/__tests__/utils/build-test-app-worker';
 import { buildAndValidateManifest } from '@/app/manifest/build-and-validate-manifest';
 import { buildManifest } from '@/app/manifest/manifest-build';
 import { createAppProject } from '@/app/create-app-project';
@@ -243,35 +242,7 @@ export { compileApplicationTranslations } from './cli/utilities/translations/com
     });
     sdk = createRequire(import.meta.url)(oraclePath) as SdkReference;
 
-    const cliRoot = join(REPOSITORY_ROOT, 'packages/twenty-cli');
-    const loaded = await loadConfigFromFile(
-      { command: 'build', mode: 'production' },
-      join(cliRoot, 'vite.config.ts'),
-    );
-
-    if (!isDefined(loaded))
-      throw new Error('Could not load CLI bundle configuration.');
-
-    vi.stubEnv('NODE_ENV', 'production');
-    try {
-      await build({
-        ...loaded.config,
-        configFile: false,
-        plugins: [],
-        build: {
-          ...loaded.config.build,
-          outDir: join(root, 'cli'),
-          lib: {
-            entry: {
-              'app-worker': join(cliRoot, 'src/app/worker/app-worker.ts'),
-            },
-            formats: ['cjs'],
-          },
-        },
-      });
-    } finally {
-      vi.unstubAllEnvs();
-    }
+    await buildTestAppWorker(join(root, 'cli'));
     launch.modulePath = join(root, 'cli/app-worker.cjs');
   }, 60000);
 

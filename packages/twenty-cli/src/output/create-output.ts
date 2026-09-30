@@ -17,6 +17,12 @@ const writeJsonLine = (value: unknown) => {
   writeLine(process.stdout, JSON.stringify(value));
 };
 
+const indentLines = (text: string) =>
+  text
+    .split('\n')
+    .map((line) => (isNonEmptyString(line) ? `  ${line}` : line))
+    .join('\n');
+
 const withTarget = (target: PublicTarget | undefined) =>
   isDefined(target) ? { target } : {};
 
@@ -143,7 +149,7 @@ export const createOutput = ({
       writeLine(process.stderr, formatFailureLine(error.message));
 
       if (isDefined(error.hint)) {
-        writeLine(process.stderr, `  ${error.hint}`);
+        writeLine(process.stderr, indentLines(error.hint));
       }
 
       writeHumanWarnings();

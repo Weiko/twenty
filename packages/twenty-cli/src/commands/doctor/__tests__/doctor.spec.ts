@@ -221,9 +221,12 @@ describe('doctor', () => {
     expect(await readFile(configPath, 'utf8')).toBe(invalid);
 
     const human = await runCliForTest(['doctor', '--path', appPath]);
+    const [failureLine, ...checklistLines] = human.stderr.trimEnd().split('\n');
 
-    expect(human.stderr).toContain('[FAIL] sdk:');
-    expect(human.stderr).toContain('[FAIL] configuration:');
+    expect(failureLine).toContain('doctor checks failed.');
+    expect(checklistLines.filter((line) => !line.startsWith('  '))).toEqual([]);
+    expect(human.stderr).toContain('\n  [FAIL] sdk:');
+    expect(human.stderr).toContain('\n  [FAIL] configuration:');
     expect(human.stderr).not.toContain(API_KEY);
   });
 

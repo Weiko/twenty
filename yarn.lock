@@ -51066,6 +51066,7 @@ __metadata:
     twenty-shared: "workspace:*"
     typescript: "npm:^5.9.3"
     undici: "npm:^7.29.0"
+    uuid: "npm:^13.0.2"
     vite: "npm:^8.0.0"
     vitest: "npm:^4.1.0"
   bin:

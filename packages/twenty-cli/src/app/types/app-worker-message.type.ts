@@ -17,6 +17,7 @@ export type AppWorkerRequest =
       schema: string;
     }
   | { type: 'readSourceIdentity'; appPath: string }
+  | { type: 'buildManifest'; appPath: string }
   | {
       type: 'pull';
       appPath: string;

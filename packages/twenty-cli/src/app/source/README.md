@@ -1,6 +1,6 @@
 # App source loading
 
-This is the CLI-owned foundation for app pull and later CLI-owned builds. It now powers `twenty app pull`. Existing build, typecheck and client generation still use the project's SDK build API.
+This is the CLI-owned foundation for app pull and later CLI-owned builds. It now powers `twenty app pull` and the internal [manifest builder](../manifest/README.md). Existing build, typecheck and client generation commands still use the project's SDK build API.
 
 The extraction and scanning code was ported from twenty-sdk at `f50091b27cc7dc883d6f2e22a9966b8a7fad201e`, under `src/cli/utilities/build/manifest`, `src/cli/utilities/build/common/conditional-availability`, `src/cli/utilities/pull/scan-project-source-files.ts`, `src/cli/utilities/file/application-source-globs.ts` and `src/application-build/pull/read-application-identity.ts`. SDK source remains unchanged. Compare these paths when bringing in SDK fixes during the migration.
 

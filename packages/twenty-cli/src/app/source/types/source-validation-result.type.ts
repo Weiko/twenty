@@ -1,6 +1,6 @@
-export type SourceValidationResult = {
+export type SourceValidationResult<TConfig = Record<string, unknown>> = {
   success: boolean;
-  config: Record<string, unknown>;
+  config: TConfig;
   errors: string[];
   warnings?: string[];
 };

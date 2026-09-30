@@ -82,6 +82,12 @@ const parseRequest = (message: unknown): AppWorkerRequest | undefined => {
     return { type: message.type };
   }
 
+  if (message.type === 'readSourceIdentity') {
+    return isNonEmptyString(message.appPath)
+      ? { type: 'readSourceIdentity', appPath: message.appPath }
+      : undefined;
+  }
+
   if (message.type === 'generateClient') {
     if (
       !isNonEmptyString(message.appPath) ||
@@ -267,7 +273,7 @@ process.on('message', (message: unknown) => {
   if (!isDefined(request)) {
     respond({
       type: 'failure',
-      message: 'The SDK worker received a request it cannot read.',
+      message: 'The app worker received a request it cannot read.',
     });
 
     return;
@@ -284,6 +290,21 @@ process.on('message', (message: unknown) => {
       (release) => respond({ type: 'released', release }),
       (error: unknown) => respond(toFailure(error)),
     );
+
+    return;
+  }
+
+  if (request.type === 'readSourceIdentity') {
+    import('@/app/worker/read-source-identity')
+      .then(async ({ readSourceIdentity }) => {
+        const result = await readSourceIdentity({
+          appPath: request.appPath,
+          signal: abortController.signal,
+        });
+
+        respond({ type: 'result', result, isSnapshotHeld: false });
+      })
+      .catch((error: unknown) => respond(toFailure(error)));
 
     return;
   }

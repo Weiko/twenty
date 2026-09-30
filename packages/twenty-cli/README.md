@@ -38,6 +38,11 @@ twenty open --remote staging --url-only --json
 
 `open` asks the selected workspace for its web address, which is its custom domain when one is enabled and its subdomain otherwise. It then opens that address, or a page inside it, in your default browser. The address carries no credentials, so sign in to the workspace in the browser if needed. A browser only opens in an interactive terminal: with `--no-input`, JSON output, redirected stdin or in CI, the command stops with `USAGE` (exit 2) unless `--url-only` is set, which prints the address instead. A page is a path inside the workspace; one that would lead to another site is refused with `USAGE`.
 
+If the workspace returns no web address, `open` uses the frontend origin from
+the server's OAuth discovery document. It drops the authorization path, query,
+fragment and any URL credentials. Invalid addresses and failed metadata
+authentication still stop the command.
+
 ## Inspect the data model
 
 ```bash

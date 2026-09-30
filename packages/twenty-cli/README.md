@@ -168,6 +168,19 @@ Uninstalling runs the app's uninstall hook and deletes everything the app owns, 
 
 The app's registration is kept, so `twenty app apply` can install it again without `--create`. Failures report `details.phase`, `details.completedPhases` and `details.outcome`, as for apply: an uninstall request that fails after the server received it, or is interrupted with Ctrl+C, has an `unknown` outcome. Running the command again reports `APP_NOT_INSTALLED` once the app is gone. `--universal-identifier` accepts any UUID casing and sends the canonical lowercase form.
 
+## Expired browser sessions
+
+For commands that use a workspace, interactive OAuth sessions are checked before
+the command starts. If a session is rejected or cannot be refreshed, the CLI
+offers to sign in again once, validates the new session, and saves its credentials
+without changing the remote's URL, default selection or other settings.
+
+API keys, JSON/NDJSON output, `--no-input`, redirected stdin and CI never trigger
+this prompt. Permission errors do not trigger sign-in either. If authentication
+fails after a command starts, the CLI stops with the login hint; it does not
+replay requests or restart an app apply. A remote changed during sign-in is left
+as-is, and the command stops with `CONFLICT`.
+
 ## Output
 
 Commands print readable text by default. With `--json`, a command prints exactly one JSON document on stdout, including when it fails:

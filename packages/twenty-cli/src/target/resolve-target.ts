@@ -12,16 +12,23 @@ import { parseApiUrl } from '@/target/parse-api-url';
 import { selectTarget } from '@/target/select-target';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
 
+type AuthenticationRecovery = (context: {
+  target: ResolvedTarget;
+  error: unknown;
+}) => Promise<ResolvedTarget>;
+
 const toRemoteTarget = async ({
   remoteName,
   remote,
   configPath,
   signal,
+  onAuthenticationRequired,
 }: {
   remoteName: string;
   remote: RemoteEntry;
   configPath: string;
   signal: AbortSignal;
+  onAuthenticationRequired?: AuthenticationRecovery;
 }): Promise<ResolvedTarget> => {
   const accessToken = remote.twentyCLIAccessToken;
   const apiUrl = parseApiUrl({
@@ -30,15 +37,35 @@ const toRemoteTarget = async ({
   });
 
   if (isNonEmptyString(accessToken)) {
-    return {
+    const target: ResolvedTarget = {
       apiUrl,
-      bearerToken: isAccessTokenExpiring(accessToken)
-        ? await refreshOAuthSession({ configPath, remoteName, apiUrl, signal })
-        : accessToken,
+      bearerToken: accessToken,
       credentialKind: 'oauth',
       source: 'remote',
       remoteName,
     };
+
+    if (!isAccessTokenExpiring(accessToken)) {
+      return target;
+    }
+
+    try {
+      return {
+        ...target,
+        bearerToken: await refreshOAuthSession({
+          configPath,
+          remoteName,
+          apiUrl,
+          signal,
+        }),
+      };
+    } catch (error) {
+      if (onAuthenticationRequired) {
+        return onAuthenticationRequired({ target, error });
+      }
+
+      throw error;
+    }
   }
 
   const bearerToken = remote.apiKey;
@@ -68,12 +95,14 @@ export const resolveTarget = async ({
   configPath,
   signal,
   warn,
+  onAuthenticationRequired,
 }: {
   environment: NodeJS.ProcessEnv;
   remoteFlag: string | undefined;
   configPath: string;
   signal: AbortSignal;
   warn: (warning: CliWarning) => void;
+  onAuthenticationRequired?: AuthenticationRecovery;
 }): Promise<ResolvedTarget> => {
   const selection = await selectTarget({
     environment,
@@ -88,6 +117,7 @@ export const resolveTarget = async ({
       remote: selection.remote,
       configPath,
       signal,
+      onAuthenticationRequired,
     });
   }
 

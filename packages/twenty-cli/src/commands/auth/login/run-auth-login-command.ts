@@ -8,6 +8,8 @@ import { type CommandRun } from '@/catalog/types/command-run.type';
 import { readApiKeyFromStandardInput } from '@/commands/auth/login/read-api-key-from-standard-input';
 import { getConfigPath } from '@/config/get-config-path';
 import { readConfig } from '@/config/read-config';
+import { replaceRemoteCredentials } from '@/config/replace-remote-credentials';
+import { type RemoteCredentials } from '@/config/types/remote-credentials.type';
 import {
   type ConfigFile,
   type RemoteEntry,
@@ -73,15 +75,6 @@ const readRemoteName = (options: Record<string, unknown>) => {
   return validateRemoteName(remoteName);
 };
 
-type SignInCredentials =
-  | { kind: 'apiKey'; apiKey: string }
-  | {
-      kind: 'oauth';
-      accessToken: string;
-      refreshToken?: string;
-      clientId: string;
-    };
-
 const obtainCredentials = async ({
   options,
   apiUrl,
@@ -94,7 +87,7 @@ const obtainCredentials = async ({
   output: Output;
   outputMode: OutputMode;
   signal: AbortSignal;
-}): Promise<SignInCredentials> => {
+}): Promise<RemoteCredentials> => {
   if (readBooleanOption(options, 'withToken')) {
     return {
       kind: 'apiKey',
@@ -118,17 +111,6 @@ const obtainCredentials = async ({
   };
 };
 
-const toCredentialFields = (credentials: SignInCredentials) =>
-  credentials.kind === 'apiKey'
-    ? { apiKey: credentials.apiKey }
-    : {
-        twentyCLIAccessToken: credentials.accessToken,
-        twentyCLIRegistrationClientId: credentials.clientId,
-        ...(isDefined(credentials.refreshToken)
-          ? { twentyCLIRefreshToken: credentials.refreshToken }
-          : {}),
-      };
-
 const formatSignedIn = ({
   remoteName,
   apiUrl,
@@ -137,7 +119,7 @@ const formatSignedIn = ({
 }: {
   remoteName: string;
   apiUrl: string;
-  credentials: SignInCredentials;
+  credentials: RemoteCredentials;
   identity: { workspaceName: string | null; email: string | null };
 }) => {
   const workspace = isDefined(identity.workspaceName)
@@ -231,13 +213,6 @@ export const runAuthLoginCommand: CommandRun = async ({
         replace,
       });
 
-      const {
-        apiKey: _apiKey,
-        twentyCLIAccessToken: _accessToken,
-        twentyCLIRefreshToken: _refreshToken,
-        twentyCLIRegistrationClientId: _clientId,
-        ...preservedFields
-      } = latestRemote ?? { apiUrl };
       const hasUsableDefault =
         isDefined(config.defaultRemote) &&
         Object.hasOwn(config.remotes, config.defaultRemote);
@@ -254,9 +229,11 @@ export const runAuthLoginCommand: CommandRun = async ({
           remotes: {
             ...config.remotes,
             [remoteName]: {
-              ...preservedFields,
+              ...replaceRemoteCredentials({
+                remote: latestRemote ?? { apiUrl },
+                credentials,
+              }),
               apiUrl,
-              ...toCredentialFields(credentials),
               ...(isDefined(identity.workspaceName)
                 ? { workspaceName: identity.workspaceName }
                 : {}),

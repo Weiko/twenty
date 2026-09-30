@@ -19,6 +19,7 @@ import { build as bundle, stop } from 'esbuild';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildTestAppWorker } from '@/app/__tests__/utils/build-test-app-worker';
+import { SORTED_GLOB_PLUGIN } from '@/app/__tests__/utils/sorted-glob-plugin';
 import { createAppProject } from '@/app/create-app-project';
 import { pathExists } from '@/app/pull/fs-utils';
 import { runAppWorker } from '@/app/run-app-worker';
@@ -255,6 +256,7 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
       platform: 'node',
       format: 'cjs',
       target: 'node24',
+      plugins: [SORTED_GLOB_PLUGIN],
     });
     sdk = createRequire(import.meta.url)(oraclePath) as SdkReference;
 

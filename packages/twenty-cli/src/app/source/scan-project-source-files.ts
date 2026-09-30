@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises';
 import { relative } from 'node:path';
 
 import { isString } from '@sniptt/guards';
-import { glob } from 'tinyglobby';
 import { isDefined } from 'twenty-shared/utils';
 
 import {
@@ -12,10 +11,7 @@ import {
   type TargetFunction,
 } from '@/app/source/extract-define-entity';
 import { extractManifestFromFile } from '@/app/source/extract-manifest-from-file';
-import {
-  APPLICATION_SOURCE_GLOBS,
-  APPLICATION_SOURCE_IGNORED_GLOBS,
-} from '@/app/source/application-source-globs';
+import { listApplicationSourceFiles } from '@/app/source/list-application-source-files';
 import { CliError } from '@/output/cli-error';
 
 export type ScannedSourceFile = {
@@ -38,12 +34,7 @@ export const scanProjectSourceFiles = async ({
 }): Promise<ScannedSourceFile[]> => {
   signal.throwIfAborted();
 
-  const filePaths = await glob(APPLICATION_SOURCE_GLOBS, {
-    cwd: appPath,
-    absolute: true,
-    ignore: APPLICATION_SOURCE_IGNORED_GLOBS,
-    onlyFiles: true,
-  });
+  const filePaths = await listApplicationSourceFiles(appPath);
 
   const scannedFiles: ScannedSourceFile[] = [];
 

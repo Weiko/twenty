@@ -86,8 +86,7 @@ The parity suite builds all five repository fixtures and a fresh CLI-created app
 through the SDK reference and the production CLI worker. The app has a copy of
 the real authoring SDK without its build/CLI exports or implementation files.
 Successful builds have identical manifests, artifact roles/paths/sizes/hashes
-and content hashes. The invalid fixture and the function-execute fixture's
-obsolete application `icon` property fail in both pipelines. The fresh template
+and content hashes. The invalid fixture fails in both pipelines. The fresh template
 first reports its legacy SDK test-harness import; excluding that harness from
 the temporary app's build config produces identical successful builds. See the
 [typecheck migration notes](../typecheck/README.md).

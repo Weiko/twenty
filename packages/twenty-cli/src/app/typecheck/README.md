@@ -75,9 +75,6 @@ ts-morph dependency for this test only, without a new CLI dependency.
 Snapshot parity now runs both real typecheck phases, with no compiler bypass.
 The app fixture supplies only the SDK's authoring/runtime exports. The apply
 contract still exercises both snapshot producers against the local HTTP fixture.
-The existing function-execute fixture fails identically with TS2353 for its
-obsolete application `icon` property. Its artifacts are no longer compared,
-because typecheck rejects the build. For the fresh template, parity asserts the
-legacy harness error, then compares successful builds after excluding the test
-harness and test-runner configuration from that temporary app's build config.
-Repository fixtures and template source remain unchanged.
+For the fresh template, parity asserts the legacy harness error, then compares
+successful builds after excluding the test harness and test-runner configuration
+from that temporary app's build config. The template source remains unchanged.

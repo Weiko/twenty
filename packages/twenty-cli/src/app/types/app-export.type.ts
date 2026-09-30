@@ -1,11 +1,9 @@
-import { type Manifest } from 'twenty-shared/application';
-
-import { type APP_EXPORT_COVERAGE_STATUSES } from '@/app/constants/app-export-coverage-statuses.constant';
+import { type ExportedManifest } from '@/app/types/exported-manifest.type';
 
 export type AppExportCoverageEntry = {
   metadataName: string;
   universalIdentifier: string;
-  status: (typeof APP_EXPORT_COVERAGE_STATUSES)[number];
+  status: string;
   reason: string | null;
 };
 
@@ -21,7 +19,7 @@ export type AppExport = {
     displayName: string;
     sourceType: string;
   };
-  manifest: Manifest;
+  manifest: ExportedManifest;
   coverage: AppExportCoverageEntry[];
   files: AppExportFile[];
 };

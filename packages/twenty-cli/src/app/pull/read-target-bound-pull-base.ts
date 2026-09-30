@@ -1,13 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isArray, isString } from '@sniptt/guards';
-import { type Manifest } from 'twenty-shared/application';
 import { isDefined, isPlainObject, isValidUuid } from 'twenty-shared/utils';
 
 import { PULL_BASE_FILE_PATH } from '@/app/constants/pull-base-file-path.constant';
 import { assertPullPaths } from '@/app/pull/assert-pull-paths';
-import { isPullManifest } from '@/app/pull/is-pull-manifest';
 import { normalizePullTarget } from '@/app/pull/normalize-pull-target';
+import { isExportedManifest } from '@/app/pull/is-exported-manifest';
+import { type ExportedManifest } from '@/app/types/exported-manifest.type';
 import { type PullTarget } from '@/app/types/pull-target.type';
 import { hasErrorCode } from '@/utils/has-error-code';
 
@@ -21,7 +21,7 @@ export const readTargetBoundPullBase = async ({
   applicationUniversalIdentifier: string;
 }): Promise<{
   status: 'used' | 'missing' | 'other-target' | 'unbound' | 'unreadable';
-  manifest: Manifest | null;
+  manifest: ExportedManifest | null;
   unreconciledUniversalIdentifiers?: string[];
 }> => {
   await assertPullPaths({ appPath, relativePaths: [PULL_BASE_FILE_PATH] });
@@ -44,7 +44,7 @@ export const readTargetBoundPullBase = async ({
       !isString(base.target.apiUrl) ||
       !isString(base.target.workspaceId) ||
       !isString(base.applicationUniversalIdentifier) ||
-      !isPullManifest(base.manifest) ||
+      !isExportedManifest(base.manifest) ||
       base.applicationUniversalIdentifier.toLowerCase() !==
         base.manifest.application.universalIdentifier.toLowerCase() ||
       (isDefined(base.unreconciledUniversalIdentifiers) &&

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, open, rename, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import { type Manifest } from 'twenty-shared/application';
+import { type ExportedManifest } from '@/app/types/exported-manifest.type';
 
 import { PULL_BASE_FILE_PATH } from '@/app/constants/pull-base-file-path.constant';
 import { assertPullPaths } from '@/app/pull/assert-pull-paths';
@@ -17,7 +17,7 @@ export const writePullBase = async ({
   signal,
 }: {
   appPath: string;
-  manifest: Manifest;
+  manifest: ExportedManifest;
   target: PullTarget;
   signal: AbortSignal;
 }) => {

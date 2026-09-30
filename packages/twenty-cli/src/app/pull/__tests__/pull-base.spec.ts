@@ -172,10 +172,23 @@ describe('target-bound CLI pull base', () => {
     ],
     ['truncated JSON', '{"version":2', 'unreadable'],
     [
-      'truncated manifest',
+      'non-object manifest',
       JSON.stringify({
         ...BASE,
-        manifest: { application: MANIFEST.application },
+        manifest: null,
+      }),
+      'unreadable',
+    ],
+    [
+      'non-object application',
+      JSON.stringify({ ...BASE, manifest: { application: null } }),
+      'unreadable',
+    ],
+    [
+      'non-string application UUID',
+      JSON.stringify({
+        ...BASE,
+        manifest: { application: { universalIdentifier: 42 } },
       }),
       'unreadable',
     ],
@@ -217,6 +230,21 @@ describe('target-bound CLI pull base', () => {
       await seed(contents);
 
       expect(await read()).toEqual({ status, manifest: null });
+      expect(await readFile(basePath, 'utf8')).toBe(contents);
+    },
+  );
+
+  it.each([
+    { application: MANIFEST.application },
+    { ...MANIFEST, settingsMenuItems: null, objects: null },
+    { ...MANIFEST, futureCollection: [{ name: 'preserved' }] },
+  ])(
+    'reads stored collections without normalizing or validating their schema',
+    async (manifest) => {
+      const contents = JSON.stringify({ ...BASE, manifest });
+      await seed(contents);
+
+      expect(await read()).toMatchObject({ status: 'used', manifest });
       expect(await readFile(basePath, 'utf8')).toBe(contents);
     },
   );

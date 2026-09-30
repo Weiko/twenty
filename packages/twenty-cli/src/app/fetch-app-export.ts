@@ -1,15 +1,13 @@
 import { isArray, isNull, isString } from '@sniptt/guards';
-import { isPlainObject, isValidUuid } from 'twenty-shared/utils';
+import { isPlainObject } from 'twenty-shared/utils';
 
-import { APP_EXPORT_COVERAGE_STATUSES } from '@/app/constants/app-export-coverage-statuses.constant';
 import { createAppNotInstalledError } from '@/app/create-app-not-installed-error';
 import { isApplicationNotFoundError } from '@/app/is-application-not-found-error';
 import { isSameUniversalIdentifier } from '@/app/is-same-universal-identifier';
-import { isPullManifest } from '@/app/pull/is-pull-manifest';
+import { isExportedManifest } from '@/app/pull/is-exported-manifest';
 import {
   type AppExport,
   type AppExportCoverageEntry,
-  type AppExportFile,
 } from '@/app/types/app-export.type';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
@@ -91,15 +89,8 @@ const isCoverageEntry = (value: unknown): value is AppExportCoverageEntry =>
   isPlainObject(value) &&
   isString(value.metadataName) &&
   isString(value.universalIdentifier) &&
-  isValidUuid(value.universalIdentifier) &&
-  APP_EXPORT_COVERAGE_STATUSES.some((status) => status === value.status) &&
+  isString(value.status) &&
   (isString(value.reason) || isNull(value.reason));
-
-const isExportFile = (value: unknown): value is AppExportFile =>
-  isPlainObject(value) &&
-  isString(value.folder) &&
-  isString(value.path) &&
-  isString(value.content);
 
 export const fetchAppExport = async ({
   universalIdentifier,
@@ -143,11 +134,6 @@ export const fetchAppExport = async ({
     throw error;
   });
   const applicationExport = data?.exportApplication;
-  const manifest =
-    isPlainObject(applicationExport) &&
-    isPlainObject(applicationExport.manifest)
-      ? { settingsMenuItems: [], ...applicationExport.manifest }
-      : undefined;
 
   if (
     !isPlainObject(applicationExport) ||
@@ -159,15 +145,14 @@ export const fetchAppExport = async ({
     }) ||
     !isString(applicationExport.application.displayName) ||
     !isString(applicationExport.application.sourceType) ||
-    !isPullManifest(manifest) ||
+    !isExportedManifest(applicationExport.manifest) ||
     !isSameUniversalIdentifier({
-      value: manifest.application.universalIdentifier,
+      value: applicationExport.manifest.application.universalIdentifier,
       universalIdentifier,
     }) ||
     !isArray(applicationExport.coverage) ||
     !applicationExport.coverage.every(isCoverageEntry) ||
-    !isArray(applicationExport.files) ||
-    !applicationExport.files.every(isExportFile)
+    !isArray(applicationExport.files)
   ) {
     throw new CliError({
       code: 'INVALID_RESPONSE',
@@ -190,8 +175,8 @@ export const fetchAppExport = async ({
       displayName: applicationExport.application.displayName,
       sourceType: applicationExport.application.sourceType,
     },
-    manifest,
+    manifest: applicationExport.manifest,
     coverage: applicationExport.coverage,
-    files: applicationExport.files,
+    files: [],
   };
 };

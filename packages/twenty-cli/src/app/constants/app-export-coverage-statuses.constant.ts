@@ -1,7 +1,0 @@
-export const APP_EXPORT_COVERAGE_STATUSES = [
-  'EXPORTED',
-  'ENGINE_DERIVED',
-  'EXCLUDED',
-  'UNSUPPORTED',
-  'FOREIGN_OWNED',
-] as const;

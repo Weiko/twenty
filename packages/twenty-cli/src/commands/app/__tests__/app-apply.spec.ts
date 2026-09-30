@@ -709,13 +709,13 @@ describe('app apply', () => {
       undefined,
     ],
     [
-      'invalid settings menu items',
+      'non-object application manifest',
       undefined,
       {
         data: {
           exportApplication: {
             ...APPLICATION_EXPORT,
-            manifest: { ...EXPORTED_MANIFEST, settingsMenuItems: null },
+            manifest: { ...EXPORTED_MANIFEST, application: null },
           },
         },
       },
@@ -755,16 +755,16 @@ describe('app apply', () => {
       },
     ],
     [
-      'incomplete manifest',
+      'non-object manifest',
       undefined,
       {
         data: {
-          exportApplication: { ...APPLICATION_EXPORT, manifest: MANIFEST },
+          exportApplication: { ...APPLICATION_EXPORT, manifest: null },
         },
       },
     ],
     [
-      'unsupported coverage status',
+      'non-string coverage status',
       undefined,
       {
         data: {
@@ -774,7 +774,7 @@ describe('app apply', () => {
               {
                 metadataName: 'object',
                 universalIdentifier: WORKSPACE_ID,
-                status: 'UNKNOWN',
+                status: null,
                 reason: null,
               },
             ],
@@ -908,22 +908,59 @@ describe('app apply', () => {
     ]);
   });
 
-  it('records exports from servers predating settings menu items', async () => {
-    const { settingsMenuItems: _settingsMenuItems, ...manifest } =
-      EXPORTED_MANIFEST;
+  it.each([
+    ['missing collections', MANIFEST],
+    [
+      'null collections',
+      { ...EXPORTED_MANIFEST, settingsMenuItems: null, objects: null },
+    ],
+    [
+      'new collections',
+      { ...EXPORTED_MANIFEST, futureCollection: [{ name: 'preserved' }] },
+    ],
+  ])(
+    'records %s exactly as the server sent them',
+    async (_description, manifest) => {
+      state.exportResponse = {
+        data: { exportApplication: { ...APPLICATION_EXPORT, manifest } },
+      };
+
+      const { envelope, exitCode } = await runJson();
+
+      expect(exitCode).toBe(0);
+      expect(envelope.data.pullBase).toBe('recorded');
+      expect(
+        JSON.parse(
+          await readFile(join(appPath, '.twenty/cli/pull-base.json'), 'utf8'),
+        ).manifest,
+      ).toEqual(manifest);
+    },
+  );
+
+  it('records a baseline when the server adds a coverage status', async () => {
     state.exportResponse = {
-      data: { exportApplication: { ...APPLICATION_EXPORT, manifest } },
+      data: {
+        exportApplication: {
+          ...APPLICATION_EXPORT,
+          coverage: [
+            {
+              metadataName: 'object',
+              universalIdentifier: WORKSPACE_ID,
+              status: 'FUTURE_STATUS',
+              reason: null,
+            },
+          ],
+        },
+      },
     };
 
     const { envelope, exitCode } = await runJson();
 
     expect(exitCode).toBe(0);
     expect(envelope.data.pullBase).toBe('recorded');
-    expect(
-      JSON.parse(
-        await readFile(join(appPath, '.twenty/cli/pull-base.json'), 'utf8'),
-      ).manifest,
-    ).toEqual(EXPORTED_MANIFEST);
+    expect(envelope.warnings).not.toContainEqual(
+      expect.objectContaining({ code: 'PULL_BASE_NOT_RECORDED' }),
+    );
   });
 
   it.each([

@@ -26,6 +26,7 @@ export const runAppBuildCommand: CommandRun = async (context) => {
     human: formatBuildSummary({
       build: data,
       sdkVersion: sdk.version,
+      pipeline: sdk.pipeline,
       durationMilliseconds,
     }),
   };

@@ -1,6 +1,6 @@
 # App source loading
 
-This is the CLI-owned foundation for app pull and later CLI-owned builds. It now powers `twenty app pull` and the internal [manifest builder](../manifest/README.md). Existing build, typecheck and client generation commands still use the project's SDK build API.
+This CLI-owned source loader powers `twenty app pull` and the [manifest builder](../manifest/README.md) used by public build, plan and apply commands. The old SDK build API is used only with the temporary `--legacy-sdk` fallback.
 
 The extraction and scanning code was ported from twenty-sdk at `f50091b27cc7dc883d6f2e22a9966b8a7fad201e`, under `src/cli/utilities/build/manifest`, `src/cli/utilities/build/common/conditional-availability`, `src/cli/utilities/pull/scan-project-source-files.ts`, `src/cli/utilities/file/application-source-globs.ts` and `src/application-build/pull/read-application-identity.ts`. SDK source remains unchanged. Compare these paths when bringing in SDK fixes during the migration.
 
@@ -14,7 +14,7 @@ The extraction and scanning code was ported from twenty-sdk at `f50091b27cc7dc88
 
 - The app supplies its own `twenty-sdk`, version `>=1.23.0`, with resolvable `twenty-sdk/define` and `twenty-sdk/front-component` entry points. The installed SDK's Node requirement is checked. No `twenty-sdk/build` export or build descriptor is needed.
 - There is no upper SDK version cap. Every evaluated definition must return the public `ValidationResult` shape: boolean `success`, object `config`, string-array `errors`, and optional string-array `warnings`. An incompatible shape fails with `SDK_SOURCE_UNSUPPORTED`. This validates the loader contract, not every future SDK behavior.
-- The CLI owns esbuild, its TypeScript parser and tinyglobby as runtime dependencies. These load only for source operations. The app does not need to install TypeScript for source loading. A future typecheck operation will use the project's compiler separately.
+- The CLI owns esbuild, its TypeScript parser and tinyglobby as runtime dependencies. These load only for source operations. The app does not need to install TypeScript for source loading. Build and typecheck use the project's compiler separately.
 - The pull writer separately checks the authoring exports its generated files use; this loader floor does not establish that every SDK since 1.23 supports all current manifest collections.
 
 ## Preserved behavior

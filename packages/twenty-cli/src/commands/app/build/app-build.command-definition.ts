@@ -1,9 +1,11 @@
+import { APP_LEGACY_SDK_OPTION } from '@/app/constants/app-legacy-sdk-option.constant';
 import { type LocalCommandDefinition } from '@/catalog/types/command-definition.type';
 
 export const APP_BUILD_COMMAND_DEFINITION: LocalCommandDefinition = {
   path: ['app', 'build'],
-  description: 'Build the app with its own twenty-sdk and report the artifacts',
+  description: 'Build the app with the CLI and report the artifacts',
   options: [
+    APP_LEGACY_SDK_OPTION,
     {
       flags: '--path <directory>',
       description:

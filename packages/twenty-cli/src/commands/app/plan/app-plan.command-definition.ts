@@ -1,3 +1,4 @@
+import { APP_LEGACY_SDK_OPTION } from '@/app/constants/app-legacy-sdk-option.constant';
 import { type TargetCommandDefinition } from '@/catalog/types/command-definition.type';
 
 export const APP_PLAN_COMMAND_DEFINITION: TargetCommandDefinition = {
@@ -5,6 +6,7 @@ export const APP_PLAN_COMMAND_DEFINITION: TargetCommandDefinition = {
   description:
     'Build the app and preview advisory metadata changes without applying them',
   options: [
+    APP_LEGACY_SDK_OPTION,
     {
       flags: '--path <directory>',
       description:

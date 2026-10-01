@@ -3,9 +3,9 @@
 B3 ports the SDK's one-shot application bundler and snapshot lifecycle into the
 CLI. The internal `bundleSnapshot` worker request builds and holds or releases a
 snapshot under `.twenty/cli/snapshots/build-*`. B4 adds the app's own TypeScript
-compiler through the [typecheck port](../typecheck/README.md). No public command
-sends this request: build, plan and apply still use the
-SDK pipeline until B6. This request is an internal migration seam, not a public
+compiler through the [typecheck port](../typecheck/README.md). Public build, plan,
+apply and uninstall use this pipeline by default. The temporary `--legacy-sdk`
+flag selects the old SDK pipeline. Worker requests remain internal, not a public
 API or a way to bypass checks in `twenty app build`.
 
 ## Source

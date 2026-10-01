@@ -3,4 +3,5 @@ export type CommandOptionDefinition = {
   description: string;
   choices?: readonly string[];
   required?: boolean;
+  hidden?: boolean;
 };

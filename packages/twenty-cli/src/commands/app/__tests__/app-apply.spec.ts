@@ -400,12 +400,12 @@ const server = await startTestServer((request, response) => {
   return sendJson(response, 400, { errors: [{ message: 'Unexpected' }] });
 });
 
-describe('app apply', () => {
+describe('app apply with the legacy SDK fallback', () => {
   let appPath: string;
   let sdkPath: string;
 
   const run = (...args: string[]) =>
-    runCliForTest(['app', 'apply', '--path', appPath, ...args]);
+    runCliForTest(['app', 'apply', '--legacy-sdk', '--path', appPath, ...args]);
   const runJson = async (...args: string[]) => {
     const result = await run(...args, '--json');
 
@@ -1764,6 +1764,7 @@ describe('app apply', () => {
     const plan = await runCliForTest([
       'app',
       'plan',
+      '--legacy-sdk',
       '--path',
       appPath,
       '--json',

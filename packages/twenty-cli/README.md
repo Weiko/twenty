@@ -4,6 +4,21 @@ The command line for [Twenty](https://twenty.com).
 
 This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, opening the workspace in a browser, metadata inspection, record reads, creating an app from a template, local app builds and typechecks, advisory app previews, pulling workspace metadata into an existing app, and applying a development app to a workspace or uninstalling it. Run `twenty commands` for the available commands. To publish an app or develop in watch mode, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
 
+## Installation model
+
+Install the released `twenty` CLI globally, separately from your apps. This
+implementation is still in development; until it is released, build this
+checkout and run `node packages/twenty-cli/dist/cli.cjs` (see Development below).
+Apps keep `twenty-sdk` for authoring, `typescript` for checks, and
+`twenty-client-sdk` when they need a generated API client. Neither apps nor SDK
+packages need `twenty` in their dependencies or devDependencies. CI can pin its
+CLI installation separately from app dependencies.
+
+`twenty doctor --offline` reports the executing CLI version and path. A missing
+project-local CLI is normal. If an older global `twenty-sdk` installation owns
+the `twenty` executable, use doctor's PATH report to identify that installation
+before replacing it.
+
 ## Network proxies
 
 API requests, browser sign-in requests and app uploads honor `HTTP_PROXY`,
@@ -22,7 +37,7 @@ twenty doctor --remote staging --path ./my-app --json
 twenty doctor --offline
 ```
 
-`doctor` checks the running CLI and Node version, executable ownership and precedence on PATH, configuration, the selected connection, and an app's installed SDK descriptor. It works without an app or saved remote; unavailable optional checks are marked `skipped`. Use `--path` to require a specific app. PATH inspection does not execute binaries or inspect shell aliases, functions or command caches; package-manager wrappers whose owner cannot be determined are reported as unknown.
+`doctor` checks the running CLI and Node version, executable ownership and precedence on PATH, configuration, the selected connection, and an app's installed SDK authoring exports. It works without an app or saved remote; unavailable optional checks are marked `skipped`. Use `--path` to require a specific app. PATH inspection does not execute binaries or inspect shell aliases, functions or command caches; package-manager wrappers whose owner cannot be determined are reported as unknown.
 
 By default it sends one read-only request to the selected workspace's metadata endpoint to check access. This does not prove access to every object or app operation. `--offline` disables network requests. Doctor never imports app or SDK code, builds an app, installs packages, repairs files, or refreshes credentials. An expired OAuth access token skips the network check: it produces a warning when a refresh token is saved (renewal remains unverified), or a failure when there is none. Renew through `twenty auth status` for the same remote, or sign in again.
 
@@ -103,11 +118,50 @@ twenty app build --path ./apps/billing --json
 
 These commands run inside an app project: the nearest folder, from the current one upwards, whose `package.json` depends on `twenty-sdk`. Pass `--path` to choose another app. In a folder that contains several apps, `--path` is required, and the error lists them.
 
-The CLI builds with the app's own installed `twenty-sdk`, not a copy of its own, through the SDK's `twenty-sdk/build` API. Before loading any SDK code it reads `twenty-sdk/build/descriptor.json` and checks the protocol version, the capabilities and the Node version the SDK needs. An app without `twenty-sdk` installed fails with `SDK_NOT_INSTALLED`; an SDK without the build API, or with an incompatible protocol, fails with `TOOLING_UNSUPPORTED`; a Node version the SDK does not support fails with `NODE_VERSION_UNSUPPORTED`. The CLI never installs packages or falls back to another SDK. Yarn Plug'n'Play is not supported; use `nodeLinker: node-modules`. TypeScript configuration and project-reference errors fail the build: an app created by an older `create-twenty-app` whose `tsconfig.json` references `tsconfig.spec.json` reports `TS6305` for every source file until that `references` entry is removed.
+The CLI owns manifest generation, bundling and typechecking. It uses the app's
+installed `twenty-sdk` authoring exports (`define` and `front-component`, SDK
+`>=1.23.0`); no SDK build API or descriptor is required. An app without an
+installed SDK fails with `SDK_NOT_INSTALLED`; missing or unsupported authoring
+exports fail with `SDK_SOURCE_UNSUPPORTED`; an incompatible SDK Node requirement
+fails with `NODE_VERSION_UNSUPPORTED`. The CLI never installs dependencies or
+substitutes another SDK. Yarn Plug'n'Play is not supported; use
+`nodeLinker: node-modules`.
 
-The SDK runs in a separate worker process. That process does not receive the CLI's connections or credentials: `TWENTY_API_URL`, `TWENTY_API_KEY`, `TWENTY_REMOTE` and every `TWENTY_*` token, key, secret or password variable are removed from its environment. Anything the app or the SDK prints is reported as a `PROJECT_OUTPUT` diagnostic instead of mixing with the CLI's output, and an app that exits the process fails with `WORKER_FAILED`. This separates output and process state; it is not a sandbox for untrusted code.
+Typechecking uses `typescript` installed in the app or its workspace, never the
+global CLI's parser dependency. Missing TypeScript fails with
+`TYPESCRIPT_NOT_INSTALLED`. Configuration errors and unbuilt project references
+fail with `TYPECHECK_FAILED`, even when the old SDK command silently accepted
+them. For example, older templates reference `tsconfig.spec.json` and can report
+`TS6305`: remove an unintended reference, or build the referenced project before
+checking the app. Changing compiler versions can also change diagnostics.
 
-`app build` compiles the app into a temporary snapshot, reports its files with their upload roles, sizes and SHA-256 checksums, the content hash and the manifest, then deletes the snapshot. Nothing is uploaded or kept. `app typecheck` checks the project without writing files. Build and type errors exit with 1, as `BUILD_FAILED` or `TYPECHECK_FAILED`, with the SDK's diagnostics in `details.diagnostics`. Ctrl+C cancels the SDK operation and exits with 130; a worker that does not stop within a few seconds is killed.
+Builds run in a separate worker process. That process does not receive the CLI's
+connections or credentials: `TWENTY_API_URL`, `TWENTY_API_KEY`, `TWENTY_REMOTE`
+and every `TWENTY_*` token, key, secret or password variable are removed from its
+environment. App and SDK output becomes `PROJECT_OUTPUT` diagnostics; an app
+that exits the process fails with `WORKER_FAILED`. This separates output and
+process state; it is not a sandbox for untrusted code.
+
+`app build` produces a temporary snapshot under `.twenty/cli/snapshots`, reports
+its files, upload roles, sizes, SHA-256 checksums, content hash and manifest, then
+deletes the snapshot. Nothing is uploaded or kept. `app typecheck` checks the
+project without writing files. Build and type errors exit 1 with diagnostics in
+`error.details.diagnostics`. Ctrl+C cancels the worker and exits 130; a worker
+that does not stop within a few seconds is killed. The existing JSON `sdk`
+object still identifies the app's installed SDK; its `protocolVersion` describes
+the CLI's build-result protocol, not a required SDK export.
+
+For one release, `--legacy-sdk` on build, typecheck, plan, apply and uninstall
+selects the old SDK build pipeline for migration comparisons. It is hidden from
+normal help and discovery. It requires the SDK's `./build` and
+`./build/descriptor.json` exports and checks their protocol and capabilities;
+published SDKs without those exports cannot use this fallback. There is no
+automatic fallback when the CLI build fails.
+
+The CLI carries the current repository SDK's build rules. Older published SDKs
+can produce different manifests, including different derived permission
+identifiers. Run `twenty app plan` and inspect the changes before applying an
+existing app with the new CLI.
 
 ## Preview app changes
 
@@ -116,7 +170,7 @@ twenty app plan --remote dev
 twenty app plan --path ./apps/billing --no-delete --json
 ```
 
-`app plan` builds once with the project's SDK, releases the temporary snapshot, then requests the server's metadata preview with `dryRun: true`. It uses the usual connection selection and requires the server's `APPLICATIONS` permission. The server enforces authorization, ownership and manifest/version compatibility. No registration, installation, upload or metadata synchronization is performed, and planning never advances a pull base. The local build can generate app artifacts, just as `app build` does.
+`app plan` builds once with the CLI pipeline, releases the temporary snapshot, then requests the server's metadata preview with `dryRun: true`. It uses the usual connection selection and requires the server's `APPLICATIONS` permission. The server enforces authorization, ownership and manifest/version compatibility. No registration, installation, upload or metadata synchronization is performed, and planning never advances a pull base. The local build can generate app artifacts, just as `app build` does.
 
 Plans are advisory, with `advisory: true` in JSON. They are not saved approvals: remote changes can alter what a later apply does. A missing owned application registration returns `PLAN_UNAVAILABLE` (exit 1). Register the app with `twenty app apply --create`, then plan again.
 
@@ -130,13 +184,13 @@ twenty app apply --create --json
 twenty app apply --no-delete
 ```
 
-`app apply` builds the app once with the project's SDK and keeps that build's snapshot until it finishes, so the files it uploads are the ones it built. It then asks the workspace for a fresh preview, shows it, and applies it: it installs the development app if needed, uploads the snapshot files, synchronizes the manifest, and regenerates the app's typed API client. It needs the server's `APPLICATIONS` and `UPLOAD_FILE` permissions.
+`app apply` builds the app once with the CLI pipeline and keeps that build's snapshot until it finishes, so the files it uploads are the ones it built. It then asks the workspace for a fresh preview, shows it, and applies it: it installs the development app if needed, uploads the snapshot files, synchronizes the manifest, and regenerates the app's typed API client. It needs the server's `APPLICATIONS` and `UPLOAD_FILE` permissions.
 
 - **New apps.** An app without a registration needs `--create`, or a yes at the prompt in an interactive terminal. The CLI then registers the app (the server also requires `API_KEYS_AND_WEBHOOKS` for this), installs it, and previews it before uploading anything. Without approval it stops with `CREATE_REQUIRED` (exit 2). The registration's client secret is never requested.
 - **Deletions.** Entities missing from source are deleted by default, as in `app plan`; `--no-delete` keeps them and is sent to both the preview and the sync. Object and field deletions permanently delete stored data, so they need `--yes` or a yes at the prompt. Otherwise the command stops with `CONFIRMATION_REQUIRED` (exit 2) before changing anything. `--yes` never changes which entities are deleted.
 - **Uploads.** File bytes go straight to the upload URLs the server returns, without the CLI's credentials. Each file is checked against the build's size and SHA-256 before anything is uploaded.
 - **Pull baseline.** After an acknowledged sync, the CLI fetches the workspace ID and fresh application export, then atomically records `.twenty/cli/pull-base.json`. It is bound to the normalized API URL, workspace UUID and app UUID. The legacy SDK base at `.twenty/pull-base.json` is untouched. JSON reports `pullBase: "recorded"`, `"failed"` or `"unsupported"`; only a recorded base adds `pullBase` to `completedPhases`. Invalid exports or file-write errors preserve the prior base, warn with `PULL_BASE_NOT_RECORDED`, and allow client generation to continue. A server without the export API reports `"unsupported"` without a warning on every apply. The export is recorded as the server sent it; collections it lacks are read as empty by pull. Cancellation before the base is committed exits 130 with `outcome: "applied"` and `phase: "pullBase"`. The baseline lets `app pull` distinguish workspace changes from local edits.
-- **Typed client.** After the sync, the CLI fetches the app's GraphQL schema from the workspace and the project's SDK regenerates the client in the app's own `node_modules/twenty-client-sdk` (`clientGeneration: "generated"`). It is skipped with a `CLIENT_NOT_GENERATED` warning when the SDK cannot generate clients or when the app has no `node_modules/twenty-client-sdk` of its own, as in a hoisted workspace. A symlinked client package is followed and its target rewritten, so don't apply two apps that share one client package at the same time.
+- **Typed client.** After the sync, the CLI fetches the app's GraphQL schema from the workspace and the CLI calls the app's own `twenty-client-sdk/generate` to regenerate the client in the app's own `node_modules/twenty-client-sdk` (`clientGeneration: "generated"`). It is skipped with a `CLIENT_NOT_GENERATED` warning when the app has no `node_modules/twenty-client-sdk` of its own, as in a hoisted workspace. With `--legacy-sdk`, an SDK without client-generation capability also skips this step. A symlinked client package is followed and its target rewritten, so don't apply two apps that share one client package at the same time.
 - **Failures.** A failed apply reports `details.phase`, `details.completedPhases` and `details.outcome`: `not-started` when the failing step changed nothing, `partial` when some files were uploaded, `unknown` when a request was sent but its effect is not known, such as a failed or interrupted sync, and `applied` when the sync succeeded but baseline recording was cancelled or client generation failed. Earlier steps, like a new registration, stay done. There is no rollback and no automatic retry: run `twenty app plan` to see where the workspace stands, then apply again. After `applied`, the workspace has the new version but the client files may be incomplete: fix the problem, then run `twenty app apply` again, which repeats the preview, upload and sync before regenerating the client. Ctrl+C exits with 130 and reports the step it interrupted.
 
 The preview is advisory: remote changes made between the preview and the sync can change what the sync does. Remote changes between the acknowledged sync and the export can also enter the saved baseline without appearing in local source; this is not an atomic server snapshot of the sync. Planning, a failed sync, or a sync with an unknown outcome never advances the baseline.
@@ -222,15 +276,21 @@ Exit codes:
 
 ## Development
 
-The CLI-owned [source loader](src/app/source/README.md) powers app pull and prepares for build migration. Build, typecheck and client generation still use the existing SDK build API.
+Public build, typecheck, plan, apply and uninstall commands now use the CLI-owned
+[source loader](src/app/source/README.md), [manifest builder](src/app/manifest/README.md),
+[bundler and snapshots](src/app/bundles/README.md), and
+[project TypeScript](src/app/typecheck/README.md). Their JSON envelopes, apply
+phases, cancellation and snapshot lease lifecycle are preserved.
 
-The internal CLI build pipeline now includes [typechecking with the app's own TypeScript](src/app/typecheck/README.md). It fails on configuration errors and unbuilt project references, requires TypeScript in the app or its workspace, and never borrows the globally installed CLI's compiler. Public command migration remains a separate step.
+The [client generation wrapper](src/app/client/README.md) calls the app's own
+`twenty-client-sdk/generate` after apply. Its generator dependencies remain in
+the client SDK; B6 changes no SDK, app or template dependencies.
 
-The internal [client generation wrapper](src/app/client/README.md) uses the app's own installed `twenty-client-sdk/generate`, preserving the current generated-client layout. Its generator dependencies stay in the client SDK for now; B5 adds no dependency to the CLI or to apps.
-
-The internal [manifest builder](src/app/manifest/README.md) ports manifest validation and translation compilation into the CLI. It is checked against the SDK on every fixture and a fresh app; public build and apply commands switch over in a later slice.
-
-The internal [bundler and snapshot pipeline](src/app/bundles/README.md) now produces CLI-owned snapshots under `.twenty/cli/snapshots`, checked against SDK bundle bytes and hashes. Typechecking is the next migration slice; public commands still use the SDK pipeline.
+SDK slimming remains a separate release step. In particular, the current
+app-template integration-test setup imports `appDevOnce` and `appUninstall` from
+`twenty-sdk/cli`. Migrate that harness before removing SDK tooling; it must not
+gain a dependency on the globally installed CLI package. SDK publish and watch
+commands also remain available until their CLI replacements ship.
 
 ```bash
 npx nx build twenty-cli

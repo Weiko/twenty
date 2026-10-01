@@ -1,9 +1,12 @@
+import { APP_LEGACY_SDK_OPTION } from '@/app/constants/app-legacy-sdk-option.constant';
 import { type LocalCommandDefinition } from '@/catalog/types/command-definition.type';
 
 export const APP_TYPECHECK_COMMAND_DEFINITION: LocalCommandDefinition = {
   path: ['app', 'typecheck'],
-  description: 'Typecheck the app with its own twenty-sdk, without building',
+  description:
+    'Typecheck the app with its project TypeScript, without building',
   options: [
+    APP_LEGACY_SDK_OPTION,
     {
       flags: '--path <directory>',
       description:

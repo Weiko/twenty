@@ -14,8 +14,13 @@ const createOption = ({
   description,
   choices,
   required,
+  hidden,
 }: CommandOptionDefinition) => {
   const option = new Option(flags, description);
+
+  if (hidden === true) {
+    option.hideHelp();
+  }
 
   if (isDefined(choices)) {
     option.choices(choices);

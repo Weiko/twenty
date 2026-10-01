@@ -58,7 +58,8 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
   if (!isDefined(applyResult)) {
     throw new CliError({
       code: 'TOOLING_UNSUPPORTED',
-      message: `twenty-sdk ${sdk.version} did not keep its build snapshot for upload, so nothing was applied.`,
+      message:
+        'The app worker did not keep its build snapshot for upload, so nothing was applied.',
     });
   }
 

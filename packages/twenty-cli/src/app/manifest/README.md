@@ -2,8 +2,9 @@
 
 This is B2 of the migration of app tooling into the CLI. It provides manifest
 construction, validation and translation compilation through the internal
-`buildManifest` worker request. Public build, plan and apply commands still use
-the existing SDK snapshot pipeline until bundling and typecheck are ported.
+`buildManifest` worker request and the default CLI snapshot pipeline used by
+public build, plan and apply commands. The temporary `--legacy-sdk` fallback
+retains the existing SDK snapshot pipeline.
 
 ## Source
 

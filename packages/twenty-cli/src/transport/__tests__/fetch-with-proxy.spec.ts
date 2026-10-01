@@ -16,9 +16,16 @@ import { getListeningPort } from '@/utils/get-listening-port';
 
 const proxyRequests: { authority: string; authorization?: string }[] = [];
 const sockets = new Set<Socket>();
-const target = await startTestServer((_request, response) =>
-  sendJson(response, 200, { ok: true }),
-);
+const target = await startTestServer((request, response) => {
+  if (request.headers.accept === 'text/event-stream') {
+    response.writeHead(200, { 'content-type': 'text/event-stream' });
+    response.end(
+      'event: next\ndata: {"data":{"message":"hello"}}\n\nevent: complete\n\n',
+    );
+    return;
+  }
+  sendJson(response, 200, { ok: true });
+});
 const proxy = createServer();
 
 proxy.on('connection', (socket) => {
@@ -197,5 +204,40 @@ describe('environment proxies', () => {
       body: 'file contents',
     });
     expect(target.requests[0].headers.authorization).toBeUndefined();
+  });
+
+  it('streams subscriptions through the proxy without forwarding proxy credentials', async () => {
+    vi.stubEnv(
+      'HTTP_PROXY',
+      proxyUrl.replace('http://', 'http://proxy-user:proxy-secret@'),
+    );
+    const { subscribeGraphql } =
+      await import('@/transport/graphql/subscribe-graphql');
+    const records: unknown[] = [];
+
+    await subscribeGraphql({
+      target: {
+        apiUrl: 'http://unresolvable.example',
+        bearerToken: 'workspace-secret',
+        credentialKind: 'apiKey',
+        source: 'environment',
+      },
+      signal: new AbortController().signal,
+      query: 'subscription { message }',
+      variables: {},
+      onConnected: async () => {},
+      onData: async (data) => {
+        records.push(data);
+      },
+    });
+
+    expect(records).toEqual([{ message: 'hello' }]);
+    expect(proxyRequests).toHaveLength(1);
+    expect(proxyRequests[0].authority).toBe('unresolvable.example:80');
+    expect(target.requests[0].path).toBe('/metadata');
+    expect(target.requests[0].headers.authorization).toBe(
+      'Bearer workspace-secret',
+    );
+    expect(target.requests[0].headers['proxy-authorization']).toBeUndefined();
   });
 });

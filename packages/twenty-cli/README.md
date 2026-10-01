@@ -337,6 +337,44 @@ you to check its effects before retrying. An acknowledged execution rejection
 reports `"not-started"`. Ctrl+C exits 130, without rolling back side effects.
 See the [exec port notes](src/app/exec/README.md) for compatibility details.
 
+## Watch app logs
+
+```bash
+twenty app logs --remote dev
+twenty app logs --name add-numbers --remote dev
+twenty app logs --universal-identifier <uuid> --format ndjson
+```
+
+Run from the app folder or pass `--path`. This watches newly published execution
+output from every logic function in that app. Output arrives when an execution
+finishes, not line by line while it runs. It does not fetch historical logs,
+watch other apps, or build, sync, register or install anything.
+
+Names are not unique: `--name` matches every function with that exact name in the
+app. Use `--universal-identifier` to isolate one function. The two filters are
+mutually exclusive. Human output labels each execution with its function name
+and identifier; NDJSON records contain `applicationUniversalIdentifier`,
+`functionName`, `functionUniversalIdentifier` and `logs`.
+
+Older servers expose only log text. If the identity fields are unsupported, the
+CLI warns and subscribes once using the old selection. An explicit filter still
+supplies that name or identifier; unknown identities are `null` in NDJSON and
+omitted from human labels. With neither filter, older servers cannot attribute
+mixed output to individual functions.
+
+The stream supports human output and `--format ndjson`; finite `--json` is
+rejected. Ctrl+C closes it and exits 130. A server completion exits 0. A dropped
+or stalled connection exits with an error and the emitted record count, with no
+automatic reconnect because missed logs cannot be replayed. Slow output applies
+backpressure; each SSE frame is limited to 16 MiB, with no session-size cap.
+Connection setup and gaps between received body chunks each have a 60-second
+deadline; server heartbeat comments keep quiet subscriptions alive.
+
+This uses the existing app-log subscription and its `WORKFLOWS` permission and
+application access checks. API keys and browser-login remotes are supported.
+It does not require the paid audit-log entitlement, ClickHouse history or the
+workspace-wide Settings logs API. See the [logs port notes](src/app/function-logs/README.md).
+
 ## Expired browser sessions
 
 For commands that use a workspace, interactive OAuth sessions are checked before

@@ -21,7 +21,7 @@ const getRedirectOrigin = (response: Response, requestUrl: URL) => {
     : undefined;
 };
 
-const toTransportError = ({
+export const toTransportError = ({
   error,
   signal,
   url,
@@ -64,7 +64,7 @@ const toTransportError = ({
   });
 };
 
-const createRedirectError = (response: Response, url: URL) => {
+export const createRedirectError = (response: Response, url: URL) => {
   const redirectOrigin = getRedirectOrigin(response, url);
 
   return new CliError({

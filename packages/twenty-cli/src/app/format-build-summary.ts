@@ -2,6 +2,7 @@ import { formatBytes } from 'twenty-shared/utils';
 
 import { formatAppDuration } from '@/app/format-app-duration';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
+import { CLI_VERSION } from '@/constants/cli-version.constant';
 import { dimText, formatSuccessLine } from '@/output/style';
 
 const ROLE_LABELS: Record<string, [singular: string, plural: string]> = {
@@ -43,17 +44,19 @@ const formatRoleCounts = (build: ToolingBuild) => {
 export const formatBuildSummary = ({
   build,
   sdkVersion,
+  pipeline,
   durationMilliseconds,
 }: {
   build: ToolingBuild;
   sdkVersion: string;
+  pipeline: 'cli' | 'sdk';
   durationMilliseconds: number;
 }) => {
   const totalSize = build.files.reduce((sum, file) => sum + file.size, 0);
 
   return [
     formatSuccessLine(
-      `Built ${build.application.displayName} with twenty-sdk ${sdkVersion} ${dimText(`in ${formatAppDuration(durationMilliseconds)}`)}`,
+      `Built ${build.application.displayName} with ${pipeline === 'cli' ? `twenty ${CLI_VERSION}` : `twenty-sdk ${sdkVersion}`} ${dimText(`in ${formatAppDuration(durationMilliseconds)}`)}`,
     ),
     dimText(
       `  ${build.files.length} files · ${formatBytes(totalSize)} · content hash ${build.contentHash.slice(0, 12)}`,

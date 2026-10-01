@@ -3,9 +3,9 @@
 B3 ports the SDK's one-shot application bundler and snapshot lifecycle into the
 CLI. The internal `bundleSnapshot` worker request builds and holds or releases a
 snapshot under `.twenty/cli/snapshots/build-*`. B4 adds the app's own TypeScript
-compiler through the [typecheck port](../typecheck/README.md). No public command
-sends this request: build, plan and apply still use the
-SDK pipeline until B6. This request is an internal migration seam, not a public
+compiler through the [typecheck port](../typecheck/README.md). Public build, plan,
+apply and uninstall use this pipeline by default. The temporary `--legacy-sdk`
+flag selects the old SDK pipeline. Worker requests remain internal, not a public
 API or a way to bypass checks in `twenty app build`.
 
 ## Source
@@ -64,6 +64,9 @@ SDK. Cleanup never removes legacy output or another build's snapshot.
 - `compileApplication` runs the CLI typecheck after bundling, in the SDK's
   existing order. Both parity pipelines run their real typecheck phase with the
   same compiler; the CLI resolves it from the app.
+- Workers run from the selected app directory, so invoking the CLI from a
+  parent or nested directory produces the same bundle paths, bytes and hashes.
+  SDK parity references run from the app root as well.
 - Snapshot storage moves to `.twenty/cli/snapshots`. Upload validation accepts
   both this directory and `.twenty/snapshots`, retaining the existing path and
   per-file hash checks. Neither producer can upload from sibling folders.

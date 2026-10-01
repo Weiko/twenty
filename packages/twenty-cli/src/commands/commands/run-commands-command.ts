@@ -15,7 +15,9 @@ export const runCommandsCommand: CommandRun = async () => {
       name,
       required,
     })),
-    flags: (definition.options ?? []).map(({ flags }) => flags),
+    flags: (definition.options ?? [])
+      .filter(({ hidden }) => hidden !== true)
+      .map(({ flags }) => flags),
     outputs: definition.outputModes,
     writes: definition.writes,
     needsProject: definition.needsProject,

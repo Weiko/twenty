@@ -1,8 +1,7 @@
-import { isDefined, isNonEmptyArray } from 'twenty-shared/utils';
+import { isDefined } from 'twenty-shared/utils';
 
 import { resolveAppProject } from '@/app/resolve-app-project';
-import { resolveProjectSdk } from '@/app/resolve-project-sdk';
-import { APP_OPERATION_CAPABILITIES } from '@/app/constants/app-operation-capabilities.constant';
+import { resolveSourceSdk } from '@/app/resolve-source-sdk';
 import { type AppProject } from '@/app/types/app-project.type';
 import { type DoctorCheck } from '@/doctor/types/doctor-check.type';
 import { CliError } from '@/output/cli-error';
@@ -54,39 +53,17 @@ export const getProjectDoctorChecks = async ({
   try {
     signal.throwIfAborted();
 
-    const sdk = await resolveProjectSdk({
-      appPath: project.path,
-    });
-    const missingCapabilities = [
-      ...new Set(Object.values(APP_OPERATION_CAPABILITIES).flat()),
-    ].filter((capability) => !sdk.capabilities.includes(capability));
+    const sdk = await resolveSourceSdk({ appPath: project.path });
 
-    const checks: DoctorCheck[] = [
+    return [
       projectCheck,
       {
         id: 'sdk',
         status: 'pass',
-        message: `twenty-sdk ${sdk.version}, protocol ${sdk.protocolVersion}. Advertised capabilities: ${isNonEmptyArray(sdk.capabilities) ? sdk.capabilities.join(', ') : 'none'}.`,
-        details: {
-          version: sdk.version,
-          path: sdk.packagePath,
-          protocolVersion: sdk.protocolVersion,
-          capabilities: sdk.capabilities,
-        },
+        message: `twenty-sdk ${sdk.version} provides the authoring exports required by the CLI.`,
+        details: { version: sdk.version, path: sdk.packagePath },
       },
     ];
-
-    if (isNonEmptyArray(missingCapabilities)) {
-      checks.push({
-        id: 'sdk-capabilities',
-        status: 'warning',
-        message: `Some app build or typecheck operations are unavailable. Missing capabilities: ${missingCapabilities.join(', ')}.`,
-        hint: 'Upgrade the app-local twenty-sdk to use those operations.',
-        details: { missingCapabilities },
-      });
-    }
-
-    return checks;
   } catch (error) {
     signal.throwIfAborted();
 

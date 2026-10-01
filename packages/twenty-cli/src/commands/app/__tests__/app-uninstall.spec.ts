@@ -156,12 +156,19 @@ const server = await startTestServer((request, response) => {
   return sendJson(response, 400, { errors: [{ message: 'Unexpected' }] });
 });
 
-describe('app uninstall', () => {
+describe('app uninstall with the legacy SDK fallback', () => {
   let appPath: string;
   let sdkPath: string;
 
   const run = (...args: string[]) =>
-    runCliForTest(['app', 'uninstall', '--path', appPath, ...args]);
+    runCliForTest([
+      'app',
+      'uninstall',
+      '--legacy-sdk',
+      '--path',
+      appPath,
+      ...args,
+    ]);
   const runJson = async (...args: string[]) => {
     const result = await run(...args, '--json');
 

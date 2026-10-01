@@ -88,12 +88,12 @@ const graphqlError = (code: string, subCode?: string, path?: string) => ({
   ],
 });
 
-describe('app plan', () => {
+describe('app plan with the legacy SDK fallback', () => {
   let appPath: string;
   let sdkPath: string;
 
   const run = (...args: string[]) =>
-    runCliForTest(['app', 'plan', '--path', appPath, ...args]);
+    runCliForTest(['app', 'plan', '--legacy-sdk', '--path', appPath, ...args]);
   const runJson = async (...args: string[]) => {
     const result = await run(...args, '--json');
 

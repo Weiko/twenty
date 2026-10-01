@@ -10,8 +10,8 @@ JSON gets the same clear expected-package diagnostic as a wrong package name.
 The remaining validation, generation and cancellation behavior follows the SDK.
 
 The internal `generateSourceClient` worker request needs no application SDK
-build entry or descriptor. Public `app apply` still uses the SDK wrapper until
-B6, alongside the other public pipeline changes.
+build entry or descriptor. Public `app apply` uses it by default. The temporary
+`--legacy-sdk` fallback selects the SDK wrapper instead.
 
 ## Package and output ownership
 

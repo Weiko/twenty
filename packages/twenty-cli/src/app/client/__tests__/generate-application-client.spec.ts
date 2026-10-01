@@ -44,7 +44,7 @@ describe('CLI client generation uses the app generator', () => {
   let root: string;
   let appPath: string;
   let packageRoot: string;
-  let sdk: { generateApplicationClient: typeof generateApplicationClient };
+  let sdkEntryPath: string;
 
   const readGeneratedClient = async () => {
     const directory = join(packageRoot, 'dist/core/generated');
@@ -106,12 +106,13 @@ describe('CLI client generation uses the app generator', () => {
       );
     }
     const sdkSource = join(REPOSITORY_ROOT, 'packages/twenty-sdk/src');
-    const entry = join(root, 'sdk-reference.cjs');
+    sdkEntryPath = join(root, 'sdk-reference.cjs');
     await build({
-      entryPoints: [
-        join(sdkSource, 'application-build/generate-application-client.ts'),
-      ],
-      outfile: entry,
+      stdin: {
+        contents: `export { generateApplicationClient as generateAppClient } from './application-build/generate-application-client';`,
+        resolveDir: sdkSource,
+      },
+      outfile: sdkEntryPath,
       alias: { '@': sdkSource },
       bundle: true,
       packages: 'external',
@@ -119,7 +120,6 @@ describe('CLI client generation uses the app generator', () => {
       format: 'cjs',
       target: 'node24',
     });
-    sdk = require(entry) as typeof sdk;
     await buildTestAppWorker(join(root, 'cli'));
     launch.modulePath = join(root, 'cli/app-worker.cjs');
   }, 60000);
@@ -144,9 +144,20 @@ describe('CLI client generation uses the app generator', () => {
   });
 
   it('matches SDK-generated source and bundles byte for byte without an application SDK', async () => {
-    expect(
-      await sdk.generateApplicationClient({ appPath, schema: SCHEMA }),
-    ).toEqual({ success: true, data: null, diagnostics: [] });
+    const reference = await runAppWorker({
+      request: {
+        type: 'generateClient',
+        appPath,
+        buildEntryPath: sdkEntryPath,
+        schema: SCHEMA,
+      },
+      signal: new AbortController().signal,
+    });
+    expect(reference.result).toEqual({
+      success: true,
+      data: null,
+      diagnostics: [],
+    });
     const expected = await readGeneratedClient();
     expect(await runGeneration()).toEqual({
       success: true,

@@ -5,9 +5,10 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { getClientGenerationSkipReason } from '@/app/get-client-generation-skip-reason';
-import { type ProjectSdk } from '@/app/types/project-sdk.type';
+import { type AppTooling } from '@/app/types/app-tooling.type';
 
-const createSdk = (capabilities: string[]): ProjectSdk => ({
+const createSdk = (capabilities: string[]): AppTooling => ({
+  pipeline: 'sdk',
   version: '9.9.9',
   packagePath: '/sdk',
   buildEntryPath: '/sdk/build.cjs',

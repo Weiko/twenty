@@ -58,6 +58,7 @@ export const runAppWorker = async ({
 
   const { modulePath, execArgv } = getAppWorkerLaunch();
   const worker = fork(modulePath, [], {
+    cwd: request.appPath,
     env: createAppWorkerEnvironment(process.env),
     execArgv,
     serialization: 'json',

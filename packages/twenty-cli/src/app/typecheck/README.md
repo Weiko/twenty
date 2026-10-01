@@ -7,8 +7,9 @@ source with the recorded commit and rerun parity when porting an SDK fix.
 
 The internal `typecheckSource` worker request checks an app without loading SDK
 tooling. `bundleSnapshot` now runs this typecheck after bundling, in the SDK's
-existing order. A failed check discards that build's snapshot. Public `app build`,
-`app typecheck`, `app plan` and `app apply` still use the SDK pipeline until B6.
+existing order. A failed check discards that build's snapshot. Public build,
+typecheck, plan, apply and uninstall commands use this pipeline by default;
+`--legacy-sdk` temporarily selects the SDK pipeline for migration comparisons.
 
 ## Compiler ownership
 

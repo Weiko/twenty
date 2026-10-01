@@ -48,7 +48,7 @@ describe('doctor', () => {
     await writeFile(configPath, JSON.stringify(config));
   };
 
-  const createApp = async (descriptor: Record<string, unknown> = {}) => {
+  const createApp = async (packageFields: Record<string, unknown> = {}) => {
     const appPath = join(root, 'app');
     const sdkPath = join(appPath, 'node_modules', 'twenty-sdk');
 
@@ -66,18 +66,10 @@ describe('doctor', () => {
         name: 'twenty-sdk',
         version: '9.9.9',
         exports: {
-          './build': './build.cjs',
-          './build/descriptor.json': './descriptor.json',
+          './define': './build.cjs',
+          './front-component': './build.cjs',
         },
-      }),
-    );
-    await writeFile(
-      join(sdkPath, 'descriptor.json'),
-      JSON.stringify({
-        protocolVersion: 1,
-        requiredNode: '^24.5.0',
-        capabilities: ['build', 'typecheck', 'releaseSnapshot'],
-        ...descriptor,
+        ...packageFields,
       }),
     );
     await writeFile(
@@ -169,7 +161,7 @@ describe('doctor', () => {
     expect(human.stdout).toContain('[PASS] node:');
   });
 
-  it('reads the app-local descriptor without importing or building the SDK', async () => {
+  it('checks public SDK exports without importing or requiring a build API', async () => {
     const { appPath } = await createApp();
     const result = await runJson(['--path', appPath]);
 
@@ -180,8 +172,6 @@ describe('doctor', () => {
         status: 'pass',
         details: expect.objectContaining({
           version: '9.9.9',
-          protocolVersion: 1,
-          capabilities: ['build', 'typecheck', 'releaseSnapshot'],
         }),
       }),
     );
@@ -230,8 +220,8 @@ describe('doctor', () => {
     expect(human.stderr).not.toContain(API_KEY);
   });
 
-  it('explains newer SDK protocol incompatibility', async () => {
-    const { appPath } = await createApp({ protocolVersion: 99 });
+  it('explains unsupported authoring SDK versions', async () => {
+    const { appPath } = await createApp({ version: '1.22.0' });
     const result = await runJson(['--path', appPath]);
 
     expect(result.exitCode).toBe(1);
@@ -239,22 +229,29 @@ describe('doctor', () => {
       expect.objectContaining({
         id: 'sdk',
         status: 'fail',
-        code: 'TOOLING_UNSUPPORTED',
-        hint: 'Upgrade the twenty CLI.',
+        code: 'SDK_SOURCE_UNSUPPORTED',
+        hint: 'Install a compatible twenty-sdk version in this app.',
       }),
     );
   });
 
-  it('reports missing build capabilities as warnings, without loading the SDK', async () => {
-    const { appPath } = await createApp({ capabilities: ['typecheck'] });
+  it('does not warn about a missing SDK build API or project-local CLI', async () => {
+    const { appPath } = await createApp();
     const result = await runJson(['--path', appPath]);
 
     expect(result.exitCode).toBe(0);
+    expect(result.checks).not.toContainEqual(
+      expect.objectContaining({ id: 'sdk-capabilities' }),
+    );
     expect(result.checks).toContainEqual(
       expect.objectContaining({
-        id: 'sdk-capabilities',
-        status: 'warning',
-        details: { missingCapabilities: ['build', 'releaseSnapshot'] },
+        id: 'cli',
+        status: 'pass',
+        details: expect.objectContaining({
+          entryPoint: process.argv[1],
+          nodeExecutable: process.execPath,
+          version: expect.any(String),
+        }),
       }),
     );
   });
@@ -298,7 +295,7 @@ describe('doctor', () => {
   });
 
   it('reports an incompatible SDK Node requirement', async () => {
-    const { appPath } = await createApp({ requiredNode: '>=99.0.0' });
+    const { appPath } = await createApp({ engines: { node: '>=99.0.0' } });
     const result = await runJson(['--path', appPath]);
 
     expect(result.exitCode).toBe(1);

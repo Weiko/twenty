@@ -153,12 +153,12 @@ ${exportedFunctions.map((name) => `  ${name}: ${functionSources[name]},`).join('
 };
 
 const runJson = async (args: string[]) => {
-  const result = await runCliForTest([...args, '--json']);
+  const result = await runCliForTest([...args, '--legacy-sdk', '--json']);
 
   return { ...result, envelope: parseSingleJsonLine(result.stdout) };
 };
 
-describe('app build and typecheck', () => {
+describe('app build and typecheck with the legacy SDK fallback', () => {
   beforeEach(() => {
     vi.stubEnv('CI', '');
   });
@@ -201,6 +201,7 @@ describe('app build and typecheck', () => {
     const { stdout, stderr, exitCode } = await runCliForTest([
       'app',
       'build',
+      '--legacy-sdk',
       '--path',
       appPath,
     ]);
@@ -552,7 +553,13 @@ describe('app build and typecheck', () => {
       });
 
       const json = await runJson(['app', 'build', '--path', appPath]);
-      const human = await runCliForTest(['app', 'build', '--path', appPath]);
+      const human = await runCliForTest([
+        'app',
+        'build',
+        '--path',
+        appPath,
+        '--legacy-sdk',
+      ]);
 
       expect(json.exitCode).toBe(1);
       expect(json.envelope.error).toMatchObject({
@@ -582,6 +589,7 @@ describe('app build and typecheck', () => {
         'typecheck',
         '--path',
         appPath,
+        '--legacy-sdk',
       ]);
 
       expect(json.exitCode).toBe(1);

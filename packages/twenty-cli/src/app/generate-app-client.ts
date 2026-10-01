@@ -5,7 +5,7 @@ import { formatToolingDiagnostic } from '@/app/format-tooling-diagnostic';
 import { parseNullData, parseToolingResult } from '@/app/parse-tooling-result';
 import { runAppWorker } from '@/app/run-app-worker';
 import { toWorkerOutputDiagnostics } from '@/app/to-worker-output-diagnostics';
-import { type ProjectSdk } from '@/app/types/project-sdk.type';
+import { type AppTooling } from '@/app/types/app-tooling.type';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';
 import { CliError } from '@/output/cli-error';
 import { sendGraphqlRequest } from '@/transport/graphql/send-graphql-request';
@@ -22,7 +22,7 @@ export const generateAppClient = async ({
 }: {
   appPath: string;
   applicationUniversalIdentifier: string;
-  sdk: ProjectSdk;
+  sdk: AppTooling;
   context: TargetCommandContext;
 }) => {
   output.progress('Fetching the application schema…');
@@ -46,12 +46,15 @@ export const generateAppClient = async ({
   output.progress('Generating the typed API client…');
 
   const workerRun = await runAppWorker({
-    request: {
-      type: 'generateClient',
-      appPath,
-      buildEntryPath: sdk.buildEntryPath,
-      schema,
-    },
+    request:
+      sdk.pipeline === 'sdk'
+        ? {
+            type: 'generateClient',
+            appPath,
+            buildEntryPath: sdk.buildEntryPath,
+            schema,
+          }
+        : { type: 'generateSourceClient', appPath, schema },
     signal,
   });
   const result = parseToolingResult({
@@ -74,6 +77,7 @@ export const generateAppClient = async ({
       error: result.error,
       diagnostics,
       sdkVersion: sdk.version,
+      pipeline: sdk.pipeline,
       operation: 'generateClient',
     });
   }

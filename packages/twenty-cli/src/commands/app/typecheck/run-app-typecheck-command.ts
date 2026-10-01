@@ -20,7 +20,7 @@ export const runAppTypecheckCommand: CommandRun = async (context) => {
       durationMilliseconds,
     },
     human: formatSuccessLine(
-      `No type errors in ${project.name} ${dimText(`· twenty-sdk ${sdk.version} · ${formatAppDuration(durationMilliseconds)}`)}`,
+      `No type errors in ${project.name} ${dimText(`· ${sdk.pipeline === 'cli' ? 'project TypeScript' : `twenty-sdk ${sdk.version}`} · ${formatAppDuration(durationMilliseconds)}`)}`,
     ),
   };
 };

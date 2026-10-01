@@ -11,7 +11,7 @@ import {
 } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { isArray, isString } from '@sniptt/guards';
@@ -33,7 +33,6 @@ import {
 } from '@/__tests__/utils/run-cli-for-test';
 import { sendJson, startTestServer } from '@/__tests__/utils/start-test-server';
 
-import { type runAppWorker } from '@/app/run-app-worker';
 import { installTestClientSdk } from '@/app/__tests__/utils/install-test-client-sdk';
 import { buildTestAppWorker } from '@/app/__tests__/utils/build-test-app-worker';
 
@@ -45,41 +44,6 @@ const buildMode = vi.hoisted(() => ({
 vi.mock('@/app/get-app-worker-launch', () => ({
   getAppWorkerLaunch: () => buildMode.launch,
 }));
-
-vi.mock('@/app/run-app-worker', async (importOriginal) => {
-  const original = await importOriginal<{
-    runAppWorker: typeof runAppWorker;
-  }>();
-
-  return {
-    runAppWorker: (options: Parameters<typeof original.runAppWorker>[0]) => {
-      const request = options.request;
-      if (buildMode.value === 'CLI' && request.type === 'generateClient') {
-        return original.runAppWorker({
-          ...options,
-          request: {
-            type: 'generateSourceClient',
-            appPath: request.appPath,
-            schema: request.schema,
-          },
-        });
-      }
-      return original.runAppWorker({
-        ...options,
-        request:
-          buildMode.value === 'CLI' &&
-          request.type === 'run' &&
-          request.operation === 'build'
-            ? {
-                type: 'bundleSnapshot',
-                appPath: request.appPath,
-                holdSnapshot: request.holdSnapshot,
-              }
-            : request,
-      });
-    },
-  };
-});
 
 const REPOSITORY_ROOT = fileURLToPath(
   new URL('../../../../../../', import.meta.url),
@@ -146,6 +110,22 @@ const server = await startTestServer((request, response) => {
         },
       },
     });
+  }
+
+  if (query.includes('findOneApplication')) {
+    return sendJson(response, 200, {
+      data: {
+        findOneApplication: {
+          name: 'Root App',
+          universalIdentifier: variables.universalIdentifier,
+          canBeUninstalled: true,
+        },
+      },
+    });
+  }
+
+  if (query.includes('uninstallApplication')) {
+    return sendJson(response, 200, { data: { uninstallApplication: true } });
   }
 
   if (query.includes('createDevelopmentApplication')) {
@@ -222,7 +202,11 @@ const server = await startTestServer((request, response) => {
 });
 
 const runJson = async (args: string[]) => {
-  const result = await runCliForTest([...args, '--json']);
+  const result = await runCliForTest([
+    ...args,
+    ...(buildMode.value === 'SDK' ? ['--legacy-sdk'] : []),
+    '--json',
+  ]);
 
   return { ...result, envelope: parseSingleJsonLine(result.stdout) };
 };
@@ -271,7 +255,33 @@ describe.each(['SDK', 'CLI'])('app commands with %s snapshots', (mode) => {
     expect(await listSnapshots()).toEqual(snapshotsBefore);
   }, 120_000);
 
-  it('uploads a real build, releases its snapshot and generates an isolated client', async () => {
+  it('produces the same artifacts when invoked outside the app root', async () => {
+    const originalDirectory = process.cwd();
+    const builds = [];
+
+    try {
+      for (const directory of [
+        APP_PATH,
+        dirname(APP_PATH),
+        join(APP_PATH, '.twenty'),
+      ]) {
+        process.chdir(directory);
+        const result = await runJson(['app', 'build', '--path', APP_PATH]);
+        expect(result.exitCode, JSON.stringify(result.envelope)).toBe(0);
+        builds.push(result.envelope.data);
+      }
+    } finally {
+      process.chdir(originalDirectory);
+    }
+
+    for (const build of builds.slice(1)) {
+      expect(build.contentHash).toBe(builds[0].contentHash);
+      expect(build.files).toEqual(builds[0].files);
+      expect(build.manifest).toEqual(builds[0].manifest);
+    }
+  }, 120_000);
+
+  it('builds, typechecks, previews, applies and uninstalls through the public pipeline', async () => {
     const appPath = await mkdtemp(join(tmpdir(), 'twenty-cli-real-apply-'));
 
     try {
@@ -295,6 +305,30 @@ describe.each(['SDK', 'CLI'])('app commands with %s snapshots', (mode) => {
           'dir',
         );
       }
+      if (mode === 'CLI') {
+        const sdkPath = join(appPath, 'node_modules', 'twenty-sdk');
+        const repositorySdkPath = join(REPOSITORY_ROOT, 'packages/twenty-sdk');
+        await rm(sdkPath);
+        await mkdir(sdkPath);
+        await cp(join(repositorySdkPath, 'dist'), join(sdkPath, 'dist'), {
+          recursive: true,
+          dereference: true,
+        });
+        await symlink(
+          join(REPOSITORY_ROOT, 'node_modules'),
+          join(sdkPath, 'node_modules'),
+          'dir',
+        );
+        const sdkPackage = JSON.parse(
+          await readFile(join(repositorySdkPath, 'package.json'), 'utf8'),
+        );
+        delete sdkPackage.exports['./build'];
+        delete sdkPackage.exports['./build/descriptor.json'];
+        await writeFile(
+          join(sdkPath, 'package.json'),
+          JSON.stringify(sdkPackage),
+        );
+      }
       const clientPath = join(appPath, 'node_modules', 'twenty-client-sdk');
 
       await installTestClientSdk(clientPath);
@@ -302,6 +336,25 @@ describe.each(['SDK', 'CLI'])('app commands with %s snapshots', (mode) => {
         join(clientPath, 'dist', 'metadata.cjs'),
         'metadata client',
       );
+      for (const command of ['build', 'typecheck', 'plan']) {
+        const result = await runJson(['app', command, '--path', appPath]);
+        expect(result.exitCode, JSON.stringify(result.envelope)).toBe(0);
+        expect(await readdir(snapshotsPath(appPath))).toEqual([]);
+      }
+      if (mode === 'CLI') {
+        const legacy = await runCliForTest([
+          'app',
+          'build',
+          '--path',
+          appPath,
+          '--legacy-sdk',
+          '--json',
+        ]);
+        expect(legacy.exitCode).toBe(1);
+        expect(parseSingleJsonLine(legacy.stdout).error.code).toBe(
+          'TOOLING_UNSUPPORTED',
+        );
+      }
       const { envelope, exitCode } = await runJson([
         'app',
         'apply',
@@ -339,6 +392,22 @@ describe.each(['SDK', 'CLI'])('app commands with %s snapshots', (mode) => {
           expect.objectContaining({ fileFolder: 'BuiltLogicFunction' }),
         ]),
       });
+      expect(await readdir(snapshotsPath(appPath))).toEqual([]);
+      const uninstalled = await runJson([
+        'app',
+        'uninstall',
+        '--path',
+        appPath,
+        '--yes',
+      ]);
+      expect(uninstalled.exitCode, JSON.stringify(uninstalled.envelope)).toBe(
+        0,
+      );
+      expect(uninstalled.envelope.data.completedPhases).toEqual([
+        'build',
+        'check',
+        'uninstall',
+      ]);
       expect(await readdir(snapshotsPath(appPath))).toEqual([]);
       expect(
         await readFile(

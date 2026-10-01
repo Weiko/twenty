@@ -36,6 +36,9 @@ export const applyAppBuild = async ({
   inferDeletionFromMissingEntities,
   isCreationApproved,
   isDeletionApproved,
+  approvalSignal,
+  beforeWrite,
+  flushProgress,
 }: {
   build: ToolingBuild;
   appPath: string;
@@ -44,6 +47,9 @@ export const applyAppBuild = async ({
   inferDeletionFromMissingEntities: boolean;
   isCreationApproved: boolean;
   isDeletionApproved: boolean;
+  approvalSignal?: AbortSignal;
+  beforeWrite?: () => void;
+  flushProgress?: () => Promise<void>;
 }): Promise<AppApplyResult> => {
   const completedPhases: AppApplyPhase[] = ['build'];
   const upload: AppUploadProgress = {
@@ -67,6 +73,18 @@ export const applyAppBuild = async ({
     phase: AppApplyPhase,
     run: () => Promise<TResult>,
   ) => {
+    await flushProgress?.().catch((error: unknown) => {
+      throw fail(error, 'confirmation');
+    });
+
+    if (['registration', 'installation', 'upload', 'sync'].includes(phase)) {
+      try {
+        beforeWrite?.();
+      } catch (error) {
+        throw fail(error, 'confirmation');
+      }
+    }
+
     try {
       const result = await run();
 
@@ -78,21 +96,27 @@ export const applyAppBuild = async ({
     }
   };
 
-  const approve = (approval: {
+  const approve = async (approval: {
     isApproved: boolean;
     question: string;
     code: CliErrorCode;
     message: string;
     hint: string;
-  }) =>
-    requireApproval({
+  }) => {
+    await flushProgress?.().catch((error: unknown) => {
+      throw fail(error, 'confirmation');
+    });
+    return requireApproval({
       ...approval,
       canPrompt,
       declinedMessage: 'Apply stopped at the confirmation prompt.',
-      signal,
-    }).catch((error: unknown) => {
-      throw fail(error, 'confirmation');
-    });
+      signal: approvalSignal ?? signal,
+    })
+      .then(() => approvalSignal?.throwIfAborted())
+      .catch((error: unknown) => {
+        throw fail(error, 'confirmation');
+      });
+  };
 
   const preview = () =>
     fetchAppPlan({ build, inferDeletionFromMissingEntities, target, signal });

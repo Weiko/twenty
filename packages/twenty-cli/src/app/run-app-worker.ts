@@ -1,3 +1,4 @@
+import { type WatchInputs } from '@/app/dev/types/watch-inputs.type';
 import { fork } from 'node:child_process';
 
 import { isString } from '@sniptt/guards';
@@ -17,6 +18,7 @@ import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 
 type HeldBuild = {
   result: unknown;
+  watchInputs?: WatchInputs;
   output: AppWorkerOutput;
 };
 
@@ -72,6 +74,7 @@ export const runAppWorker = async ({
 
   return new Promise<{
     result: unknown;
+    watchInputs?: WatchInputs;
     release?: unknown;
     isSnapshotHeld: boolean;
     output: AppWorkerOutput;
@@ -120,12 +123,18 @@ export const runAppWorker = async ({
       clearTimeout(killTimer);
       settleWith();
     };
-    const startHeldWork = (result: unknown) => {
+    const startHeldWork = (
+      response: Extract<AppWorkerResponse, { type: 'result' }>,
+    ) => {
       signal.removeEventListener('abort', cancel);
       clearTimeout(killTimer);
 
       const runHeldWork = isDefined(useHeldSnapshot)
-        ? useHeldSnapshot({ result, output: readOutput() })
+        ? useHeldSnapshot({
+            result: response.result,
+            watchInputs: response.watchInputs,
+            output: readOutput(),
+          })
         : Promise.resolve();
 
       heldWork = runHeldWork
@@ -159,6 +168,7 @@ export const runAppWorker = async ({
         if (isDefined(resultResponse)) {
           resolve({
             result: resultResponse.result,
+            watchInputs: resultResponse.watchInputs,
             release: resultResponse.isSnapshotHeld
               ? releasedResponse?.release
               : resultResponse.release,
@@ -218,7 +228,7 @@ export const runAppWorker = async ({
       resultResponse = message;
 
       if (message.isSnapshotHeld) {
-        startHeldWork(message.result);
+        startHeldWork(message);
       }
     });
 

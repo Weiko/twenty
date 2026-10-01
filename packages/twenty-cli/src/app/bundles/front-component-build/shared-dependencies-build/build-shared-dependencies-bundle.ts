@@ -1,3 +1,4 @@
+import { getWatchInputPlugins } from '@/app/dev/collect-watch-inputs';
 import { getBaseFrontComponentBuildOptions } from '@/app/bundles/front-component-build/utils/get-base-front-component-build-options';
 import { type OnFileBuiltCallback } from '@/app/bundles/types/on-file-built-callback.type';
 import { type SharedDependenciesBuildContext } from '@/app/bundles/front-component-build/shared-dependencies-build/types/shared-dependencies-build-context.type';
@@ -46,6 +47,10 @@ export const buildSharedDependenciesBundle = async ({
 
   await esbuild.build({
     ...getBaseFrontComponentBuildOptions(),
+    plugins: [
+      ...getWatchInputPlugins(),
+      ...(getBaseFrontComponentBuildOptions().plugins ?? []),
+    ],
     stdin: {
       contents: getSharedDependenciesEntrySource(
         sharedDependencies.dependencies,

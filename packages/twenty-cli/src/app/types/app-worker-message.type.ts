@@ -1,3 +1,4 @@
+import { type WatchInputs } from '@/app/dev/types/watch-inputs.type';
 import { type PullTarget } from '@/app/types/pull-target.type';
 
 import { type AppOperation } from '@/app/types/app-operation.type';
@@ -20,7 +21,12 @@ export type AppWorkerRequest =
   | { type: 'readSourceIdentity'; appPath: string }
   | { type: 'buildManifest'; appPath: string }
   | { type: 'typecheckSource'; appPath: string }
-  | { type: 'bundleSnapshot'; appPath: string; holdSnapshot: boolean }
+  | {
+      type: 'bundleSnapshot';
+      appPath: string;
+      holdSnapshot: boolean;
+      collectWatchInputs?: boolean;
+    }
   | {
       type: 'pull';
       appPath: string;
@@ -36,6 +42,7 @@ export type AppWorkerResponse =
       result: unknown;
       release?: unknown;
       isSnapshotHeld: boolean;
+      watchInputs?: WatchInputs;
     }
   | { type: 'released'; release: unknown }
   | { type: 'failure'; message: string };

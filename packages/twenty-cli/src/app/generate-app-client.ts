@@ -14,15 +14,11 @@ const SCHEMA_QUERY = `query ApplicationCoreGraphqlSchema($applicationUniversalId
   applicationCoreGraphqlSchema(applicationUniversalIdentifier: $applicationUniversalIdentifier)
 }`;
 
-export const generateAppClient = async ({
-  appPath,
+export const fetchAppClientSchema = async ({
   applicationUniversalIdentifier,
-  sdk,
-  context: { target, signal, output, outputMode },
+  context: { target, signal, output },
 }: {
-  appPath: string;
   applicationUniversalIdentifier: string;
-  sdk: AppTooling;
   context: TargetCommandContext;
 }) => {
   output.progress('Fetching the application schema…');
@@ -43,6 +39,20 @@ export const generateAppClient = async ({
     });
   }
 
+  return schema;
+};
+
+export const generateAppClientFromSchema = async ({
+  appPath,
+  schema,
+  sdk,
+  context: { signal, output, outputMode },
+}: {
+  appPath: string;
+  schema: string;
+  sdk: AppTooling;
+  context: TargetCommandContext;
+}) => {
   output.progress('Generating the typed API client…');
 
   const workerRun = await runAppWorker({
@@ -86,3 +96,14 @@ export const generateAppClient = async ({
 
   return diagnostics;
 };
+
+export const generateAppClient = async (options: {
+  appPath: string;
+  applicationUniversalIdentifier: string;
+  sdk: AppTooling;
+  context: TargetCommandContext;
+}) =>
+  generateAppClientFromSchema({
+    ...options,
+    schema: await fetchAppClientSchema(options),
+  });

@@ -11,7 +11,7 @@ import {
 } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { isArray, isString } from '@sniptt/guards';
@@ -253,6 +253,32 @@ describe.each(['SDK', 'CLI'])('app commands with %s snapshots', (mode) => {
       ]),
     );
     expect(await listSnapshots()).toEqual(snapshotsBefore);
+  }, 120_000);
+
+  it('produces the same artifacts when invoked outside the app root', async () => {
+    const originalDirectory = process.cwd();
+    const builds = [];
+
+    try {
+      for (const directory of [
+        APP_PATH,
+        dirname(APP_PATH),
+        join(APP_PATH, '.twenty'),
+      ]) {
+        process.chdir(directory);
+        const result = await runJson(['app', 'build', '--path', APP_PATH]);
+        expect(result.exitCode, JSON.stringify(result.envelope)).toBe(0);
+        builds.push(result.envelope.data);
+      }
+    } finally {
+      process.chdir(originalDirectory);
+    }
+
+    for (const build of builds.slice(1)) {
+      expect(build.contentHash).toBe(builds[0].contentHash);
+      expect(build.files).toEqual(builds[0].files);
+      expect(build.manifest).toEqual(builds[0].manifest);
+    }
   }, 120_000);
 
   it('builds, typechecks, previews, applies and uninstalls through the public pipeline', async () => {

@@ -64,6 +64,9 @@ SDK. Cleanup never removes legacy output or another build's snapshot.
 - `compileApplication` runs the CLI typecheck after bundling, in the SDK's
   existing order. Both parity pipelines run their real typecheck phase with the
   same compiler; the CLI resolves it from the app.
+- Workers run from the selected app directory, so invoking the CLI from a
+  parent or nested directory produces the same bundle paths, bytes and hashes.
+  SDK parity references run from the app root as well.
 - Snapshot storage moves to `.twenty/cli/snapshots`. Upload validation accepts
   both this directory and `.twenty/snapshots`, retaining the existing path and
   per-file hash checks. Neither producer can upload from sibling folders.

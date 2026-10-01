@@ -49,10 +49,6 @@ const FIXTURES = [
   'shared-dependencies-app',
   'invalid-app',
 ];
-type SdkReference = {
-  buildSnapshot: typeof buildSnapshot;
-  releaseSnapshot: typeof releaseSnapshot;
-};
 const json = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
 const hash = (bytes: Buffer | string) =>
   createHash('sha256').update(bytes).digest('hex');
@@ -92,7 +88,7 @@ const compareDirectory = async (first: string, second: string) => {
 
 describe('CLI bundles and snapshots match the repository SDK', () => {
   let root: string;
-  let sdk: SdkReference;
+  let sdkEntryPath: string;
   const copyFixture = async (name: string) => {
     const appPath = await mkdtemp(join(root, `${name}-`));
 
@@ -108,9 +104,25 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
     return appPath;
   };
 
+  const buildSdkSnapshot = (
+    appPath: string,
+    useHeldSnapshot?: Parameters<typeof runAppWorker>[0]['useHeldSnapshot'],
+  ) =>
+    runAppWorker({
+      request: {
+        type: 'run',
+        operation: 'build',
+        appPath,
+        buildEntryPath: sdkEntryPath,
+        holdSnapshot: true,
+      },
+      signal: new AbortController().signal,
+      useHeldSnapshot,
+    });
+
   const compareSnapshot = async (appPath: string) => {
-    const expected = await sdk.buildSnapshot({ appPath });
-    try {
+    const compareBuild = async ({ result }: { result: unknown }) => {
+      const expected = result as Awaited<ReturnType<typeof buildSnapshot>>;
       const response = await runAppWorker({
         request: { type: 'bundleSnapshot', appPath, holdSnapshot: true },
         signal: new AbortController().signal,
@@ -171,11 +183,12 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
         ).toEqual(json(expected.diagnostics));
       }
       expect(await readdir(join(appPath, '.twenty/cli/snapshots'))).toEqual([]);
-      return expected;
-    } finally {
-      if (expected.success)
-        await sdk.releaseSnapshot({ buildId: expected.data.buildId });
+    };
+    const reference = await buildSdkSnapshot(appPath, compareBuild);
+    if (!reference.isSnapshotHeld) {
+      await compareBuild(reference);
     }
+    return reference.result as Awaited<ReturnType<typeof buildSnapshot>>;
   };
   beforeAll(async () => {
     root = await mkdtemp(join(tmpdir(), 'twenty-bundle-parity-'));
@@ -241,15 +254,15 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
       createRequire(join(root, 'package.json')).resolve('twenty-sdk/build'),
     ).toThrow();
 
-    const oraclePath = join(root, 'sdk-reference.cjs');
+    sdkEntryPath = join(root, 'sdk-reference.cjs');
     const sdkSource = join(sourceSdk, 'src');
 
     await bundle({
       stdin: {
-        contents: `export { buildSnapshot, releaseSnapshot } from './application-build/build-snapshot';`,
+        contents: `export { buildSnapshot as buildAppSnapshot, releaseSnapshot as releaseAppSnapshot } from './application-build/build-snapshot';`,
         resolveDir: sdkSource,
       },
-      outfile: oraclePath,
+      outfile: sdkEntryPath,
       alias: { '@': sdkSource },
       bundle: true,
       packages: 'external',
@@ -258,7 +271,6 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
       target: 'node24',
       plugins: [SORTED_GLOB_PLUGIN],
     });
-    sdk = createRequire(import.meta.url)(oraclePath) as SdkReference;
 
     await mkdir(join(root, 'assets'));
     await cp(
@@ -526,7 +538,7 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
         config.references = [{ path: './referenced' }];
         await writeFile(configPath, JSON.stringify(config));
       }
-      const expected = await sdk.buildSnapshot({ appPath });
+      const expected = (await buildSdkSnapshot(appPath)).result;
       const response = await runAppWorker({
         request: { type: 'bundleSnapshot', appPath, holdSnapshot: true },
         signal: new AbortController().signal,

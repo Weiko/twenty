@@ -1,0 +1,46 @@
+import { setTimeout } from 'node:timers/promises';
+
+import { Agent, getGlobalDispatcher, setGlobalDispatcher } from 'undici';
+import { afterEach, expect, it, vi } from 'vitest';
+
+import { sendJson, startTestServer } from '@/__tests__/utils/start-test-server';
+import { createBoundedFetch } from '@/transport/create-target-fetch';
+
+afterEach(() => vi.unstubAllEnvs());
+
+it('allows an execution to outlast the HTTP dispatcher header deadline', async () => {
+  for (const name of [
+    'HTTP_PROXY',
+    'HTTPS_PROXY',
+    'http_proxy',
+    'https_proxy',
+  ]) {
+    vi.stubEnv(name, undefined);
+  }
+  const server = await startTestServer(async (_request, response) => {
+    await setTimeout(2_000);
+    sendJson(response, 200, { completed: true });
+  });
+  const originalDispatcher = getGlobalDispatcher();
+  const shortDeadlineDispatcher = new Agent({ headersTimeout: 1 });
+  setGlobalDispatcher(shortDeadlineDispatcher);
+
+  try {
+    await expect(fetch(server.url)).rejects.toMatchObject({
+      cause: { code: 'UND_ERR_HEADERS_TIMEOUT' },
+    });
+    const request = createBoundedFetch({
+      apiUrl: server.url,
+      signal: new AbortController().signal,
+      timeoutMilliseconds: 5_000,
+    });
+
+    const response = await request(server.url);
+
+    expect(await response.json()).toEqual({ completed: true });
+  } finally {
+    setGlobalDispatcher(originalDispatcher);
+    await shortDeadlineDispatcher.destroy();
+    await server.close();
+  }
+}, 10_000);

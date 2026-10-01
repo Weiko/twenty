@@ -1,4 +1,4 @@
-import { type EnvHttpProxyAgent } from 'undici';
+import { type Dispatcher, type EnvHttpProxyAgent } from 'undici';
 
 import { CliError } from '@/output/cli-error';
 
@@ -18,17 +18,41 @@ const createProxyAgent = async () => {
   }
 };
 
-export const fetchWithProxy: typeof fetch = async (input, init) => {
+export const fetchWithProxy = async (
+  input: Parameters<typeof fetch>[0],
+  init?: Parameters<typeof fetch>[1],
+  timeoutMilliseconds?: number,
+): Promise<Response> => {
   const httpProxy = process.env.http_proxy ?? process.env.HTTP_PROXY;
   const httpsProxy = process.env.https_proxy ?? process.env.HTTPS_PROXY;
 
-  if (!httpProxy && !httpsProxy) {
+  if (!httpProxy && !httpsProxy && timeoutMilliseconds === undefined) {
     return fetch(input, init);
   }
 
-  proxyAgent ??= createProxyAgent();
+  let dispatcher: Dispatcher;
+  if (httpProxy || httpsProxy) {
+    proxyAgent ??= createProxyAgent();
+    dispatcher = await proxyAgent;
+  } else {
+    dispatcher = (await import('undici')).getGlobalDispatcher();
+  }
 
-  const options = { ...init, dispatcher: await proxyAgent };
+  const requestDispatcher: Pick<Dispatcher, 'dispatch'> =
+    timeoutMilliseconds === undefined
+      ? dispatcher
+      : {
+          dispatch: (options, handler) =>
+            dispatcher.dispatch(
+              {
+                ...options,
+                headersTimeout: timeoutMilliseconds,
+                bodyTimeout: timeoutMilliseconds,
+              },
+              handler,
+            ),
+        };
+  const options = { ...init, dispatcher: requestDispatcher };
 
   return fetch(input, options);
 };

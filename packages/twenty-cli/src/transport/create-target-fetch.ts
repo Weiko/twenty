@@ -25,10 +25,12 @@ const toTransportError = ({
   error,
   signal,
   url,
+  timeoutMilliseconds,
 }: {
   error: unknown;
   signal: AbortSignal;
   url: URL;
+  timeoutMilliseconds: number;
 }) => {
   if (error instanceof CliError || signal.aborted) {
     return error;
@@ -37,7 +39,7 @@ const toTransportError = ({
   if (error instanceof Error && error.name === 'TimeoutError') {
     return new CliError({
       code: 'TIMEOUT',
-      message: `${url.origin} did not answer within ${REQUEST_TIMEOUT_MILLISECONDS / 1000} seconds.`,
+      message: `${url.origin} did not answer within ${timeoutMilliseconds / 1000} seconds.`,
     });
   }
 
@@ -83,10 +85,12 @@ export const createBoundedFetch =
     apiUrl,
     bearerToken,
     signal,
+    timeoutMilliseconds = REQUEST_TIMEOUT_MILLISECONDS,
   }: {
     apiUrl: string;
     bearerToken?: string;
     signal: AbortSignal;
+    timeoutMilliseconds?: number;
   }): typeof fetch =>
   async (input, init = {}) => {
     const url = new URL(input instanceof Request ? input.url : input);
@@ -100,15 +104,21 @@ export const createBoundedFetch =
     }
 
     try {
-      const response = await fetchWithProxy(url, {
-        ...init,
-        headers,
-        redirect: 'manual',
-        signal: AbortSignal.any([
-          signal,
-          AbortSignal.timeout(REQUEST_TIMEOUT_MILLISECONDS),
-        ]),
-      });
+      const response = await fetchWithProxy(
+        url,
+        {
+          ...init,
+          headers,
+          redirect: 'manual',
+          signal: AbortSignal.any([
+            signal,
+            AbortSignal.timeout(timeoutMilliseconds),
+          ]),
+        },
+        timeoutMilliseconds === REQUEST_TIMEOUT_MILLISECONDS
+          ? undefined
+          : timeoutMilliseconds,
+      );
 
       if (isRedirectStatus(response.status)) {
         await response.body?.cancel();
@@ -127,19 +137,22 @@ export const createBoundedFetch =
         },
       );
     } catch (error) {
-      throw toTransportError({ error, signal, url });
+      throw toTransportError({ error, signal, url, timeoutMilliseconds });
     }
   };
 
 export const createTargetFetch = ({
   target,
   signal,
+  timeoutMilliseconds,
 }: {
   target: ResolvedTarget;
   signal: AbortSignal;
+  timeoutMilliseconds?: number;
 }) =>
   createBoundedFetch({
     apiUrl: target.apiUrl,
     bearerToken: target.bearerToken,
     signal,
+    timeoutMilliseconds,
   });

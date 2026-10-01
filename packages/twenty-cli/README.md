@@ -299,6 +299,44 @@ Uninstalling runs the app's uninstall hook and deletes everything the app owns, 
 
 The app's registration is kept, so `twenty app apply` can install it again without `--create`. Failures report `details.phase`, `details.completedPhases` and `details.outcome`, as for apply: an uninstall request that fails after the server received it, or is interrupted with Ctrl+C, has an `unknown` outcome. Running the command again reports `APP_NOT_INSTALLED` once the app is gone. `--universal-identifier` accepts any UUID casing and sends the canonical lowercase form.
 
+## Execute an app function
+
+```bash
+twenty app exec --name add-numbers --remote dev --payload '{"a":2,"b":3}'
+twenty app exec --universal-identifier <uuid> --payload @payload.json --json
+printf '{"a":4,"b":7}' | twenty app exec --name add-numbers --remote dev --payload - --json
+```
+
+Run from the app folder or pass `--path`. The CLI reads app definitions to find
+its functions, then executes the selected function's deployed code. Sync local
+changes with `app apply` or `app dev` first. Execution does not build bundles,
+typecheck, sync, register or install the app.
+
+Choose exactly one of `--name` (exact deployed name), `--universal-identifier`,
+`--post-install`, `--pre-install` or `--uninstall-hook`. Hook selectors run the
+hook's code and its side effects without installing or uninstalling the app.
+Payloads must be JSON objects, supplied inline, through `@file`, or through `-`
+for stdin; the default is `{}`. The selected function must belong to both the
+local app manifest and the installed app on the target workspace.
+
+The current server requires a signed-in user and the `APPLICATIONS` and
+`WORKFLOWS` settings permissions. Sign in with `twenty auth login --url <url>
+--name dev`, then pass `--remote dev`. API keys, including environment API-key
+targets, cannot execute logic functions. The server additionally restricts
+which functions the user may run on demand.
+
+Human output shows status, duration, returned data, error and logs. `--json`
+returns those fields in the standard envelope; NDJSON is not supported. A
+function returning a non-SUCCESS status exits 1 with `EXECUTION_FAILED`, keeping
+its data, logs and error in `error.details` with `outcome: "completed"`.
+
+There are no automatic retries. The request deadline uses the deployed
+function's timeout plus 60 seconds. A lost response or Ctrl+C can leave the
+function running on the server; the error reports `outcome: "unknown"` and asks
+you to check its effects before retrying. An acknowledged execution rejection
+reports `"not-started"`. Ctrl+C exits 130, without rolling back side effects.
+See the [exec port notes](src/app/exec/README.md) for compatibility details.
+
 ## Expired browser sessions
 
 For commands that use a workspace, interactive OAuth sessions are checked before

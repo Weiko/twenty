@@ -13,15 +13,21 @@ export default defineConfig({
   plugins: [
     {
       name: 'copy-app-template',
-      closeBundle: () =>
-        cp(
+      closeBundle: async () => {
+        await cp(
           path.resolve(
             __dirname,
             '../create-twenty-app/src/constants/template',
           ),
           path.resolve(__dirname, 'dist/app-template'),
           { recursive: true },
-        ),
+        );
+        await cp(
+          path.resolve(__dirname, 'app-template-overlay'),
+          path.resolve(__dirname, 'dist/app-template-overlay'),
+          { recursive: true },
+        );
+      },
     },
   ],
   cacheDir: '../../node_modules/.vite/packages/twenty-cli',

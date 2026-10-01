@@ -23,9 +23,14 @@ import {
   runCliForTest,
 } from '@/__tests__/utils/run-cli-for-test';
 import { getAppTemplateDirectory } from '@/app/get-app-template-directory';
+import { getAppTemplateOverlayDirectory } from '@/app/get-app-template-overlay-directory';
 
 vi.mock('@/app/get-app-template-directory', () => ({
   getAppTemplateDirectory: vi.fn(),
+}));
+
+vi.mock('@/app/get-app-template-overlay-directory', () => ({
+  getAppTemplateOverlayDirectory: vi.fn(),
 }));
 
 vi.mock('node:fs/promises', async (importOriginal) => {
@@ -39,6 +44,10 @@ const TEMPLATE_DIRECTORY = fileURLToPath(
     '../../../../../create-twenty-app/src/constants/template',
     import.meta.url,
   ),
+);
+
+const TEMPLATE_OVERLAY_DIRECTORY = fileURLToPath(
+  new URL('../../../../app-template-overlay', import.meta.url),
 );
 
 const UUID_PATTERN =
@@ -70,6 +79,9 @@ describe('app init', () => {
     await mkdir(join(root, 'home'));
     await mkdir(workDirectory);
     vi.mocked(getAppTemplateDirectory).mockReturnValue(TEMPLATE_DIRECTORY);
+    vi.mocked(getAppTemplateOverlayDirectory).mockReturnValue(
+      TEMPLATE_OVERLAY_DIRECTORY,
+    );
     vi.stubEnv('HOME', join(root, 'home'));
     vi.stubEnv('TWENTY_API_KEY', '');
     vi.stubEnv('TWENTY_API_URL', '');
@@ -138,6 +150,34 @@ describe('app init', () => {
     await expect(stat(join(root, 'home', '.twenty'))).rejects.toMatchObject({
       code: 'ENOENT',
     });
+  });
+
+  it('writes an integration test setup that runs the globally installed CLI', async () => {
+    const result = await run(['my-app']);
+    const testsDirectory = join(workDirectory, 'my-app', 'src', '__tests__');
+
+    expect(result.exitCode, result.stderr).toBe(0);
+
+    const globalSetup = await readFile(
+      join(testsDirectory, 'global-setup.ts'),
+      'utf8',
+    );
+
+    expect(globalSetup).toContain("import { runTwenty } from './run-twenty';");
+    expect(globalSetup).toContain("runTwenty(['app', 'apply', '--create'])");
+    expect(globalSetup).not.toContain('twenty-sdk/cli');
+    expect(await readFile(join(testsDirectory, 'run-twenty.ts'), 'utf8')).toBe(
+      await readFile(
+        join(TEMPLATE_OVERLAY_DIRECTORY, 'src', '__tests__', 'run-twenty.ts'),
+        'utf8',
+      ),
+    );
+    expect((await readdir(testsDirectory)).sort()).toEqual([
+      'application-config.test.ts',
+      'global-setup.ts',
+      'run-twenty.ts',
+      'schema.integration-test.ts',
+    ]);
   });
 
   it('returns the app, its pins and the next steps as JSON, without a login step when a workspace is set', async () => {

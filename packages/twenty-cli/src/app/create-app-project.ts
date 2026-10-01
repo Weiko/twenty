@@ -1,6 +1,7 @@
 import { constants } from 'node:fs';
 import {
   copyFile,
+  cp,
   mkdir,
   mkdtemp,
   readdir,
@@ -19,6 +20,7 @@ import { copyBaseApplicationProject } from '@create-twenty-app/utils/app-templat
 import { isDefined, isNonEmptyArray } from 'twenty-shared/utils';
 
 import { getAppTemplateDirectory } from '@/app/get-app-template-directory';
+import { getAppTemplateOverlayDirectory } from '@/app/get-app-template-overlay-directory';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 import { hasErrorCode } from '@/utils/has-error-code';
@@ -178,6 +180,9 @@ export const createAppProject = async ({
     };
 
     await writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    await cp(getAppTemplateOverlayDirectory(), stagingDirectory, {
+      recursive: true,
+    });
 
     const unrenderedFiles = await findUnrenderedFiles(stagingDirectory);
 

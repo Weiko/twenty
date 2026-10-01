@@ -108,6 +108,17 @@ checks this range against the workspace's completed upgrade version on apply.
 Upgrade the workspace before deploying a newer template, including during local
 development. Adjust the range only after testing the app against older versions.
 
+The integration tests of a new app run against a workspace through this CLI.
+`src/__tests__/global-setup.ts` uninstalls any previous copy, runs
+`twenty app apply --create` before the tests and `twenty app uninstall --yes`
+after them, through `src/__tests__/run-twenty.ts`. That helper runs `twenty` with
+`--json`, returns its result, and passes its progress through. It skips the
+binaries a package manager puts first on `PATH` inside `yarn test`, including the
+SDK's own `twenty`, so the globally installed CLI runs; set `TWENTY_CLI` to use
+another executable. Credentials come from `TWENTY_API_URL` and `TWENTY_API_KEY`,
+which the template's Vitest config sets. These two files are the only difference
+from the `create-twenty-app` template, whose setup still imports `twenty-sdk/cli`.
+
 ## Build and check an app
 
 ```bash
@@ -347,11 +358,14 @@ The [client generation wrapper](src/app/client/README.md) calls the app's own
 `twenty-client-sdk/generate` after apply. Its generator dependencies remain in
 the client SDK; B6 changes no SDK, app or template dependencies.
 
-SDK slimming remains a separate release step. In particular, the current
-app-template integration-test setup imports `appDevOnce` and `appUninstall` from
-`twenty-sdk/cli`. Migrate that harness before removing SDK tooling; it must not
-gain a dependency on the globally installed CLI package. SDK lifecycle commands remain available until the new CLI covers the required
-workflows and the migration is released.
+SDK slimming remains a separate release step. Apps created by `twenty app init`
+get a test setup that runs the global CLI from `app-template-overlay`, which the
+build copies next to the template and `app init` applies over it. The
+`create-twenty-app` template and the repository apps still import `appDevOnce`
+and `appUninstall` from `twenty-sdk/cli`; migrate them before removing SDK
+tooling, without adding a dependency on the CLI package. SDK lifecycle commands
+remain available until the new CLI covers the required workflows and the
+migration is released.
 
 ```bash
 npx nx build twenty-cli

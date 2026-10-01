@@ -34,6 +34,10 @@ vi.mock('@/app/get-app-template-directory', () => ({
   getAppTemplateDirectory: () =>
     join(REPOSITORY_ROOT, 'packages/create-twenty-app/src/constants/template'),
 }));
+vi.mock('@/app/get-app-template-overlay-directory', () => ({
+  getAppTemplateOverlayDirectory: () =>
+    join(REPOSITORY_ROOT, 'packages/twenty-cli/app-template-overlay'),
+}));
 
 const REPOSITORY_ROOT = fileURLToPath(
   new URL('../../../../../../', import.meta.url),
@@ -303,7 +307,7 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
     },
     60000,
   );
-  it('matches the template legacy test-harness diagnostic with an authoring-only SDK', async () => {
+  it('typechecks the template test setup with an authoring-only SDK', async () => {
     const appPath = join(root, 'fresh-app');
     await createAppProject({
       appDirectory: appPath,
@@ -313,24 +317,13 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
       signal: new AbortController().signal,
     });
     await symlink(join(root, 'node_modules'), join(appPath, 'node_modules'));
-    const result = await compareSnapshot(appPath);
-    expect(result).toMatchObject({
-      success: false,
-      error: { code: 'TYPECHECK_FAILED' },
-      diagnostics: expect.arrayContaining([
-        expect.objectContaining({
-          code: 'TS2307',
-          file: 'src/__tests__/global-setup.ts',
-          message: expect.stringContaining('twenty-sdk/cli'),
-        }),
-      ]),
-    });
     const configPath = join(appPath, 'tsconfig.json');
     const config = JSON.parse(await readFile(configPath, 'utf8'));
-    config.exclude.push('src/__tests__', 'vitest*.config.ts');
+    config.exclude.push('vitest*.config.ts');
     await writeFile(configPath, JSON.stringify(config));
-    const applicationOnly = await compareSnapshot(appPath);
-    expect(applicationOnly.success, JSON.stringify(applicationOnly)).toBe(true);
+    const result = await compareSnapshot(appPath);
+    expect(result.success, JSON.stringify(result)).toBe(true);
+    expect(JSON.stringify(result)).not.toContain('twenty-sdk/cli');
   }, 60000);
   it('matches CSS, baked translations, README selection and immutable symlinked assets', async () => {
     const appPath = await copyFixture('minimal-app');

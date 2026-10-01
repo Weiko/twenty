@@ -41,6 +41,10 @@ vi.mock('@/app/get-app-template-directory', () => ({
   getAppTemplateDirectory: () =>
     join(REPOSITORY_ROOT, 'packages/create-twenty-app/src/constants/template'),
 }));
+vi.mock('@/app/get-app-template-overlay-directory', () => ({
+  getAppTemplateOverlayDirectory: () =>
+    join(REPOSITORY_ROOT, 'packages/twenty-cli/app-template-overlay'),
+}));
 
 const REPOSITORY_ROOT = fileURLToPath(
   new URL('../../../../../../', import.meta.url),

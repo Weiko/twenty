@@ -1,3 +1,4 @@
+import { recordWatchFile } from '@/app/dev/collect-watch-inputs';
 import crypto from 'crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'path';
@@ -241,6 +242,7 @@ const copyStaticFiles = async ({
 }) => {
   for (const sourcePath of filePaths) {
     const absoluteSourcePath = join(appPath, sourcePath);
+    recordWatchFile(absoluteSourcePath);
 
     if (!(await pathExists(absoluteSourcePath))) {
       continue;

@@ -45,7 +45,7 @@ export default defineConfig({
     rollupOptions: {
       external: (id: string) =>
         NODE_BUILTIN_MODULES.has(id) ||
-        ['esbuild', 'typescript', 'tinyglobby'].includes(id),
+        ['chokidar', 'esbuild', 'typescript', 'tinyglobby'].includes(id),
       output: {
         entryFileNames: '[name].cjs',
         chunkFileNames: 'chunks/[name]-[hash].cjs',

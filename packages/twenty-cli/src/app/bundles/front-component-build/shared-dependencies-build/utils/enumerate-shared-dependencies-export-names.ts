@@ -1,3 +1,4 @@
+import { getWatchInputPlugins } from '@/app/dev/collect-watch-inputs';
 import { getBaseFrontComponentBuildOptions } from '@/app/bundles/front-component-build/utils/get-base-front-component-build-options';
 import { type SharedDependenciesExportNames } from '@/app/bundles/front-component-build/shared-dependencies-build/types/shared-dependencies-export-names.type';
 import * as esbuild from 'esbuild';
@@ -20,6 +21,10 @@ const buildProbeBundle = async ({
   try {
     const probeResult = await esbuild.build({
       ...getBaseFrontComponentBuildOptions(),
+      plugins: [
+        ...getWatchInputPlugins(),
+        ...(getBaseFrontComponentBuildOptions().plugins ?? []),
+      ],
       stdin: {
         contents: buildNamespaceProbeSource(specifier),
         resolveDir: appPath,

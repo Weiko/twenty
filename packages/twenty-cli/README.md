@@ -2,7 +2,7 @@
 
 The command line for [Twenty](https://twenty.com).
 
-This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, opening the workspace in a browser, metadata inspection, record reads, creating an app from a template, local app builds and typechecks, advisory app previews, pulling workspace metadata into an existing app, and applying a development app to a workspace or uninstalling it. Run `twenty commands` for the available commands. To publish an app or develop in watch mode, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
+This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, opening the workspace in a browser, metadata inspection, record reads, creating an app from a template, local app builds and typechecks, advisory app previews, pulling workspace metadata into an existing app, and applying a development app to a workspace or uninstalling it. Run `twenty commands` for the available commands. To publish an app, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
 
 ## Installation model
 
@@ -197,6 +197,65 @@ twenty app apply --no-delete
 
 The preview is advisory: remote changes made between the preview and the sync can change what the sync does. Remote changes between the acknowledged sync and the export can also enter the saved baseline without appearing in local source; this is not an atomic server snapshot of the sync. Planning, a failed sync, or a sync with an unknown outcome never advances the baseline.
 
+## Develop an app
+
+```bash
+twenty app dev --remote dev
+twenty app dev --create --no-delete
+twenty app dev --path ./apps/billing --format ndjson --no-delete
+```
+
+`app dev` builds and syncs once, then watches for edits. Each attempt uses the
+same CLI build and strict project TypeScript checks as `app apply`. A failed
+build prints diagnostics and keeps watching; it never uploads an incomplete
+revision. It needs the same `APPLICATIONS` and `UPLOAD_FILE` permissions as apply.
+
+The CLI watches the app folder and the external local files read by definition
+loading, bundling and typechecking, including linked packages and extended
+TypeScript configs. Relative imports of missing external files watch the nearest
+existing parent, so creating the file can recover a failed build. The last
+successful input graph stays watched after a failure. `.git`, `.twenty`,
+`node_modules`, root `dist`, editor temporary files and `.DS_Store` are ignored.
+Arbitrary filesystem reads inside app code are not discovered. Restart dev after
+installing dependencies or changing the package manager's links.
+
+Only one remote apply runs at a time. The compiler can prepare a newer complete
+snapshot while that apply finishes; intermediate edits coalesce into the latest
+revision. Uploads read independent, checksum-verified files, so a later build
+cannot overwrite them. An unchanged content hash skips sync only after that
+snapshot was acknowledged by the workspace. This is eventual convergence after
+edits settle, not an atomic checkout of files being edited concurrently.
+
+Registration uses `--create` or a terminal confirmation. Deletion inference is
+on by default, with `--no-delete` to keep missing entities. Object and field
+deletions require a terminal confirmation or `--yes`. Every revision requests a
+fresh advisory preview. An edit cancels a pending confirmation; approval for the
+old revision cannot authorize the new one. A remote failure is reported with the
+same phase/outcome details as apply and is retried only after a new source edit,
+with a new preview. Inspect `twenty app plan` when a request's outcome is unknown.
+
+After an acknowledged sync, dev records the pull base and regenerates the app's
+own typed client when its schema, generator package or generated files changed.
+Compilation pauses during generation, then explicitly rebuilds. Unchanged client
+inputs and unchanged build output prevent a generation/sync loop. A schema fetch
+failure keeps the old client and prints a warning. If generation starts writing
+and fails, dev stops because the client files may be incomplete; fix the problem
+and run `twenty app apply` before restarting dev.
+
+Use human output or `--format ndjson`; `--json` is rejected before target lookup.
+NDJSON uses ordered `progress` events with `data.kind`: `watch-ready`,
+`build-start`, `build-success`, `build-failure`, `build-skipped`, `sync-start`,
+`sync-progress`, `sync-superseded`, `sync-failure` and `sync-success`. Build events
+carry the revision, successful builds also carry the build ID and content hash.
+Output honors backpressure; buffered progress is bounded. Ctrl+C stops watching,
+cancels active requests, releases snapshots after readers settle, and exits 130
+with the interrupted remote phase when available. It does not roll back writes.
+
+An abnormal worker exit or a filesystem-watcher failure ends the session; fix
+the cause and restart `twenty app dev`. A killed process can leave temporary
+folders in `.twenty/cli/snapshots`. After stopping all dev/apply sessions for that
+app, abandoned snapshot folders can be removed. Dev has no `--legacy-sdk` mode.
+
 ## Pull an app
 
 ```bash
@@ -291,8 +350,8 @@ the client SDK; B6 changes no SDK, app or template dependencies.
 SDK slimming remains a separate release step. In particular, the current
 app-template integration-test setup imports `appDevOnce` and `appUninstall` from
 `twenty-sdk/cli`. Migrate that harness before removing SDK tooling; it must not
-gain a dependency on the globally installed CLI package. SDK publish and watch
-commands also remain available until their CLI replacements ship.
+gain a dependency on the globally installed CLI package. SDK lifecycle commands remain available until the new CLI covers the required
+workflows and the migration is released.
 
 ```bash
 npx nx build twenty-cli

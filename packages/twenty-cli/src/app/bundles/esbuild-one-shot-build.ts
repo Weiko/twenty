@@ -1,3 +1,4 @@
+import { getWatchInputPlugins } from '@/app/dev/collect-watch-inputs';
 import { processEsbuildResult } from '@/app/bundles/esbuild-result-processor';
 import { type OnFileBuiltCallback } from '@/app/bundles/types/on-file-built-callback.type';
 import * as esbuild from 'esbuild';
@@ -33,6 +34,7 @@ export const esbuildOneShotBuild = async ({
   const result = await esbuild.build({
     ...buildOptions,
     entryPoints,
+    plugins: [...getWatchInputPlugins(), ...(buildOptions.plugins ?? [])],
   });
 
   await processEsbuildResult({

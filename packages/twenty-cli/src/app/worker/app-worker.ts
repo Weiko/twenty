@@ -96,6 +96,7 @@ const parseRequest = (message: unknown): AppWorkerRequest | undefined => {
     return isNonEmptyString(message.appPath)
       ? {
           type: 'bundleSnapshot',
+          collectWatchInputs: message.collectWatchInputs === true,
           appPath: message.appPath,
           holdSnapshot: message.holdSnapshot === true,
         }
@@ -371,16 +372,33 @@ process.on('message', (message: unknown) => {
 
   if (request.type === 'bundleSnapshot') {
     import('@/app/worker/build-source-snapshot')
-      .then(({ buildSourceSnapshot, releaseSourceSnapshot }) =>
-        runSnapshotBuild({
-          buildModule: {
-            buildAppSnapshot: buildSourceSnapshot,
-            releaseAppSnapshot: releaseSourceSnapshot,
-          },
-          appPath: request.appPath,
-          holdSnapshot: request.holdSnapshot,
-        }),
-      )
+      .then(async ({ buildSourceSnapshot, releaseSourceSnapshot }) => {
+        const run = () =>
+          runSnapshotBuild({
+            buildModule: {
+              buildAppSnapshot: buildSourceSnapshot,
+              releaseAppSnapshot: releaseSourceSnapshot,
+            },
+            appPath: request.appPath,
+            holdSnapshot: request.holdSnapshot,
+          });
+
+        if (!request.collectWatchInputs) {
+          return run();
+        }
+
+        const { collectWatchInputs } =
+          await import('@/app/dev/collect-watch-inputs');
+        const { recordTypecheckConfigInputs } =
+          await import('@/app/dev/record-typecheck-config-inputs');
+        const collected = await collectWatchInputs(async () => {
+          await recordTypecheckConfigInputs(request.appPath);
+
+          return run();
+        });
+
+        return { ...collected.result, watchInputs: collected.watchInputs };
+      })
       .then(
         (response) =>
           response.type === 'result' && response.isSnapshotHeld

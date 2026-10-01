@@ -9,6 +9,10 @@ import {
 } from '@/app/types/tooling-result.type';
 import { validateAppPath } from '@/app/snapshots/validate-app-path';
 import { resolveProjectTypeScript } from '@/app/typecheck/resolve-project-typescript';
+import {
+  recordWatchFile,
+  recordWatchProbe,
+} from '@/app/dev/collect-watch-inputs';
 import { CliError } from '@/output/cli-error';
 
 const toDiagnostic = ({
@@ -52,7 +56,12 @@ const collectCompilerDiagnostics = ({
   typescript: typeof ts;
 }): readonly ts.Diagnostic[] => {
   const configPath = join(appPath, 'tsconfig.json');
-  const config = typescript.readConfigFile(configPath, typescript.sys.readFile);
+  const readFile: typeof typescript.sys.readFile = (path, encoding) => {
+    recordWatchFile(path);
+
+    return typescript.sys.readFile(path, encoding);
+  };
+  const config = typescript.readConfigFile(configPath, readFile);
 
   if (isDefined(config.error)) {
     return [config.error];
@@ -60,7 +69,7 @@ const collectCompilerDiagnostics = ({
 
   const parsed = typescript.parseJsonConfigFileContent(
     config.config,
-    typescript.sys,
+    { ...typescript.sys, readFile },
     appPath,
     { noEmit: true },
     configPath,
@@ -70,7 +79,27 @@ const collectCompilerDiagnostics = ({
     return parsed.errors;
   }
 
+  const host = typescript.createCompilerHost(parsed.options);
+  const hostReadFile = host.readFile;
+
+  host.readFile = (path) => {
+    recordWatchFile(path);
+
+    return hostReadFile(path);
+  };
+  const hostFileExists = host.fileExists;
+
+  host.fileExists = (path) => {
+    const exists = hostFileExists(path);
+
+    if (!exists) {
+      recordWatchProbe(path);
+    }
+
+    return exists;
+  };
   const program = typescript.createProgram({
+    host,
     rootNames: parsed.fileNames,
     options: parsed.options,
     projectReferences: parsed.projectReferences,

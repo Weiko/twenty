@@ -15,7 +15,9 @@ const isOptionalString = (value: unknown) =>
 const isOptionalNumber = (value: unknown) =>
   !isDefined(value) || isNumber(value);
 
-const isToolingDiagnostic = (value: unknown): value is ToolingDiagnostic =>
+export const isToolingDiagnostic = (
+  value: unknown,
+): value is ToolingDiagnostic =>
   isPlainObject(value) &&
   (value.severity === 'error' || value.severity === 'warning') &&
   isString(value.code) &&

@@ -10,6 +10,7 @@ import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import { conditionalAvailabilityTransformPlugin } from '@/app/source/conditional-availability-transform-plugin';
 import { type SourceValidationResult } from '@/app/source/types/source-validation-result.type';
+import { getWatchInputPlugins } from '@/app/dev/collect-watch-inputs';
 import { CliError } from '@/output/cli-error';
 
 type CompiledModuleWrapper = (
@@ -139,7 +140,11 @@ const loadModule = async ({
       ...(reactPath && { react: reactPath }),
       ...(reactDomPath && { 'react-dom': reactDomPath }),
     },
-    plugins: [conditionalAvailabilityTransformPlugin, manifestMockPlugin],
+    plugins: [
+      ...getWatchInputPlugins(),
+      conditionalAvailabilityTransformPlugin,
+      manifestMockPlugin,
+    ],
     logLevel: 'silent',
   });
 

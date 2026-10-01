@@ -146,7 +146,9 @@ process state; it is not a sandbox for untrusted code.
 its files, upload roles, sizes, SHA-256 checksums, content hash and manifest, then
 deletes the snapshot. Nothing is uploaded or kept. `app typecheck` checks the
 project without writing files. Build and type errors exit 1 with diagnostics in
-`error.details.diagnostics`. Ctrl+C cancels the worker and exits 130; a worker
+`error.details.diagnostics`. Worker failures report the underlying code in
+`error.details.toolingErrorCode`; `--legacy-sdk` retains `sdkErrorCode` for
+existing scripts. Ctrl+C cancels the worker and exits 130; a worker
 that does not stop within a few seconds is killed. The existing JSON `sdk`
 object still identifies the app's installed SDK; its `protocolVersion` describes
 the CLI's build-result protocol, not a required SDK export.

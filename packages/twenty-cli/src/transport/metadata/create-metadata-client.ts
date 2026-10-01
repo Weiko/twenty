@@ -9,11 +9,17 @@ import { resolveRequestUrl } from '@/transport/resolve-request-url';
 export const createMetadataClient = ({
   target,
   signal,
+  timeoutMilliseconds,
 }: {
   target: ResolvedTarget;
   signal: AbortSignal;
+  timeoutMilliseconds?: number;
 }) => {
-  const targetFetch = createTargetFetch({ target, signal });
+  const targetFetch = createTargetFetch({
+    target,
+    signal,
+    timeoutMilliseconds,
+  });
 
   const fetchValidGraphqlResponse: typeof fetch = async (input, init) => {
     const response = await targetFetch(input, init);

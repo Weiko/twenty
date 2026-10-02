@@ -1,4 +1,5 @@
-import { isDefined, isValidUuid } from 'twenty-shared/utils';
+import { isValidUniversalIdentifier } from 'twenty-shared/application';
+import { isDefined } from 'twenty-shared/utils';
 
 import { createUninstallFailure } from '@/app/create-uninstall-failure';
 import { fetchInstalledApp } from '@/app/fetch-installed-app';
@@ -22,11 +23,11 @@ import { isInteractionAllowed } from '@/program/is-interaction-allowed';
 const readUniversalIdentifierOption = (options: Record<string, unknown>) => {
   const universalIdentifier = readStringOption(options, 'universalIdentifier');
 
-  if (isDefined(universalIdentifier) && !isValidUuid(universalIdentifier)) {
+  if (isDefined(universalIdentifier) && !isValidUniversalIdentifier(universalIdentifier)) {
     throw new CliError({
       code: 'INVALID_INPUT',
       exitCode: EXIT_CODE.USAGE,
-      message: `--universal-identifier must be a UUID, not ${universalIdentifier}.`,
+      message: `--universal-identifier must be a UUID of version 4 or later, not ${universalIdentifier}.`,
     });
   }
 

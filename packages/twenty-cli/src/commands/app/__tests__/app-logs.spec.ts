@@ -130,19 +130,40 @@ describe('twenty app logs', () => {
     });
   });
 
-  it('canonicalizes the exact identifier filter', async () => {
-    await runStream(
-      '--universal-identifier',
-      FIRST_FUNCTION_IDENTIFIER.toUpperCase(),
-    );
-    expect(
-      JSON.parse(server.requests[0].body).variables.input.universalIdentifier,
-    ).toBe(FIRST_FUNCTION_IDENTIFIER);
-  });
+  it.each([4, 5, 6, 7, 8])(
+    'subscribes with a canonical UUIDv%s universal identifier filter',
+    async (version) => {
+      const universalIdentifier = `bbbbbbbb-bbbb-${version}bbb-8bbb-bbbbbbbbbbbb`;
+      handler = (_body, response) => {
+        open(response);
+        response.end(next(entry(universalIdentifier)) + complete);
+      };
+
+      const result = await runStream(
+        '--universal-identifier',
+        universalIdentifier.toUpperCase(),
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(server.requests).toHaveLength(1);
+      expect(JSON.parse(server.requests[0].body).variables.input).toEqual({
+        applicationUniversalIdentifier: APPLICATION_IDENTIFIER,
+        universalIdentifier,
+      });
+      expect(
+        result.events
+          .filter(({ type }) => type === 'record')
+          .map(({ data }) => data.functionUniversalIdentifier),
+      ).toEqual([universalIdentifier]);
+    },
+  );
 
   it.each([
     ['--name', ''],
     ['--universal-identifier', 'invalid'],
+    ['--universal-identifier', 'bbbbbbbb-bbbb-1bbb-8bbb-bbbbbbbbbbbb'],
+    ['--universal-identifier', 'bbbbbbbb-bbbb-2bbb-8bbb-bbbbbbbbbbbb'],
+    ['--universal-identifier', 'bbbbbbbb-bbbb-3bbb-8bbb-bbbbbbbbbbbb'],
     ['--name', 'test', '--universal-identifier', FIRST_FUNCTION_IDENTIFIER],
   ])('rejects invalid filters before loading source', async (...options) => {
     const result = await runStream(...options);

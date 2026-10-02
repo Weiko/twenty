@@ -1,14 +1,15 @@
 import { isNonEmptyString } from '@sniptt/guards';
 
-import { type Manifest } from 'twenty-shared/application';
+import {
+  type Manifest,
+  isValidUniversalIdentifier,
+} from 'twenty-shared/application';
 import { RelationType } from 'twenty-shared/types';
 import { isDefined, isNonEmptyArray } from 'twenty-shared/utils';
 import {
   getDuplicateValues,
   isRelationFieldManifest,
 } from '@/app/manifest/utils/manifest-validation-helpers';
-
-import { isValidUniversalIdentifier } from '@/app/manifest/utils/is-valid-universal-identifier';
 
 export const validateTimelineActivityTypes = (
   manifest: Pick<

@@ -85,7 +85,10 @@ const mutations = () =>
   server.requests.filter(({ body }) =>
     body.includes('executeOneLogicFunction'),
   );
-const setManifest = (application: Record<string, unknown> = {}) => {
+const setManifest = (
+  application: Record<string, unknown> = {},
+  functionIdentifier = FUNCTION_IDENTIFIER,
+) => {
   vi.mocked(runAppWorker).mockResolvedValue({
     result: {
       success: true,
@@ -95,7 +98,7 @@ const setManifest = (application: Record<string, unknown> = {}) => {
             universalIdentifier: APPLICATION_IDENTIFIER,
             ...application,
           },
-          logicFunctions: [{ universalIdentifier: FUNCTION_IDENTIFIER }],
+          logicFunctions: [{ universalIdentifier: functionIdentifier }],
         },
       },
       diagnostics: [],
@@ -136,6 +139,9 @@ describe('twenty app exec', () => {
     ['--post-install', '--uninstall-hook'],
     ['--name', ''],
     ['--universal-identifier', 'invalid'],
+    ['--universal-identifier', 'bbbbbbbb-bbbb-1bbb-8bbb-bbbbbbbbbbbb'],
+    ['--universal-identifier', 'bbbbbbbb-bbbb-2bbb-8bbb-bbbbbbbbbbbb'],
+    ['--universal-identifier', 'bbbbbbbb-bbbb-3bbb-8bbb-bbbbbbbbbbbb'],
   ])(
     'rejects invalid selectors %j before loading project source or sending requests',
     async (...options) => {
@@ -233,6 +239,34 @@ describe('twenty app exec', () => {
       expect(result.exitCode).toBe(0);
       expect(mutations()).toHaveLength(1);
       expect(server.requests).toHaveLength(2);
+    },
+  );
+
+  it.each([4, 5, 6, 7, 8])(
+    'executes a function selected by its UUIDv%s universal identifier',
+    async (version) => {
+      const universalIdentifier = `bbbbbbbb-bbbb-${version}bbb-8bbb-bbbbbbbbbbbb`;
+      setManifest({}, universalIdentifier);
+      queryResult = {
+        data: {
+          findOneApplication: APPLICATION,
+          findManyLogicFunctions: [{ ...FUNCTION, universalIdentifier }],
+        },
+      };
+
+      const result = await runJson(
+        '--universal-identifier',
+        universalIdentifier.toUpperCase(),
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(result.envelope.data.functionUniversalIdentifier).toBe(
+        universalIdentifier,
+      );
+      expect(mutations()).toHaveLength(1);
+      expect(JSON.parse(mutations()[0].body).variables).toEqual({
+        v1: { id: FUNCTION.id, payload: {} },
+      });
     },
   );
 

@@ -2,7 +2,8 @@ import { readFile, stat } from 'node:fs/promises';
 import { isAbsolute, relative } from 'node:path';
 
 import { isString } from '@sniptt/guards';
-import { isDefined, isValidUuid } from 'twenty-shared/utils';
+import { isValidUniversalIdentifier } from 'twenty-shared/application';
+import { isDefined } from 'twenty-shared/utils';
 
 import { extractDefineEntity } from '@/app/source/extract-define-entity';
 import { extractManifestFromFile } from '@/app/source/extract-manifest-from-file';
@@ -43,7 +44,7 @@ export const readApplicationIdentity = async ({
 
     if (
       !isString(config.universalIdentifier) ||
-      !isValidUuid(config.universalIdentifier)
+      !isValidUniversalIdentifier(config.universalIdentifier)
     ) {
       throw new Error(
         `Could not read the application identifier in ${relative(appPath, filePath)}.`,

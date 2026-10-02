@@ -1,4 +1,5 @@
-import { isDefined, isValidUuid } from 'twenty-shared/utils';
+import { isValidUniversalIdentifier } from 'twenty-shared/application';
+import { isDefined } from 'twenty-shared/utils';
 
 import { fetchAppExport } from '@/app/fetch-app-export';
 import { fetchWorkspaceId } from '@/app/fetch-workspace-id';
@@ -35,11 +36,11 @@ export const runAppPullCommand: CommandRun<TargetCommandContext> = async ({
 
   const explicitIdentifier = readStringOption(options, 'universalIdentifier');
 
-  if (isDefined(explicitIdentifier) && !isValidUuid(explicitIdentifier)) {
+  if (isDefined(explicitIdentifier) && !isValidUniversalIdentifier(explicitIdentifier)) {
     throw new CliError({
       code: 'INVALID_INPUT',
       exitCode: EXIT_CODE.USAGE,
-      message: '--universal-identifier must be a UUID.',
+      message: '--universal-identifier must be a UUID of version 4 or later.',
     });
   }
 

@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isArray, isString } from '@sniptt/guards';
-import { isDefined, isPlainObject, isValidUuid } from 'twenty-shared/utils';
+import { isValidUniversalIdentifier } from 'twenty-shared/application';
+import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import { PULL_BASE_FILE_PATH } from '@/app/constants/pull-base-file-path.constant';
 import { assertPullPaths } from '@/app/pull/assert-pull-paths';
@@ -52,7 +53,7 @@ export const readTargetBoundPullBase = async ({
       (isDefined(base.unreconciledUniversalIdentifiers) &&
         (!isArray(base.unreconciledUniversalIdentifiers) ||
           !base.unreconciledUniversalIdentifiers.every(
-            (identifier) => isString(identifier) && isValidUuid(identifier),
+            (identifier) => isString(identifier) && isValidUniversalIdentifier(identifier),
           ))) ||
       (isDefined(base.sourceFingerprints) &&
         !isSourceFingerprints(base.sourceFingerprints))

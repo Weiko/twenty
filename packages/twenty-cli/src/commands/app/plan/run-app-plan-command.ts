@@ -22,7 +22,9 @@ export const runAppPlanCommand: CommandRun<TargetCommandContext> = async (
   });
   const inferDeletionFromMissingEntities = context.options.delete !== false;
 
-  context.output.progress('Requesting an advisory metadata preview…');
+  context.output.progress(
+    'Computing metadata plan (read-only, nothing will be applied)…',
+  );
 
   const actions = await fetchAppPlan({
     build,
@@ -38,7 +40,7 @@ export const runAppPlanCommand: CommandRun<TargetCommandContext> = async (
       sdk: { version: sdk.version, protocolVersion: sdk.protocolVersion },
       application: build.application,
       contentHash: build.contentHash,
-      advisory: true,
+      plan: true,
       inferDeletionFromMissingEntities,
       actions,
       summary,

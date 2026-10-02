@@ -62,7 +62,7 @@ export const fetchAppPlan = async ({
           ...error.details,
           data: null,
           applicationUniversalIdentifier: build.application.universalIdentifier,
-          advisory: true,
+          plan: true,
         },
       });
     }

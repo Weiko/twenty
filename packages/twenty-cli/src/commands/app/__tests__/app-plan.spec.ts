@@ -183,7 +183,7 @@ describe('app plan with the legacy SDK fallback', () => {
         target: { apiUrl: server.url },
         data: {
           application: APPLICATION,
-          advisory: true,
+          plan: true,
           inferDeletionFromMissingEntities: options.length === 0,
           actions: ACTIONS,
           summary: { create: 1, update: 1, delete: 2, destructive: 1 },
@@ -220,12 +220,12 @@ describe('app plan with the legacy SDK fallback', () => {
     },
   );
 
-  it('shows every deletion, the selected target and the advisory limitation', async () => {
+  it('shows every deletion, the selected target and the plan limitation', async () => {
     const { stdout, exitCode } = await run();
 
     expect(exitCode).toBe(0);
     for (const text of [
-      'Advisory plan',
+      'Plan for Plan App',
       server.url,
       'Twenty will perform the following actions:',
       '  # logicFunction "sendWelcome" will be created',
@@ -246,13 +246,13 @@ describe('app plan with the legacy SDK fallback', () => {
     expect(stdout).not.toContain('project output');
   });
 
-  it('reports an empty plan as an advisory success', async () => {
+  it('reports an empty plan as a success', async () => {
     state.response = planResponse([]);
     const { stdout, exitCode } = await run();
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain('No changes.');
-    expect(stdout).toContain('Advisory');
+    expect(stdout).toContain('Plan for Plan App');
   });
 
   it('truncates long values in human output but keeps them whole in JSON', async () => {
@@ -327,7 +327,7 @@ describe('app plan with the legacy SDK fallback', () => {
       expect(envelope.error).toMatchObject({
         code: 'PLAN_UNAVAILABLE',
         hint: expect.stringContaining('twenty app apply --create'),
-        details: { advisory: true, applicationUniversalIdentifier: 'app-id' },
+        details: { plan: true, applicationUniversalIdentifier: 'app-id' },
       });
       expect(server.requests).toHaveLength(1);
       expect(server.requests[0].body).not.toMatch(

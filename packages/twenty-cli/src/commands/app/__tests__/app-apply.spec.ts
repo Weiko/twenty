@@ -1684,7 +1684,12 @@ describe('app apply with the legacy SDK fallback', () => {
       const { exitCode, stderr } = await run();
 
       expect(exitCode).toBe(expectedExitCode);
-      expect(stderr).toContain('permanently delete stored data');
+      expect(stderr).toContain(
+        'Warning: 1 destructive change(s) will permanently delete data.',
+      );
+      expect(stderr).toContain(
+        '  - objectMetadata "invoice": drops the table and all its rows',
+      );
       expect(operations().at(-1)).toBe(lastOperation);
     },
   );
@@ -1884,7 +1889,7 @@ describe('app apply with the legacy SDK fallback', () => {
     const { stdout, stderr, exitCode } = await run();
 
     expect(exitCode).toBe(0);
-    expect(stderr).toContain('1 to add, 0 to change, 0 to delete.');
+    expect(stderr).toContain('Plan: 1 to add, 0 to change, 0 to destroy.');
     expect(stderr).toContain('typed API client was not regenerated');
     expect(stdout).toContain(`Applied Apply App to ${server.url}`);
     expect(stdout).toContain('2 files uploaded (40 B)');

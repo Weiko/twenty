@@ -13,7 +13,7 @@ import { type TargetCommandContext } from '@/catalog/types/target-command-contex
 import { formatDataValue } from '@/data/format-data-value';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
-import { formatWarningLine } from '@/output/style';
+import { colorText, dimText, formatWarningLine } from '@/output/style';
 import { toCliError } from '@/output/to-cli-error';
 import { toPublicTarget } from '@/target/to-public-target';
 
@@ -82,12 +82,13 @@ export const runAppLogsCommand: CommandRun<TargetCommandContext> = async (
           await output.event('record', record, signal);
         } else {
           const label = [
-            record.functionName,
-            record.functionUniversalIdentifier,
-          ]
-            .filter(isDefined)
-            .map(formatDataValue)
-            .join(' · ');
+            ...(isDefined(record.functionName)
+              ? [colorText('cyan', formatDataValue(record.functionName))]
+              : []),
+            ...(isDefined(record.functionUniversalIdentifier)
+              ? [dimText(formatDataValue(record.functionUniversalIdentifier))]
+              : []),
+          ].join(' · ');
           const text = [
             ...(label.length > 0 ? [`[${label}]`] : []),
             ...record.logs.replace(/\n$/, '').split('\n').map(formatDataValue),

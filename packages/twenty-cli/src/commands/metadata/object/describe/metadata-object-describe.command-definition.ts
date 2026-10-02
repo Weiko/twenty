@@ -3,7 +3,7 @@ import { type TargetCommandDefinition } from '@/catalog/types/command-definition
 export const METADATA_OBJECT_DESCRIBE_COMMAND_DEFINITION: TargetCommandDefinition =
   {
     path: ['metadata', 'object', 'describe'],
-    description: 'Describe an object and its fields',
+    description: 'Describe an object',
     arguments: [
       {
         name: 'object',
@@ -11,10 +11,9 @@ export const METADATA_OBJECT_DESCRIBE_COMMAND_DEFINITION: TargetCommandDefinitio
         required: true,
       },
     ],
-    options: [{ flags: '--all', description: 'Include system fields' }],
     examples: [
       'twenty metadata object describe companies',
-      'twenty metadata object describe person --all --json',
+      'twenty metadata object describe person --json',
     ],
     outputModes: ['human', 'json'],
     writes: false,

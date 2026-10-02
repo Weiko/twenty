@@ -253,7 +253,7 @@ describe('metadata inspection commands', () => {
   afterAll(async () => server.close());
 
   it.each(['company', 'companies'])(
-    'describes exact API alias %s with per-field owners',
+    'describes exact API alias %s with object properties only',
     async (name) => {
       const { envelope, exitCode } = await runJson([
         'object',
@@ -261,10 +261,27 @@ describe('metadata inspection commands', () => {
         name,
       ]);
       expect(exitCode).toBe(0);
+      expect(Object.keys(envelope.data)).toEqual(['object']);
       expect(envelope.data.object).toMatchObject({
         id: 'company-id',
         owner: { kind: 'standard' },
       });
+      expect(envelope.warnings).toEqual([]);
+      expect(
+        server.requests.every(
+          (request) =>
+            request.path === '/metadata' &&
+            request.headers.authorization === 'Bearer fixture-key',
+        ),
+      ).toBe(true);
+    },
+  );
+
+  it.each(['company', 'companies'])(
+    'lists fields of exact API alias %s with per-field owners',
+    async (name) => {
+      const { envelope, exitCode } = await runJson(['field', 'list', name]);
+      expect(exitCode).toBe(0);
       expect(
         envelope.data.fields.map(
           (field: { name: string; owner: { kind: string } }) => [
@@ -279,22 +296,11 @@ describe('metadata inspection commands', () => {
         ['tier', 'custom'],
       ]);
       expect(envelope.data.hiddenSystemFieldCount).toBe(1);
-      expect(envelope.warnings).toEqual([]);
-      expect(
-        server.requests.every(
-          (request) =>
-            request.path === '/metadata' &&
-            request.headers.authorization === 'Bearer fixture-key',
-        ),
-      ).toBe(true);
     },
   );
 
-  it.each([
-    ['object', 'describe'],
-    ['field', 'list'],
-  ])('includes system fields in %s %s with --all', async (...command) => {
-    const { envelope } = await runJson([...command, 'companies', '--all']);
+  it('includes system fields in field list with --all', async () => {
+    const { envelope } = await runJson(['field', 'list', 'companies', '--all']);
     expect(
       envelope.data.fields.map((field: { name: string }) => field.name),
     ).toEqual(['id', 'invoices', 'name', 'secret', 'tier']);
@@ -355,11 +361,31 @@ describe('metadata inspection commands', () => {
     }
   });
 
-  it('renders relations, label fields and system-field guidance', async () => {
+  it('renders only object properties in object describe', async () => {
     const { stdout, exitCode } = await runCliForTest([
       'metadata',
       'object',
       'describe',
+      'companies',
+    ]);
+    expect(exitCode).toBe(0);
+    for (const text of [
+      'Companies (companies)',
+      'company / companies',
+      'Fields: twenty metadata field list companies',
+    ]) {
+      expect(stdout).toContain(text);
+    }
+    expect(stdout).toMatch(/Description\s+CRM companies/);
+    expect(stdout).not.toContain('invoices');
+    expect(stdout).not.toContain('system fields hidden');
+  });
+
+  it('renders relations, label fields and system-field guidance', async () => {
+    const { stdout, exitCode } = await runCliForTest([
+      'metadata',
+      'field',
+      'list',
       'companies',
     ]);
     expect(exitCode).toBe(0);

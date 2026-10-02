@@ -153,9 +153,7 @@ export const runDataListCommand: CommandRun<TargetCommandContext> = async ({
       ? {
           human: formatDataPage({
             page,
-            objectName: object.namePlural,
             options: listOptions,
-            target,
           }),
         }
       : {}),

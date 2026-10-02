@@ -175,6 +175,7 @@ export const applyAppBuild = async ({
         actions,
         summary,
         inferDeletionFromMissingEntities,
+        stream: process.stderr,
       }),
     );
   }

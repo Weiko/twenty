@@ -205,6 +205,19 @@ describe('twenty app logs', () => {
     expect(result.stdout).toContain('\\u001b');
   });
 
+  it('colors the function name and dims its identifier in a color terminal', async () => {
+    vi.stubEnv('FORCE_COLOR', '1');
+    try {
+      const result = await run();
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain(
+        `[\u001b[36msame-name\u001b[39m · \u001b[2m${FIRST_FUNCTION_IDENTIFIER}\u001b[22m]`,
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it.each(['http', 'sse', 'sse-without-code'])(
     'falls back once for missing identity fields over %s, with an explicit warning',
     async (transport) => {

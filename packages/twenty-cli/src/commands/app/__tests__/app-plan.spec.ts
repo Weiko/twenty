@@ -227,10 +227,17 @@ describe('app plan with the legacy SDK fallback', () => {
     for (const text of [
       'Advisory plan',
       server.url,
-      'company',
-      'Old view',
-      'permanently delete stored data',
+      'Twenty will perform the following actions:',
+      '  # logicFunction "sendWelcome" will be created',
+      '  + name = "sendWelcome"',
+      '  # fieldMetadata "name" will be updated in-place',
+      '  ~ label = "Name" -> "Full name"',
+      '  # objectMetadata "company" will be destroyed',
+      '  # view "Old view" will be destroyed',
+      'Plan: 1 to add, 1 to change, 2 to destroy.',
       '--no-delete',
+      'Warning: 1 destructive change(s) will permanently delete data.',
+      '  - objectMetadata "company": drops the table and all its rows',
       'Nothing was registered',
       'different actions',
     ]) {
@@ -248,7 +255,7 @@ describe('app plan with the legacy SDK fallback', () => {
     expect(stdout).toContain('Advisory');
   });
 
-  it('bounds human table widths without truncating actions or JSON names', async () => {
+  it('truncates long values in human output but keeps them whole in JSON', async () => {
     const name = 'very-long-name-'.repeat(1000);
     const action = {
       type: 'delete',
@@ -263,10 +270,51 @@ describe('app plan with the legacy SDK fallback', () => {
 
     expect(human.exitCode).toBe(0);
     expect(human.stdout.length).toBeLessThan(2500);
+    expect(human.stdout).toContain(`${JSON.stringify(name).slice(0, 79)}…`);
     expect(human.stdout).toContain('Old view');
-    expect(human.stdout).toContain('3 to delete');
+    expect(human.stdout).toContain('3 to destroy');
     expect(exitCode).toBe(0);
     expect(envelope.data.actions[0].flatEntity.name).toBe(name);
+  });
+
+  it('shows secret application variables as secret and redacts other values', async () => {
+    state.response = planResponse([
+      {
+        type: 'create',
+        metadataName: 'applicationVariable',
+        flatEntity: {
+          key: 'API_TOKEN',
+          value: 'created-secret',
+          isSecret: true,
+        },
+      },
+      {
+        type: 'create',
+        metadataName: 'applicationVariable',
+        flatEntity: { key: 'REGION', value: 'eu', isSecret: false },
+      },
+      {
+        type: 'update',
+        metadataName: 'applicationVariable',
+        universalIdentifier: 'variable-id',
+        flatEntity: { key: 'API_TOKEN', isSecret: true },
+        diff: { value: { before: 'old-secret', after: 'new-secret' } },
+      },
+    ]);
+    const { stdout, exitCode } = await run();
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('  + value    = (secret)');
+    expect(stdout).toContain('  + value    = "(redacted)"');
+    expect(stdout).toContain('  ~ value = (secret) -> (secret)');
+    for (const value of [
+      'created-secret',
+      '"eu"',
+      'old-secret',
+      'new-secret',
+    ]) {
+      expect(stdout).not.toContain(value);
+    }
   });
 
   it.each([undefined, 'syncApplication'])(

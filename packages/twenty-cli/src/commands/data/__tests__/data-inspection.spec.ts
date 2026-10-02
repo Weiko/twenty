@@ -333,11 +333,15 @@ describe('data inspection commands', () => {
     expect(human.stdout).toContain('Acme');
     expect(human.stdout).toContain('acme.test');
     expect(human.stdout).not.toContain('employees');
-    expect(human.stdout).toContain('1 of 3 records');
-    expect(human.stdout).toContain("--filter 'name[eq]:O'\\''Reilly'");
-    expect(human.stdout).toContain('--cursor 1');
-    expect(human.stdout).toContain('--order-by name');
-    expect(human.stdout).toContain("--fields 'name,domainName'");
+    expect(human.stdout).toContain(
+      '1 of 3 records · --all for every page · --json for the next cursor',
+    );
+    expect(human.stdout).not.toContain('--cursor');
+    const page = await runJson(['list', 'companies', '--limit', '1']);
+    expect(page.envelope.data.pageInfo).toMatchObject({
+      hasNextPage: true,
+      endCursor: '1',
+    });
   });
 
   it('returns an empty list with page information and useful human output', async () => {

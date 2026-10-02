@@ -1,3 +1,4 @@
+import { isDestructiveAppPlanAction } from '@/app/is-destructive-app-plan-action';
 import {
   type AppPlanAction,
   type AppPlanSummary,
@@ -9,11 +10,7 @@ export const getAppPlanSummary = (actions: AppPlanAction[]): AppPlanSummary => {
   for (const action of actions) {
     summary[action.type] += 1;
 
-    if (
-      action.type === 'delete' &&
-      (action.metadataName === 'objectMetadata' ||
-        action.metadataName === 'fieldMetadata')
-    ) {
+    if (isDestructiveAppPlanAction(action)) {
       summary.destructive += 1;
     }
   }

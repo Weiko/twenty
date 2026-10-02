@@ -1,5 +1,6 @@
 import { isNull, isString } from '@sniptt/guards';
-import { isPlainObject, isValidUuid } from 'twenty-shared/utils';
+import { isValidUniversalIdentifier } from 'twenty-shared/application';
+import { isPlainObject } from 'twenty-shared/utils';
 
 import { parseToolingResult } from '@/app/parse-tooling-result';
 import { resolveSourceSdk } from '@/app/resolve-source-sdk';
@@ -25,7 +26,7 @@ const parseIdentity = (
   if (
     !isPlainObject(application) ||
     !isString(application.universalIdentifier) ||
-    !isValidUuid(application.universalIdentifier) ||
+    !isValidUniversalIdentifier(application.universalIdentifier) ||
     (!isString(application.displayName) && !isNull(application.displayName))
   ) {
     return undefined;

@@ -2,10 +2,12 @@ import { isNonEmptyString } from '@sniptt/guards';
 import { validate as uuidValidate, version as uuidVersion } from 'uuid';
 
 import {
+  MINIMUM_UNIVERSAL_IDENTIFIER_UUID_VERSION,
   type Manifest,
   type PageLayoutManifest,
   type PageLayoutTabManifest,
   type PageLayoutWidgetManifest,
+  isValidUniversalIdentifier,
   normalizePageLayoutTabManifest,
 } from 'twenty-shared/application';
 import {
@@ -18,12 +20,10 @@ import { isDefined } from 'twenty-shared/utils';
 import {
   getDuplicateValues,
   type ManifestField,
-  MINIMUM_UNIVERSAL_IDENTIFIER_UUID_VERSION,
   isRelationFieldManifest,
 } from '@/app/manifest/utils/manifest-validation-helpers';
 import { getPageLayoutDeprecationWarnings } from '@/app/manifest/utils/get-page-layout-deprecation-warnings';
 import { validateTimelineActivityTypes } from '@/app/manifest/utils/validate-timeline-activity-types';
-import { isValidUniversalIdentifier } from '@/app/manifest/utils/is-valid-universal-identifier';
 
 const VALID_RELATION_TYPES: string[] = [
   RelationType.MANY_TO_ONE,

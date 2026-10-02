@@ -1,6 +1,6 @@
+import { isValidUniversalIdentifier } from 'twenty-shared/application';
 import { isDefined } from 'twenty-shared/utils';
 
-import { isValidUniversalIdentifier } from '@/app/manifest/utils/is-valid-universal-identifier';
 import { readStringOption } from '@/catalog/read-command-values';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';

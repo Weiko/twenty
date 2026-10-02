@@ -1,4 +1,5 @@
 import { convertToLabel } from '@create-twenty-app/utils/convert-to-label';
+import { isValidUniversalIdentifier } from 'twenty-shared/application';
 import {
   FieldMetadataType,
   RelationOnDeleteAction,
@@ -12,7 +13,6 @@ import { getFrontComponentBaseFile } from '@/app/add/entity-front-component-temp
 import { getLogicFunctionBaseFile } from '@/app/add/entity-logic-function-template';
 import { getObjectBaseFile } from '@/app/add/entity-object-template';
 import { promptForAppAddValue } from '@/app/add/prompt-for-app-add-value';
-import { isValidUniversalIdentifier } from '@/app/manifest/utils/is-valid-universal-identifier';
 import { kebabCase } from '@/app/pull/kebab-case';
 import {
   readStringArgument,

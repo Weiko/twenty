@@ -1,7 +1,7 @@
+import { isValidUniversalIdentifier } from 'twenty-shared/application';
 import { isDefined } from 'twenty-shared/utils';
 
 import { type AppFunctionSelector } from '@/app/exec/types/app-function-selector.type';
-import { isValidUniversalIdentifier } from '@/app/manifest/utils/is-valid-universal-identifier';
 import {
   readBooleanOption,
   readStringOption,

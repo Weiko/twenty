@@ -1,5 +1,6 @@
-import { isDefined, isValidUuid } from 'twenty-shared/utils';
+import { isDefined } from 'twenty-shared/utils';
 
+import { isValidUniversalIdentifier } from '@/app/manifest/utils/is-valid-universal-identifier';
 import { readStringOption } from '@/catalog/read-command-values';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
@@ -11,13 +12,14 @@ export const readLogsFilter = (options: Record<string, unknown>) => {
   if (
     (isDefined(name) && isDefined(universalIdentifier)) ||
     (isDefined(name) && name.trim().length === 0) ||
-    (isDefined(universalIdentifier) && !isValidUuid(universalIdentifier))
+    (isDefined(universalIdentifier) &&
+      !isValidUniversalIdentifier(universalIdentifier))
   ) {
     throw new CliError({
       code: 'INVALID_INPUT',
       exitCode: EXIT_CODE.USAGE,
       message:
-        'Use either a nonempty --name or a UUID --universal-identifier, or neither to watch every function in the app.',
+        'Use either a nonempty --name or a UUID of version 4 or later for --universal-identifier, or neither to watch every function in the app.',
     });
   }
 

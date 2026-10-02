@@ -1,6 +1,7 @@
-import { isDefined, isValidUuid } from 'twenty-shared/utils';
+import { isDefined } from 'twenty-shared/utils';
 
 import { type AppFunctionSelector } from '@/app/exec/types/app-function-selector.type';
+import { isValidUniversalIdentifier } from '@/app/manifest/utils/is-valid-universal-identifier';
 import {
   readBooleanOption,
   readStringOption,
@@ -44,7 +45,8 @@ export const readFunctionSelector = (options: Record<string, unknown>) => {
   const selector = selectors[0];
   if (
     selector.value.trim().length === 0 ||
-    (selector.kind === 'universalIdentifier' && !isValidUuid(selector.value))
+    (selector.kind === 'universalIdentifier' &&
+      !isValidUniversalIdentifier(selector.value))
   ) {
     throw new CliError({
       code: 'INVALID_INPUT',
@@ -52,7 +54,7 @@ export const readFunctionSelector = (options: Record<string, unknown>) => {
       message:
         selector.kind === 'name'
           ? '--name cannot be empty.'
-          : '--universal-identifier must be a UUID.',
+          : '--universal-identifier must be a UUID of version 4 or later.',
     });
   }
 

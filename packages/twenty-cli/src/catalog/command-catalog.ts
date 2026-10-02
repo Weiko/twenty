@@ -1,4 +1,5 @@
 import { APP_DEV_COMMAND_DEFINITION } from '@/commands/app/dev/app-dev.command-definition';
+import { APP_ADD_COMMAND_DEFINITION } from '@/commands/app/add/app-add.command-definition';
 import { APP_EXEC_COMMAND_DEFINITION } from '@/commands/app/exec/app-exec.command-definition';
 import { APP_LOGS_COMMAND_DEFINITION } from '@/commands/app/function-logs/app-logs.command-definition';
 import { type CommandDefinition } from '@/catalog/types/command-definition.type';
@@ -31,6 +32,7 @@ import { REMOTE_USE_COMMAND_DEFINITION } from '@/commands/remote/use/remote-use.
 import { VERSION_COMMAND_DEFINITION } from '@/commands/version/version.command-definition';
 
 export const COMMAND_CATALOG: CommandDefinition[] = [
+  APP_ADD_COMMAND_DEFINITION,
   APP_APPLY_COMMAND_DEFINITION,
   APP_DEV_COMMAND_DEFINITION,
   APP_EXEC_COMMAND_DEFINITION,

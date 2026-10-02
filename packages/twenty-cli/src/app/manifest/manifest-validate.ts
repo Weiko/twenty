@@ -23,6 +23,7 @@ import {
 } from '@/app/manifest/utils/manifest-validation-helpers';
 import { getPageLayoutDeprecationWarnings } from '@/app/manifest/utils/get-page-layout-deprecation-warnings';
 import { validateTimelineActivityTypes } from '@/app/manifest/utils/validate-timeline-activity-types';
+import { isValidUniversalIdentifier } from '@/app/manifest/utils/is-valid-universal-identifier';
 
 const VALID_RELATION_TYPES: string[] = [
   RelationType.MANY_TO_ONE,
@@ -235,7 +236,7 @@ const invalidUniversalIdentifierVersions = (
 
     const version = uuidVersion(identifier);
 
-    if (version < MINIMUM_UNIVERSAL_IDENTIFIER_UUID_VERSION) {
+    if (!isValidUniversalIdentifier(identifier)) {
       errors.push(
         `Universal identifier "${identifier}" is UUID version ${version}. ` +
           `Only UUID version ${MINIMUM_UNIVERSAL_IDENTIFIER_UUID_VERSION} or higher is allowed.`,

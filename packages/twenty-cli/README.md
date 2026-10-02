@@ -119,6 +119,42 @@ another executable. Credentials come from `TWENTY_API_URL` and `TWENTY_API_KEY`,
 which the template's Vitest config sets. These two files are the only difference
 from the `create-twenty-app` template, whose setup still imports `twenty-sdk/cli`.
 
+## Add definitions to an app
+
+```bash
+twenty app add
+twenty app add object --name invoice --name-plural invoices --no-input
+twenty app add field --name amount --type NUMBER --object <object-universal-identifier> --json
+twenty app add logic-function --name send-invoice --no-input
+twenty app add front-component --name invoice-panel --no-input
+```
+
+`app add` creates one standalone definition using the SDK's existing templates.
+It discovers the containing app, or accepts `--path <app-directory>`. No sign-in
+or workspace connection is needed. Use `object`, `field`, `logic-function` or
+`front-component`; other generators and optional object views, layouts and menu
+companions will follow separately.
+
+Files are created under `src/objects`, `src/fields`, `src/logic-functions` and
+`src/front-components`, with kebab-case filenames and fresh universal UUIDs.
+Existing files are never replaced, including filename collisions after case
+normalization. Symlinked destination paths are refused. Both cases exit 6.
+JSON returns app-relative paths in `data.createdPaths`.
+
+Omitted values are prompted only in a human interactive terminal. With `--json`,
+`--no-input`, redirected stdin or CI, required values must be supplied explicitly
+or the command exits 2 before creating files. Labels default to the name; fields
+default to `TEXT`. `--object` requires the parent's universal identifier, not its
+workspace database ID. Relations additionally require `--target-object` and
+`--target-field`; `--relation-type` defaults to `ONE_TO_MANY` and `--on-delete`
+to `CASCADE`, as in the SDK. The command does not create the reverse field or
+check that these identifiers exist in a workspace.
+
+Review the generated definition and its type-specific settings, then run
+`twenty app build` and `twenty app plan`. Generation does not install or apply
+anything. Cancellation before the file is created exits 130; existing app files
+stay untouched, although empty parent directories can remain.
+
 ## Build and check an app
 
 ```bash

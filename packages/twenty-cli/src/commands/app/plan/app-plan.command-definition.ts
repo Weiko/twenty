@@ -4,7 +4,7 @@ import { type TargetCommandDefinition } from '@/catalog/types/command-definition
 export const APP_PLAN_COMMAND_DEFINITION: TargetCommandDefinition = {
   path: ['app', 'plan'],
   description:
-    'Build the app and preview advisory metadata changes without applying them',
+    'Build the app and preview metadata changes without applying them',
   options: [
     APP_LEGACY_SDK_OPTION,
     {

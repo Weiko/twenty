@@ -2,7 +2,7 @@
 
 The command line for [Twenty](https://twenty.com).
 
-This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, opening the workspace in a browser, metadata inspection, record reads, creating an app from a template, local app builds and typechecks, advisory app previews, pulling workspace metadata into an existing app, and applying a development app to a workspace or uninstalling it. Run `twenty commands` for the available commands. To publish an app, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
+This CLI is in development. It supports saved connections, browser/API-key authentication, raw API requests, opening the workspace in a browser, metadata inspection, record reads, creating an app from a template, local app builds and typechecks, previews of app metadata changes, pulling workspace metadata into an existing app, and applying a development app to a workspace or uninstalling it. Run `twenty commands` for the available commands. To publish an app, keep using the CLI in [twenty-sdk](https://www.npmjs.com/package/twenty-sdk) for now.
 
 ## Installation model
 
@@ -221,7 +221,7 @@ twenty app plan --path ./apps/billing --no-delete --json
 
 `app plan` builds once with the CLI pipeline, releases the temporary snapshot, then requests the server's metadata preview with `dryRun: true`. It uses the usual connection selection and requires the server's `APPLICATIONS` permission. The server enforces authorization, ownership and manifest/version compatibility. No registration, installation, upload or metadata synchronization is performed, and planning never advances a pull base. The local build can generate app artifacts, just as `app build` does.
 
-Plans are advisory, with `advisory: true` in JSON. They are not saved approvals: remote changes can alter what a later apply does. A missing owned application registration returns `PLAN_UNAVAILABLE` (exit 1). Register the app with `twenty app apply --create`, then plan again.
+JSON marks plans with `plan: true`. A plan is not a saved approval: remote changes can alter what a later apply does. A missing owned application registration returns `PLAN_UNAVAILABLE` (exit 1). Register the app with `twenty app apply --create`, then plan again.
 
 Entities missing from source are included as deletions by default. `--no-delete` passes `inferDeletionFromMissingEntities: false` to the preview. Human output lists every action, identifies object/field deletions that would remove stored data, and shows the opt-out hint. JSON includes action details and counts. Application-variable values, including previous values in updates, are redacted from all plan actions regardless of their `isSecret` setting. A plan exceeding 10,000 actions or the transport's 16 MiB response limit fails instead of displaying an incomplete preview.
 
@@ -242,7 +242,7 @@ twenty app apply --no-delete
 - **Typed client.** After the sync, the CLI fetches the app's GraphQL schema from the workspace and the CLI calls the app's own `twenty-client-sdk/generate` to regenerate the client in the app's own `node_modules/twenty-client-sdk` (`clientGeneration: "generated"`). It is skipped with a `CLIENT_NOT_GENERATED` warning when the app has no `node_modules/twenty-client-sdk` of its own, as in a hoisted workspace. With `--legacy-sdk`, an SDK without client-generation capability also skips this step. A symlinked client package is followed and its target rewritten, so don't apply two apps that share one client package at the same time.
 - **Failures.** A failed apply reports `details.phase`, `details.completedPhases` and `details.outcome`: `not-started` when the failing step changed nothing, `partial` when some files were uploaded, `unknown` when a request was sent but its effect is not known, such as a failed or interrupted sync, and `applied` when the sync succeeded but baseline recording was cancelled or client generation failed. Earlier steps, like a new registration, stay done. There is no rollback and no automatic retry: run `twenty app plan` to see where the workspace stands, then apply again. After `applied`, the workspace has the new version but the client files may be incomplete: fix the problem, then run `twenty app apply` again, which repeats the preview, upload and sync before regenerating the client. Ctrl+C exits with 130 and reports the step it interrupted.
 
-The preview is advisory: remote changes made between the preview and the sync can change what the sync does. Remote changes between the acknowledged sync and the export can also enter the saved baseline without appearing in local source; this is not an atomic server snapshot of the sync. Planning, a failed sync, or a sync with an unknown outcome never advances the baseline.
+Remote changes made between the preview and the sync can change what the sync does. Remote changes between the acknowledged sync and the export can also enter the saved baseline without appearing in local source; this is not an atomic server snapshot of the sync. Planning, a failed sync, or a sync with an unknown outcome never advances the baseline.
 
 ## Develop an app
 
@@ -276,7 +276,7 @@ edits settle, not an atomic checkout of files being edited concurrently.
 Registration uses `--create` or a terminal confirmation. Deletion inference is
 on by default, with `--no-delete` to keep missing entities. Object and field
 deletions require a terminal confirmation or `--yes`. Every revision requests a
-fresh advisory preview. An edit cancels a pending confirmation; approval for the
+fresh preview. An edit cancels a pending confirmation; approval for the
 old revision cannot authorize the new one. A remote failure is reported with the
 same phase/outcome details as apply and is retried only after a new source edit,
 with a new preview. Inspect `twenty app plan` when a request's outcome is unknown.

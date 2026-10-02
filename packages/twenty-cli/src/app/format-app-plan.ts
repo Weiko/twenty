@@ -271,7 +271,7 @@ export const formatAppPlan = ({
   inferDeletionFromMissingEntities: boolean;
 }) =>
   [
-    `Advisory plan for ${formatDataValue(applicationName)} on ${apiUrl}`,
+    `Plan for ${formatDataValue(applicationName)} on ${apiUrl}`,
     formatAppPlanActions({
       actions,
       summary,

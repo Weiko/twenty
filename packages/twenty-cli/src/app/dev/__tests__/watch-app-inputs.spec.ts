@@ -2,13 +2,29 @@ import { mkdir, mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import type * as chokidar from 'chokidar';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   collectWatchInputs,
   recordWatchFile,
 } from '@/app/dev/collect-watch-inputs';
 import { watchAppInputs } from '@/app/dev/watch-app-inputs';
+
+const watcherOptions = vi.hoisted(() => ({ useFsEvents: false }));
+
+vi.mock('chokidar', async (importOriginal) => {
+  const actual = await importOriginal<typeof chokidar>();
+
+  return {
+    ...actual,
+    watch: (...[paths, options]: Parameters<typeof actual.watch>) =>
+      actual.watch(paths, {
+        ...options,
+        useFsEvents: watcherOptions.useFsEvents,
+      }),
+  };
+});
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -38,7 +54,10 @@ const collect = async (file: string) =>
     })
   ).watchInputs;
 
-describe('app input observation', () => {
+describe.each(['platform', 'node'])('app input watch (%s)', (backend) => {
+  beforeEach(() => {
+    watcherOptions.useFsEvents = backend === 'platform';
+  });
   it('observes atomic saves and new files, ignores generated output and dependency installations', async () => {
     const { appPath, onChange, onError } = await fixture();
     const source = join(appPath, 'source.ts');
@@ -81,6 +100,24 @@ describe('app input observation', () => {
     await writeFile(external, 'unrelated now');
     await new Promise((resolve) => setTimeout(resolve, 150));
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('observes recreation of a previously successful external input directory', async () => {
+    const { root, watcher, onChange } = await fixture();
+    const directory = join(root, 'linked', 'nested');
+    const external = join(directory, 'external.ts');
+
+    await mkdir(directory, { recursive: true });
+    await writeFile(external, 'initial');
+    await watcher.update(await collect(external), true);
+    await rm(directory, { recursive: true });
+    await watcher.update(await collect(external), false);
+    onChange.mockClear();
+
+    await mkdir(directory);
+    await writeFile(external, 'restored');
+
+    await vi.waitFor(() => expect(onChange).toHaveBeenCalled());
   });
 
   it('detects an external edit in the gap between compilation and watcher registration', async () => {

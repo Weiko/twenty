@@ -5,14 +5,7 @@ import { isSameUniversalIdentifier } from '@/app/is-same-universal-identifier';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
-import { sendGraphqlRequest } from '@/transport/graphql/send-graphql-request';
-
-const INSTALL_MUTATION = `mutation InstallDevelopmentApplication($universalIdentifier: String!, $name: String!) {
-  createDevelopmentApplication(universalIdentifier: $universalIdentifier, name: $name) {
-    id
-    universalIdentifier
-  }
-}`;
+import { createMetadataClient } from '@/transport/metadata/create-metadata-client';
 
 export const installDevelopmentApp = async ({
   application,
@@ -23,14 +16,14 @@ export const installDevelopmentApp = async ({
   target: ResolvedTarget;
   signal: AbortSignal;
 }) => {
-  const data = await sendGraphqlRequest({
-    target,
-    signal,
-    endpoint: 'metadata',
-    query: INSTALL_MUTATION,
-    variables: {
-      universalIdentifier: application.universalIdentifier,
-      name: application.displayName,
+  const data = await createMetadataClient({ target, signal }).mutation({
+    createDevelopmentApplication: {
+      __args: {
+        universalIdentifier: application.universalIdentifier,
+        name: application.displayName,
+      },
+      id: true,
+      universalIdentifier: true,
     },
   });
   const installation = data?.createDevelopmentApplication;

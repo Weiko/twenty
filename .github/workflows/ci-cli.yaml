@@ -53,7 +53,8 @@ jobs:
       - name: Typecheck
         run: npx tsgo -p packages/twenty-cli/tsconfig.json --noEmit
       - name: Test
-        run: npx nx test twenty-cli --watch=false --maxWorkers=2
+        run: npx vitest run --maxWorkers=2
+        working-directory: packages/twenty-cli
   ci-cli-status-check:
     if: always() && !cancelled()
     timeout-minutes: 5

@@ -15,6 +15,7 @@ export const uninstallApp = async ({
 }) => {
   const data = await createMetadataClient({ target, signal })
     .mutation({
+      __name: 'UninstallApplication',
       uninstallApplication: { __args: { universalIdentifier } },
     })
     .catch((error: unknown) => {

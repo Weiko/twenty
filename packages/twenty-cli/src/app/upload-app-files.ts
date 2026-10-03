@@ -140,6 +140,7 @@ const requestUploadTargets = async ({
     target: context.target,
     signal: context.signal,
   }).mutation({
+    __name: 'CreateApplicationFileUploads',
     createApplicationFileUploads: {
       __args: {
         applicationUniversalIdentifier: context.applicationUniversalIdentifier,
@@ -274,6 +275,7 @@ const completeUploads = async ({
     target: context.target,
     signal: context.signal,
   }).mutation({
+    __name: 'CompleteApplicationFileUploads',
     completeApplicationFileUploads: {
       __args: {
         applicationUniversalIdentifier: context.applicationUniversalIdentifier,

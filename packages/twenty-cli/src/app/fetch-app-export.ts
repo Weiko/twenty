@@ -70,6 +70,7 @@ export const fetchAppExport = async ({
 }): Promise<AppExport> => {
   const data = await createMetadataClient({ target, signal })
     .query({
+      __name: 'ExportApplication',
       exportApplication: {
         __args: { universalIdentifier },
         application: {

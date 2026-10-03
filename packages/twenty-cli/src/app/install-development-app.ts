@@ -17,6 +17,7 @@ export const installDevelopmentApp = async ({
   signal: AbortSignal;
 }) => {
   const data = await createMetadataClient({ target, signal }).mutation({
+    __name: 'InstallDevelopmentApplication',
     createDevelopmentApplication: {
       __args: {
         universalIdentifier: application.universalIdentifier,

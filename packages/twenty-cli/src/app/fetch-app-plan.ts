@@ -32,6 +32,7 @@ export const fetchAppPlan = async ({
 
   try {
     const data = await createMetadataClient({ target, signal }).mutation({
+      __name: 'PreviewApplication',
       syncApplication: {
         __args: {
           manifest: build.manifest,

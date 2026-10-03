@@ -17,6 +17,7 @@ export const registerApp = async ({
   signal: AbortSignal;
 }) => {
   const data = await createMetadataClient({ target, signal }).mutation({
+    __name: 'RegisterApplication',
     createApplicationRegistration: {
       __args: {
         input: {

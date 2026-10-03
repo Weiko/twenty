@@ -56,6 +56,7 @@ export const syncAppManifest = async ({
   const applicationUniversalIdentifier = build.application.universalIdentifier;
   const data = await createMetadataClient({ target, signal })
     .mutation({
+      __name: 'SyncApplication',
       syncApplication: {
         __args: { manifest: build.manifest, inferDeletionFromMissingEntities },
         applicationUniversalIdentifier: true,

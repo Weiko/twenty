@@ -203,7 +203,7 @@ describe('app plan with the legacy SDK fallback', () => {
         headers: { authorization: 'Bearer plan-test-key' },
       });
       expect(readGraphqlRequest(server.requests[0])).toMatchObject({
-        query: expect.stringContaining('syncApplication'),
+        query: expect.stringContaining('mutation PreviewApplication'),
         arguments: {
           dryRun: true,
           manifest: MANIFEST,

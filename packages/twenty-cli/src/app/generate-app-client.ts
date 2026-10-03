@@ -20,6 +20,7 @@ export const fetchAppClientSchema = async ({
   output.progress('Fetching the application schema…');
 
   const data = await createMetadataClient({ target, signal }).query({
+    __name: 'ApplicationCoreGraphqlSchema',
     applicationCoreGraphqlSchema: {
       __args: { applicationUniversalIdentifier },
     },

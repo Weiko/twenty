@@ -19,6 +19,7 @@ export const fetchInstalledApp = async ({
 }) => {
   const data = await createMetadataClient({ target, signal })
     .query({
+      __name: 'FindInstalledApplication',
       findOneApplication: {
         __args: { universalIdentifier },
         name: true,

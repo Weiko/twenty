@@ -194,7 +194,10 @@ const releaseHeldSnapshot = async () => {
 };
 
 const exitAfterReleasing = () => {
-  releaseHeldSnapshot().finally(() => process.exit(1));
+  void releaseHeldSnapshot().then(
+    () => process.exit(1),
+    () => process.exit(1),
+  );
 };
 
 const sendHeldResult = (response: AppWorkerResponse) => {

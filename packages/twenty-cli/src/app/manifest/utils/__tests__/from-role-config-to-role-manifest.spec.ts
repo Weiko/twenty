@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { fromRoleConfigToRoleManifest } from '@/app/manifest/utils/from-role-config-to-role-manifest';
-import { type RoleConfig } from '@/app/manifest/types/role-config';
+import { type RoleConfig } from '@/app/manifest/types/role-config.type';
 import {
   RowLevelPermissionPredicateGroupLogicalOperator,
   RowLevelPermissionPredicateOperand,

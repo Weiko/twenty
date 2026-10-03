@@ -1,4 +1,4 @@
-import { type RoleConfig } from '@/app/manifest/types/role-config';
+import { type RoleConfig } from '@/app/manifest/types/role-config.type';
 import {
   getFieldPermissionUniversalIdentifier,
   getObjectPermissionUniversalIdentifier,

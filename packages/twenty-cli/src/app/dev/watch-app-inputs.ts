@@ -6,6 +6,7 @@ import { watch, type FSWatcher } from 'chokidar';
 import { isIgnoredWatchPath } from '@/app/dev/is-ignored-watch-path';
 import { readWatchInputStamp } from '@/app/dev/read-watch-input-stamp';
 import { type WatchInputs } from '@/app/dev/types/watch-inputs.type';
+import { pathExistsSync } from '@/app/fs-utils';
 import { isInsideDirectory } from '@/utils/is-inside-directory';
 
 const waitUntilReady = (watcher: FSWatcher, signal: AbortSignal) =>
@@ -86,7 +87,11 @@ export const watchAppInputs = async ({
           input.path !== appPath &&
           !isInsideDirectory({ filePath: input.path, directory: appPath }),
       );
-      const paths = [...new Set(externalInputs.map((input) => input.path))];
+      // Missing paths are observed through their recorded parent. Adding them
+      // directly can suppress directory creation events in chokidar's Node backend.
+      const paths = [
+        ...new Set(externalInputs.map((input) => input.path)),
+      ].filter(pathExistsSync);
       const directories = new Set(
         externalInputs
           .filter((input) => input.kind === 'directory')

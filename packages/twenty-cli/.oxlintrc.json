@@ -1,18 +1,16 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "import", "unicorn"],
+  "jsPlugins": ["../twenty-oxlint-rules/dist/oxlint-plugin.mjs"],
+  "options": {
+    "typeAware": true
+  },
   "categories": {
     "correctness": "off"
   },
   "ignorePatterns": ["node_modules", "dist"],
   "rules": {
-    "func-style": [
-      "error",
-      "declaration",
-      {
-        "allowArrowFunctions": true
-      }
-    ],
+    "func-style": ["error", "declaration", { "allowArrowFunctions": true }],
     "no-console": "off",
     "no-control-regex": "off",
     "no-debugger": "error",
@@ -58,9 +56,5 @@
         "convention": "kebab-case-type-suffix"
       }
     ]
-  },
-  "jsPlugins": ["../twenty-oxlint-rules/dist/oxlint-plugin.mjs"],
-  "options": {
-    "typeAware": true
   }
 }

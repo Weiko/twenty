@@ -5,18 +5,18 @@ watching, pull and deployment. Apps use `twenty-sdk` to define application
 metadata and runtime behavior. They do not import or depend on the CLI, which
 is normally installed globally.
 
-| Module | Responsibility |
-| --- | --- |
-| [source](source/README.md) | Discover and evaluate trusted app definitions in a disposable worker |
-| [manifest](manifest/README.md) | Construct and validate metadata, compile translations |
-| [bundles](bundles/README.md) | Build artifacts and hold immutable snapshots for consumers |
-| [typecheck](typecheck/README.md) | Check source and configuration with the app's TypeScript compiler |
-| [client](client/README.md) | Invoke the app's installed client SDK generator |
-| [pull](pull/README.md) | Reconcile remote metadata with source and a target-bound baseline |
-| [add](add/README.md) | Create starter definitions without replacing existing files |
-| [dev](dev/README.md) | Watch build inputs and schedule builds and remote apply |
-| [exec](exec/README.md) | Execute an installed logic function |
-| [function-logs](function-logs/README.md) | Stream application function logs |
+| Module                                   | Responsibility                                                       |
+| ---------------------------------------- | -------------------------------------------------------------------- |
+| [source](source/README.md)               | Discover and evaluate trusted app definitions in a disposable worker |
+| [manifest](manifest/README.md)           | Construct and validate metadata, compile translations                |
+| [bundles](bundles/README.md)             | Build artifacts and hold immutable snapshots for consumers           |
+| [typecheck](typecheck/README.md)         | Check source and configuration with the app's TypeScript compiler    |
+| [client](client/README.md)               | Invoke the app's installed client SDK generator                      |
+| [pull](pull/README.md)                   | Reconcile remote metadata with source and a target-bound baseline    |
+| [add](add/README.md)                     | Create starter definitions without replacing existing files          |
+| [dev](dev/README.md)                     | Watch build inputs and schedule builds and remote apply              |
+| [exec](exec/README.md)                   | Execute an installed logic function                                  |
+| [function-logs](function-logs/README.md) | Stream application function logs                                     |
 
 The worker isolates process exits, captures bounded output, filters inherited
 CLI credentials and supports cancellation. It runs trusted developer code and

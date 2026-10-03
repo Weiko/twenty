@@ -40,7 +40,7 @@ export const getOverwrittenLocalChanges = async ({
         definer: entity.definer,
         config: entity.config,
         enumBindings: entity.enumBindings,
-      }),
+      }).content,
     ]),
   );
   const translationPlan = await planTranslationWrites({

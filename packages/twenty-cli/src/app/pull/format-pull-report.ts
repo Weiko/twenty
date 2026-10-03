@@ -1,6 +1,7 @@
 import { type AppExportCoverageEntry } from '@/app/types/app-export.type';
 import { type SkippedPullEntity } from '@/app/pull/build-pull-entities';
-import { type PullDeletion, type PullWrite } from '@/app/pull/plan-pull-writes';
+import { type PullDeletion } from '@/app/pull/plan-pull-writes';
+import { type PullAppResult } from '@/app/pull/types';
 import { isDefined } from 'twenty-shared/utils';
 
 const MAX_LISTED_IDENTIFIERS = 20;
@@ -80,7 +81,7 @@ export const formatPullReport = ({
   entityLabelByUniversalIdentifier = {},
   verbose = false,
 }: {
-  writes: Omit<PullWrite, 'content'>[];
+  writes: PullAppResult['writes'];
   deletions: PullDeletion[];
   unchangedCount: number;
   skipped: SkippedPullEntity[];

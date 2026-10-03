@@ -18,6 +18,7 @@ const buildWrite = (relativePath: string, content: string): PullWrite => ({
   relativePath,
   content,
   isRegeneration: false,
+  requiredSdkExports: [],
 });
 
 describe('applyPullWrites', () => {

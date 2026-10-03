@@ -10,19 +10,10 @@ export const assertPullSdkExports = ({
   writes,
 }: {
   appPath: string;
-  writes: PullWrite[];
+  writes: Pick<PullWrite, 'requiredSdkExports'>[];
 }) => {
   const requiredNames = new Set(
-    writes
-      .filter((write) => write.kind !== 'translation')
-      .flatMap(
-        (write) =>
-          write.content
-            .match(/^import \{([\s\S]*?)\} from 'twenty-sdk\/define';/)?.[1]
-            .split(',')
-            .map((name) => name.trim())
-            .filter(Boolean) ?? [],
-      ),
+    writes.flatMap((write) => write.requiredSdkExports),
   );
 
   if (requiredNames.size === 0) {

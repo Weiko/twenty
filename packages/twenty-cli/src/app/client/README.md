@@ -1,10 +1,9 @@
 # Application client generation
 
-B5 ports `src/application-build/generate-application-client.ts` from twenty-sdk
-at `85902c53835d7f2d21399118a2bdd8896d3eb53c`. The CLI owns the wrapper and calls
-`replaceCoreClient` from the app's installed `twenty-client-sdk/generate`.
-The generator implementation is reused, not copied into the CLI. Compare the
-wrapper with the recorded SDK source and rerun parity when porting a fix.
+The CLI owns client-generation orchestration and calls `replaceCoreClient` from
+the app's installed `twenty-client-sdk/generate`. The generator implementation
+is reused, not copied into the CLI. See the [app tooling overview](../README.md)
+for package ownership.
 The package manifest read reuses the CLI's `readJsonObject`: missing or malformed
 JSON gets the same clear expected-package diagnostic as a wrong package name.
 The remaining validation, generation and cancellation behavior follows the SDK.
@@ -27,10 +26,8 @@ the same installed version, with no fallback to the CLI's own client SDK.
 
 The output layout remains `dist/core/generated`, `dist/core.mjs` and
 `dist/core.cjs` inside that installation. Source files and the metadata client
-remain unchanged. No CLI dependency is added to apps or SDK packages, and B5
-adds no package dependency. Client SDK generator dependencies remain installed
-in the app for now, per D6 option A. Moving them to a separate package shared
-with the server is a later architectural change.
+remain unchanged. Neither apps nor SDK packages depend on the CLI. The client
+SDK's generator dependencies remain part of the app's installed client package.
 
 ## Failure and cancellation
 

@@ -1,10 +1,5 @@
 # App definition scaffolding
 
-Port source: twenty-sdk at `ea3e489aa232e70d388f57fd6990ad1abdb524b9`,
-`src/cli/utilities/entity/entity-{object,field,logic-function,front-component}-template.ts`
-and the corresponding branches of `src/cli/commands/dev/add.ts`.
-SDK and create-twenty-app source stay unchanged.
-
 The four templates retain the SDK's definition shapes, name-field reference,
 function handler, example triggers, component markup, directories and filename
 normalization. `add-template-parity.spec.ts` bundles the repository SDK as an
@@ -22,7 +17,7 @@ Intentional CLI adaptations:
   defaults.
 - `--path` selects an app, like the other CLI app commands. Files go under the
   selected app's `src/objects`, `src/fields`, `src/logic-functions` or
-  `src/front-components`. Custom output directories are not part of this slice.
+  `src/front-components`. Custom output directories are not supported.
 - Parent and relation endpoint identifiers must be valid universal UUIDs,
   replacing the old `fill-later` placeholders. No workspace lookup verifies
   ownership or existence. Relations still require reviewing both endpoints;

@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { isDefined } from 'twenty-shared/utils';
 
+import { getToolingErrorContext } from '@/app/get-tooling-error-context';
 import {
   type ToolingBuild,
   type ToolingDiagnostic,
@@ -11,6 +12,7 @@ import {
 import { compileApplication } from '@/app/bundles/compile-application';
 import { collectBuildSnapshot } from '@/app/snapshots/collect-build-snapshot';
 import { validateAppPath } from '@/app/snapshots/validate-app-path';
+import { CliError } from '@/output/cli-error';
 
 const snapshotDirectories = new Map<string, string>();
 
@@ -104,8 +106,13 @@ export const buildSnapshot = async ({
     return {
       success: false,
       error: {
-        code: signal?.aborted ? 'CANCELLED' : 'BUILD_FAILED',
+        code: signal?.aborted
+          ? 'CANCELLED'
+          : error instanceof CliError
+            ? error.code
+            : 'BUILD_FAILED',
         message: error instanceof Error ? error.message : String(error),
+        ...getToolingErrorContext(error),
       },
       diagnostics,
     };

@@ -32,7 +32,11 @@ const isWorkerResponse = (value: unknown): value is AppWorkerResponse =>
     'result' in value &&
     (value.isSnapshotHeld === true || value.isSnapshotHeld === false)) ||
     (value.type === 'released' && 'release' in value) ||
-    (value.type === 'failure' && isString(value.message)));
+    (value.type === 'failure' &&
+      isString(value.message) &&
+      (!isDefined(value.code) || isString(value.code)) &&
+      (!isDefined(value.hint) || isString(value.hint)) &&
+      (!isDefined(value.details) || isPlainObject(value.details))));
 
 export const runAppWorker = async ({
   request,
@@ -201,7 +205,14 @@ export const runAppWorker = async ({
             message: isDefined(failureResponse)
               ? `The app worker failed: ${failureResponse.message}`
               : `The app worker stopped before finishing (${stopReason}). The app or the SDK may have exited the process.`,
-            details: { exitCode, signal: exitSignal, output },
+            hint: failureResponse?.hint,
+            details: {
+              ...failureResponse?.details,
+              workerErrorCode: failureResponse?.code,
+              exitCode,
+              signal: exitSignal,
+              output,
+            },
           }),
         );
       });

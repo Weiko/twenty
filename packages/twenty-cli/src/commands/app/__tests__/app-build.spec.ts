@@ -215,6 +215,71 @@ describe('app build and typecheck with the legacy SDK fallback', () => {
     expect(stdout).toContain('Nothing was uploaded.');
   });
 
+  it('keeps the original diagnostic when the worker throws instead of returning a result', async () => {
+    const { appPath } = await createApp();
+    await writeFakeSdk({
+      appPath,
+      build: `throw Object.assign(new Error('The entry file is missing.'), {
+        code: 'ENOENT',
+        hint: 'Restore src/function.ts before building.',
+        details: { path: 'src/function.ts', exitCode: 99, output: 'untrusted' },
+      });`,
+    });
+
+    const result = await runJson(['app', 'build', '--path', appPath]);
+    expect(result.exitCode).toBe(1);
+    expect(result.envelope.error).toMatchObject({
+      code: 'WORKER_FAILED',
+      message: 'The app worker failed: The entry file is missing.',
+      hint: 'Restore src/function.ts before building.',
+      details: {
+        workerErrorCode: 'ENOENT',
+        path: 'src/function.ts',
+        exitCode: 0,
+        output: { stdout: '', stderr: '', isTruncated: false },
+      },
+    });
+  });
+
+  it('keeps recovery hints and failure details through worker results in JSON and human output', async () => {
+    const { appPath } = await createApp();
+    await writeFakeSdk({
+      appPath,
+      build: `return {
+        success: false,
+        error: {
+          code: 'MISSING_ENTRY',
+          message: 'The entry file is missing.',
+          hint: 'Restore src/function.ts before building.',
+          details: { path: 'src/function.ts', sdkVersion: 'untrusted', diagnostics: [] },
+        },
+        diagnostics: [{ severity: 'warning', code: 'BUILD_WARNING', message: 'Check the app entry.' }],
+      };`,
+    });
+
+    const result = await runJson(['app', 'build', '--path', appPath]);
+    expect(result.exitCode).toBe(1);
+    expect(result.envelope.error).toMatchObject({
+      code: 'BUILD_FAILED',
+      hint: 'Restore src/function.ts before building.',
+      details: {
+        path: 'src/function.ts',
+        sdkErrorCode: 'MISSING_ENTRY',
+        sdkVersion: '9.9.9',
+        diagnostics: [expect.objectContaining({ code: 'BUILD_WARNING' })],
+      },
+    });
+    const human = await runCliForTest([
+      'app',
+      'build',
+      '--legacy-sdk',
+      '--path',
+      appPath,
+    ]);
+    expect(human.exitCode).toBe(1);
+    expect(human.stderr).toContain('Restore src/function.ts before building.');
+  });
+
   it('typechecks with an SDK that only supports typecheck', async () => {
     const { appPath } = await createApp();
 

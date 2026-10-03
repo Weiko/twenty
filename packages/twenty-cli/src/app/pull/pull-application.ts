@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { isDefined } from 'twenty-shared/utils';
 
+import { getToolingErrorContext } from '@/app/get-tooling-error-context';
 import { assertPullPaths } from '@/app/pull/assert-pull-paths';
 import { collectIdentifiers } from '@/app/pull/collect-identifiers';
 import { getOverwrittenLocalChanges } from '@/app/pull/get-overwritten-local-changes';
@@ -182,6 +183,7 @@ export const pullApplication = async (
               ? error.code
               : 'PULL_FAILED',
         message: error instanceof Error ? error.message : String(error),
+        ...getToolingErrorContext(error),
         details: {
           outcome: 'unchanged',
           ...(error instanceof CliError ? error.details : {}),

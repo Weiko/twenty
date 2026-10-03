@@ -45,4 +45,10 @@ export type AppWorkerResponse =
       watchInputs?: WatchInputs;
     }
   | { type: 'released'; release: unknown }
-  | { type: 'failure'; message: string };
+  | {
+      type: 'failure';
+      message: string;
+      code?: string;
+      hint?: string;
+      details?: Record<string, unknown>;
+    };

@@ -1,5 +1,6 @@
 import { stop } from 'esbuild';
 
+import { getToolingErrorContext } from '@/app/get-tooling-error-context';
 import { buildAndValidateManifest } from '@/app/manifest/build-and-validate-manifest';
 import { type AppManifest } from '@/app/manifest/types/app-manifest.type';
 import { resolveSourceSdk } from '@/app/resolve-source-sdk';
@@ -70,6 +71,7 @@ export const buildSourceManifest = async ({
             ? error.code
             : 'MANIFEST_BUILD_FAILED',
         message: error instanceof Error ? error.message : String(error),
+        ...getToolingErrorContext(error),
       },
       diagnostics,
     };

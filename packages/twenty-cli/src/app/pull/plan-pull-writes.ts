@@ -20,6 +20,7 @@ export type PullWrite = {
   universalIdentifier: string;
   relativePath: string;
   content: string;
+  requiredSdkExports: string[];
   isRegeneration: boolean;
 };
 
@@ -282,7 +283,7 @@ export const planPullWrites = ({
       kind: entity.kind,
       universalIdentifier: entity.universalIdentifier,
       relativePath,
-      content: writeDefineFile({
+      ...writeDefineFile({
         definer: entity.definer,
         config: entity.config,
         enumBindings: entity.enumBindings,

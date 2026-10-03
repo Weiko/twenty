@@ -221,6 +221,7 @@ export const planTranslationWrites = async ({
 
       writes.push({
         kind: 'translation',
+        requiredSdkExports: [],
         universalIdentifier: locale,
         relativePath,
         content,

@@ -42,7 +42,7 @@ describe('SDK exports required by generated source', () => {
         'exports.definePageLayoutWidget = () => {}; exports.WidgetType = {};',
       );
 
-      const content = writeDefineFile(
+      const { content, requiredSdkExports } = writeDefineFile(
         wrapped
           ? {
               definer: 'definePageLayoutWidget',
@@ -60,11 +60,7 @@ describe('SDK exports required by generated source', () => {
           appPath,
           writes: [
             {
-              kind: 'application',
-              universalIdentifier: 'test',
-              relativePath: 'app.ts',
-              content,
-              isRegeneration: false,
+              requiredSdkExports,
             },
           ],
         });

@@ -36,7 +36,10 @@ export const runAppPullCommand: CommandRun<TargetCommandContext> = async ({
 
   const explicitIdentifier = readStringOption(options, 'universalIdentifier');
 
-  if (isDefined(explicitIdentifier) && !isValidUniversalIdentifier(explicitIdentifier)) {
+  if (
+    isDefined(explicitIdentifier) &&
+    !isValidUniversalIdentifier(explicitIdentifier)
+  ) {
     throw new CliError({
       code: 'INVALID_INPUT',
       exitCode: EXIT_CODE.USAGE,

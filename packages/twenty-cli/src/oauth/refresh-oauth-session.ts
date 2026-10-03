@@ -5,14 +5,12 @@ import { readConfig } from '@/config/read-config';
 import { type ConfigFile } from '@/config/types/config-file.type';
 import { withConfigLock } from '@/config/with-config-lock';
 import { writeConfigAtomically } from '@/config/write-config-atomically';
+import { discoverOAuthServer } from '@/oauth/discover-oauth-server';
 import { isAccessTokenExpiring } from '@/oauth/is-access-token-expiring';
 import { requestOAuthTokens } from '@/oauth/request-oauth-tokens';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 import { parseApiUrl } from '@/target/parse-api-url';
-import { resolveRequestUrl } from '@/transport/resolve-request-url';
-
-const OAUTH_TOKEN_PATH = '/oauth/token';
 
 const createSessionExpiredError = (remoteName: string, details?: unknown) =>
   new CliError({
@@ -106,10 +104,10 @@ export const refreshOAuthSession = ({
         throw createSessionExpiredError(remoteName);
       }
 
+      const { tokenEndpoint } = await discoverOAuthServer({ apiUrl, signal });
       const tokens = await requestOAuthTokens({
         apiUrl,
-        tokenEndpoint: resolveRequestUrl({ apiUrl, path: OAUTH_TOKEN_PATH })
-          .href,
+        tokenEndpoint,
         parameters: {
           grant_type: 'refresh_token',
           refresh_token: refreshToken,

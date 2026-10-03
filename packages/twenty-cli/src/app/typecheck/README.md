@@ -1,9 +1,8 @@
 # Application typechecking
 
-B4 ports `src/application-build/typecheck-application.ts` from twenty-sdk at
-`85902c53835d7f2d21399118a2bdd8896d3eb53c`. The compiler program, diagnostic
-conversion and result handling retain the SDK implementation. Compare that
-source with the recorded commit and rerun parity when porting an SDK fix.
+The CLI typechecks applications using their own TypeScript installation.
+The SDK implementation is retained as a test-only parity reference; see the
+[app tooling overview](../README.md) for package ownership.
 
 The internal `typecheckSource` worker request checks an app without loading SDK
 tooling. `bundleSnapshot` now runs this typecheck after bundling, in the SDK's
@@ -51,13 +50,13 @@ legacy watch typecheck plugin parses only source-located `tsc` output and can
 miss configuration or project-reference errors. Moving to the CLI pipeline will
 require fixing those configurations. Different project and SDK compiler versions
 can also produce different diagnostics; align versions when comparing results.
-The SDK itself is unchanged in this slice.
+The SDK package keeps its existing behavior during migration.
 
-Release blocker for SDK slimming: the current template's
-`src/__tests__/global-setup.ts` imports `twenty-sdk/cli`, and its build tsconfig
-includes that file. The unchanged template therefore fails with TS2307 when the
-SDK supplies only authoring/runtime exports. Migrate that test harness before
-removing the SDK CLI export; it must not gain an import of the global CLI.
+New `twenty app init` projects use the CLI test-harness overlay and no longer
+import `twenty-sdk/cli`. The separate `create-twenty-app` package still has its
+legacy test harness. Its compatibility must be handled before removing the SDK
+CLI export; existing app maintainers also need to migrate their own harnesses.
+Neither harness should import a global CLI package as a library.
 
 ## Verification
 
@@ -76,6 +75,6 @@ ts-morph dependency for this test only, without a new CLI dependency.
 Snapshot parity now runs both real typecheck phases, with no compiler bypass.
 The app fixture supplies only the SDK's authoring/runtime exports. The apply
 contract still exercises both snapshot producers against the local HTTP fixture.
-For the fresh template, parity asserts the legacy harness error, then compares
-successful builds after excluding the test harness and test-runner configuration
-from that temporary app's build config. The template source remains unchanged.
+For the fresh CLI template, parity compares successful builds with the test
+setup included and Vitest configuration files excluded. The template supplied
+by `create-twenty-app` remains separate from the CLI overlay.

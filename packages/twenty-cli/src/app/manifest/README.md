@@ -1,28 +1,13 @@
 # Manifest generation
 
-This is B2 of the migration of app tooling into the CLI. It provides manifest
-construction, validation and translation compilation through the internal
-`buildManifest` worker request and the default CLI snapshot pipeline used by
-public build, plan and apply commands. The temporary `--legacy-sdk` fallback
-retains the existing SDK snapshot pipeline.
+The manifest builder constructs and validates metadata and compiles translations
+for build, plan and apply. The worker evaluates definitions through
+[app/source](../source/README.md); bundling and final artifact checksums belong to
+[app/bundles](../bundles/README.md).
 
-## Source
-
-Ported from twenty-sdk at `85902c53835d7f2d21399118a2bdd8896d3eb53c`:
-
-- `src/cli/utilities/build/manifest/{build-and-validate-manifest,manifest-build,manifest-validate}.ts`
-  and their `utils` directory;
-- `src/cli/utilities/version/get-engine-version-range.ts`;
-- `src/cli/utilities/translations/{compile-application-translations,compile-catalog-to-message-ids}.ts`;
-- the definition config types under `src/sdk/define`,
-  `objects/is-engine-derived-label-identifier.ts` and
-  `conditional-availability/conditional-availability-variable-names.ts`.
-
-SDK source is unchanged. Compare these paths with the recorded commit when
-bringing in SDK fixes, and run the parity suite against the updated SDK source.
-The existing CLI source loader and locale helpers already carry their own port
-provenance. `uuid` is bundled for the same deterministic identifiers and UUID
-validation as the SDK.
+The SDK implementation remains a test-only parity reference for the default
+pipeline. See the [app tooling overview](../README.md) for package ownership and
+the temporary legacy pipeline.
 
 ## Preserved behavior
 
@@ -31,7 +16,7 @@ permission identifiers, infers logic-function input schemas, resolves lifecycle
 hooks, reads the README and validates entity relationships, identifiers, role
 permissions and conditional availability. Manifests are sorted in the same order
 and carry the same checksum placeholders. Bundling and final checksums belong to
-B3.
+the bundler.
 
 `package.json`'s `engines.twenty` is copied unchanged into
 `application.requiredServerVersionRange`, apart from the SDK's existing trim and

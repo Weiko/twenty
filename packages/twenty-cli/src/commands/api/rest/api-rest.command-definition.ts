@@ -14,7 +14,7 @@ export const API_REST_COMMAND_DEFINITION: TargetCommandDefinition = {
   options: [
     {
       flags: '-X, --method <method>',
-      description: 'HTTP method, GET unless a body is sent',
+      description: 'HTTP method, defaults to GET; required with --body',
       choices: REST_METHODS,
     },
     {

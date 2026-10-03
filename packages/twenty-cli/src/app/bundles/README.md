@@ -1,30 +1,13 @@
 # Bundles and snapshots
 
-B3 ports the SDK's one-shot application bundler and snapshot lifecycle into the
-CLI. The internal `bundleSnapshot` worker request builds and holds or releases a
-snapshot under `.twenty/cli/snapshots/build-*`. B4 adds the app's own TypeScript
-compiler through the [typecheck port](../typecheck/README.md). Public build, plan,
-apply and uninstall use this pipeline by default. The temporary `--legacy-sdk`
-flag selects the old SDK pipeline. Worker requests remain internal, not a public
-API or a way to bypass checks in `twenty app build`.
+The CLI owns application bundling and immutable snapshot lifecycle. The internal
+`bundleSnapshot` worker request builds and holds or releases a snapshot under
+`.twenty/cli/snapshots/build-*`. The [typechecker](../typecheck/README.md) uses the
+app's own TypeScript compiler. Build, plan, apply and uninstall use this pipeline.
+Worker requests are internal, not a public API or a way to bypass build checks.
 
-## Source
-
-Copied from twenty-sdk at `85902c53835d7f2d21399118a2bdd8896d3eb53c`:
-
-- `src/cli/utilities/build/common`: one-shot build, result processing, static
-  file copying, define stubs and front-component plugins, including shared
-  dependency bundles;
-- `src/cli/utilities/build/cover`, including the unchanged backdrop PNG;
-- `src/cli/utilities/build/manifest/{manifest-update-checksums,manifest-writer}.ts`;
-- `src/cli/utilities/translations/load-front-component-translation-catalogs.ts`;
-- `src/application-build/{build-snapshot,collect-build-snapshot,validate-app-path}.ts`;
-- the external-module list and file-built callback type from the SDK watcher,
-  and the front-component translation key and catalog type from its runtime.
-
-Compare these paths with the recorded commit when bringing in SDK fixes, and run
-the parity suite against the updated SDK source. The SDK, create-twenty-app,
-client SDK and server are unchanged in this slice.
+See the [app tooling overview](../README.md) for package ownership and the
+temporary legacy pipeline.
 
 ## Preserved behavior
 
@@ -49,10 +32,9 @@ SDK. Cleanup never removes legacy output or another build's snapshot.
 
 ## CLI adaptations
 
-- Imports point to the CLI ports, reusing the B1 loader, B2 manifest and
-  translations, existing filesystem helpers and `hasErrorCode` for filesystem
-  errors. Only the callback and external module list move from the watcher;
-  watch remains a later slice.
+- Source loading, manifest generation, translations and filesystem helpers are
+  shared with the other CLI app operations. The [dev session](../dev/README.md)
+  observes the build's inputs and retains immutable copies for remote apply.
 - The define stub reads `twenty-sdk/define` from the app's installed SDK instead
   of importing the SDK's own source barrel. Its factory/plain-data/proxy
   partition and emitted JavaScript are unchanged. This keeps runtime constants
@@ -89,10 +71,10 @@ The parity suite builds all five repository fixtures and a fresh CLI-created app
 through the SDK reference and the production CLI worker. The app has a copy of
 the real authoring SDK without its build/CLI exports or implementation files.
 Successful builds have identical manifests, artifact roles/paths/sizes/hashes
-and content hashes. The invalid fixture fails in both pipelines. The fresh template
-first reports its legacy SDK test-harness import; excluding that harness from
-the temporary app's build config produces identical successful builds. See the
-[typecheck migration notes](../typecheck/README.md).
+and content hashes. The invalid fixture fails in both pipelines. The fresh
+CLI template's test setup also typechecks with an authoring-only SDK. The parity
+fixture excludes Vitest configuration files to keep its build comparison focused
+on application source, including the test setup.
 
 Only build IDs/directories and JSON-omitted `undefined` properties are normalized
 in snapshot comparisons. File bytes, including the manifest, are exact except

@@ -1,6 +1,7 @@
 import { readBooleanOption } from '@/catalog/read-command-values';
 import { type CommandRun } from '@/catalog/types/command-run.type';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';
+import { collectMetadataNodes } from '@/metadata/collect-metadata-nodes';
 import { formatMetadataOwner } from '@/metadata/format-metadata-owner';
 import { METADATA_OWNER_KIND_ORDER } from '@/metadata/constants/metadata-owner-kind-order.constant';
 import { METADATA_PAGE_SIZE } from '@/metadata/constants/metadata-page.constant';
@@ -12,11 +13,11 @@ import { createMetadataClient } from '@/transport/metadata/create-metadata-clien
 
 type MetadataClient = ReturnType<typeof createMetadataClient>;
 
-const fetchObjects = (client: MetadataClient) =>
+const fetchObjects = (client: MetadataClient, after?: string) =>
   client.query({
     objects: {
-      __args: { paging: { first: METADATA_PAGE_SIZE }, filter: {} },
-      pageInfo: { hasNextPage: true },
+      __args: { paging: { first: METADATA_PAGE_SIZE, after }, filter: {} },
+      pageInfo: { hasNextPage: true, endCursor: true },
       edges: {
         node: {
           nameSingular: true,
@@ -40,12 +41,9 @@ export const runMetadataObjectListCommand: CommandRun<
   const [{ objects, currentWorkspace }, { applications, areOwnersNamed }] =
     await Promise.all([fetchObjects(client), fetchOwnerApplications(client)]);
 
-  if (objects.pageInfo.hasNextPage === true) {
-    output.warn({
-      code: 'INCOMPLETE_LIST',
-      message: `Only the first ${METADATA_PAGE_SIZE} objects are listed.`,
-    });
-  }
+  const objectNodes = await collectMetadataNodes(async (after) =>
+    after === undefined ? objects : (await fetchObjects(client, after)).objects,
+  );
 
   if (!areOwnersNamed) {
     output.warn({
@@ -59,12 +57,10 @@ export const runMetadataObjectListCommand: CommandRun<
     applications,
     workspaceCustomApplicationId: currentWorkspace.workspaceCustomApplicationId,
   });
-  const allObjects = objects.edges.map(
-    ({ node: { applicationId, ...object } }) => ({
-      ...object,
-      owner: resolveOwner(applicationId),
-    }),
-  );
+  const allObjects = objectNodes.map(({ applicationId, ...object }) => ({
+    ...object,
+    owner: resolveOwner(applicationId),
+  }));
   const listedObjects = allObjects
     .filter((object) => includeSystemObjects || !object.isSystem)
     .sort((first, second) => {

@@ -1,5 +1,5 @@
 import { isEngineDerivedLabelIdentifier } from '@/app/manifest/utils/is-engine-derived-label-identifier';
-import type { ObjectConfig } from '@/app/manifest/types/object-config';
+import type { ObjectConfig } from '@/app/manifest/types/object-config.type';
 import {
   getFieldUniversalIdentifier,
   type ObjectFieldManifest,

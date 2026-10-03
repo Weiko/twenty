@@ -6,7 +6,13 @@
   },
   "ignorePatterns": ["node_modules", "dist"],
   "rules": {
-    "func-style": ["error", "declaration", { "allowArrowFunctions": true }],
+    "func-style": [
+      "error",
+      "declaration",
+      {
+        "allowArrowFunctions": true
+      }
+    ],
     "no-console": "off",
     "no-control-regex": "off",
     "no-debugger": "error",
@@ -33,7 +39,7 @@
       }
     ],
     "typescript/no-empty-function": "off",
-    "typescript/no-explicit-any": "off",
+    "typescript/no-explicit-any": "error",
     "typescript/no-unused-vars": [
       "warn",
       {
@@ -42,6 +48,19 @@
         "args": "after-used",
         "argsIgnorePattern": "^_"
       }
+    ],
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "twenty/no-miscased-acronym-in-identifier": "error",
+    "twenty/types-folder-filename": [
+      "error",
+      {
+        "convention": "kebab-case-type-suffix"
+      }
     ]
+  },
+  "jsPlugins": ["../twenty-oxlint-rules/dist/oxlint-plugin.mjs"],
+  "options": {
+    "typeAware": true
   }
 }

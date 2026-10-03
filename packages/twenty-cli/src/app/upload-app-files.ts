@@ -13,7 +13,7 @@ import {
 } from '@/app/types/tooling-result.type';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
-import { sendGraphqlRequest } from '@/transport/graphql/send-graphql-request';
+import { createMetadataClient } from '@/transport/metadata/create-metadata-client';
 
 type UploadTarget = {
   fileId: string;
@@ -34,30 +34,6 @@ type UploadBatchContext = {
   signal: AbortSignal;
   progress: AppUploadProgress;
 };
-
-const CREATE_UPLOADS_MUTATION = `mutation CreateApplicationFileUploads($applicationUniversalIdentifier: String!, $files: [ApplicationFileUploadRequestInput!]!) {
-  createApplicationFileUploads(applicationUniversalIdentifier: $applicationUniversalIdentifier, files: $files) {
-    targets {
-      fileId
-      filePath
-      uploadUrl
-      contentType
-    }
-    errors {
-      filePath
-      message
-    }
-  }
-}`;
-
-const COMPLETE_UPLOADS_MUTATION = `mutation CompleteApplicationFileUploads($applicationUniversalIdentifier: String!, $fileIds: [UUID!]!) {
-  completeApplicationFileUploads(applicationUniversalIdentifier: $applicationUniversalIdentifier, fileIds: $fileIds) {
-    errors {
-      fileId
-      message
-    }
-  }
-}`;
 
 const createInvalidUploadResponseError = () =>
   new CliError({
@@ -160,14 +136,22 @@ const requestUploadTargets = async ({
   artifacts: ToolingArtifact[];
   context: UploadBatchContext;
 }) => {
-  const data = await sendGraphqlRequest({
+  const data = await createMetadataClient({
     target: context.target,
     signal: context.signal,
-    endpoint: 'metadata',
-    query: CREATE_UPLOADS_MUTATION,
-    variables: {
-      applicationUniversalIdentifier: context.applicationUniversalIdentifier,
-      files: artifacts.map(toUploadRequest),
+  }).mutation({
+    createApplicationFileUploads: {
+      __args: {
+        applicationUniversalIdentifier: context.applicationUniversalIdentifier,
+        files: artifacts.map(toUploadRequest),
+      },
+      targets: {
+        fileId: true,
+        filePath: true,
+        uploadUrl: true,
+        contentType: true,
+      },
+      errors: { filePath: true, message: true },
     },
   });
   const created = data?.createApplicationFileUploads;
@@ -286,14 +270,16 @@ const completeUploads = async ({
     return;
   }
 
-  const data = await sendGraphqlRequest({
+  const data = await createMetadataClient({
     target: context.target,
     signal: context.signal,
-    endpoint: 'metadata',
-    query: COMPLETE_UPLOADS_MUTATION,
-    variables: {
-      applicationUniversalIdentifier: context.applicationUniversalIdentifier,
-      fileIds: sentTargets.map((uploadTarget) => uploadTarget.fileId),
+  }).mutation({
+    completeApplicationFileUploads: {
+      __args: {
+        applicationUniversalIdentifier: context.applicationUniversalIdentifier,
+        fileIds: sentTargets.map((uploadTarget) => uploadTarget.fileId),
+      },
+      errors: { fileId: true, message: true },
     },
   });
   const completion = data?.completeApplicationFileUploads;

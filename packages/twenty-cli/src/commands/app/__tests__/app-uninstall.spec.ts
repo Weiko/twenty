@@ -5,8 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { readGraphqlRequest } from '@/__tests__/utils/read-graphql-request';
 import { isString } from '@sniptt/guards';
-import { isDefined, isPlainObject } from 'twenty-shared/utils';
+import { isDefined } from 'twenty-shared/utils';
 import {
   afterAll,
   afterEach,
@@ -81,18 +82,6 @@ const graphqlError = ({
   ],
 });
 
-const readGraphqlRequest = (request: RecordedRequest) => {
-  const body: unknown = JSON.parse(request.body);
-
-  return {
-    query: isPlainObject(body) && isString(body.query) ? body.query : '',
-    variables:
-      isPlainObject(body) && isPlainObject(body.variables)
-        ? body.variables
-        : {},
-  };
-};
-
 const getOperation = (request: RecordedRequest) => {
   const { query } = readGraphqlRequest(request);
 
@@ -105,7 +94,7 @@ const getOperation = (request: RecordedRequest) => {
 
 const server = await startTestServer((request, response) => {
   const operation = getOperation(request);
-  const { variables } = readGraphqlRequest(request);
+  const { arguments: variables } = readGraphqlRequest(request);
 
   if (operation === 'check') {
     return sendJson(
@@ -268,7 +257,7 @@ describe('app uninstall with the legacy SDK fallback', () => {
       completedPhases: ['build', 'check', 'uninstall'],
     });
     expect(operations()).toEqual(['check', 'uninstall']);
-    expect(readGraphqlRequest(server.requests[1]).variables).toEqual({
+    expect(readGraphqlRequest(server.requests[1]).arguments).toEqual({
       universalIdentifier: APPLICATION.universalIdentifier,
     });
     expect(await readFile(join(sdkPath, 'released.txt'), 'utf8')).toBe(
@@ -301,7 +290,7 @@ describe('app uninstall with the legacy SDK fallback', () => {
     );
     expect(
       server.requests.map(
-        (request) => readGraphqlRequest(request).variables.universalIdentifier,
+        (request) => readGraphqlRequest(request).arguments.universalIdentifier,
       ),
     ).toEqual([
       APPLICATION.universalIdentifier,

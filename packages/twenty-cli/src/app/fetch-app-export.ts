@@ -7,29 +7,7 @@ import { parseAppExport } from '@/app/parse-app-export';
 import { type AppExport } from '@/app/types/app-export.type';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
-import { sendGraphqlRequest } from '@/transport/graphql/send-graphql-request';
-
-const EXPORT_QUERY = `query ExportApplication($universalIdentifier: UUID!) {
-  exportApplication(universalIdentifier: $universalIdentifier) {
-    application {
-      universalIdentifier
-      displayName
-      sourceType
-    }
-    manifest
-    coverage {
-      metadataName
-      universalIdentifier
-      status
-      reason
-    }
-    files {
-      folder
-      path
-      content
-    }
-  }
-}`;
+import { createMetadataClient } from '@/transport/metadata/create-metadata-client';
 
 const NOT_EXPORTABLE_SUB_CODES = new Set([
   'APPLICATION_NOT_EXPORTABLE',
@@ -90,38 +68,51 @@ export const fetchAppExport = async ({
   target: ResolvedTarget;
   signal: AbortSignal;
 }): Promise<AppExport> => {
-  const data = await sendGraphqlRequest({
-    target,
-    signal,
-    endpoint: 'metadata',
-    query: EXPORT_QUERY,
-    variables: { universalIdentifier },
-  }).catch((error: unknown) => {
-    if (isApplicationNotFoundError({ error, field: 'exportApplication' })) {
-      throw createAppNotInstalledError({
-        universalIdentifier,
-        apiUrl: target.apiUrl,
-      });
-    }
+  const data = await createMetadataClient({ target, signal })
+    .query({
+      exportApplication: {
+        __args: { universalIdentifier },
+        application: {
+          universalIdentifier: true,
+          displayName: true,
+          sourceType: true,
+        },
+        manifest: true,
+        coverage: {
+          metadataName: true,
+          universalIdentifier: true,
+          status: true,
+          reason: true,
+        },
+        files: { folder: true, path: true, content: true },
+      },
+    })
+    .catch((error: unknown) => {
+      if (isApplicationNotFoundError({ error, field: 'exportApplication' })) {
+        throw createAppNotInstalledError({
+          universalIdentifier,
+          apiUrl: target.apiUrl,
+        });
+      }
 
-    if (isExportUnsupportedError(error)) {
-      throw new CliError({
-        code: 'APP_EXPORT_UNSUPPORTED',
-        message: 'This server does not support application export.',
-      });
-    }
+      if (isExportUnsupportedError(error)) {
+        throw new CliError({
+          code: 'APP_EXPORT_UNSUPPORTED',
+          message: 'This server does not support application export.',
+        });
+      }
 
-    if (isNotExportableError(error)) {
-      throw new CliError({
-        code: 'APP_NOT_EXPORTABLE',
-        message: error.message,
-        hint: 'Only apps developed locally can be pulled: not the standard app, and not apps installed from a package.',
-        details: { universalIdentifier },
-      });
-    }
+      if (isNotExportableError(error)) {
+        throw new CliError({
+          code: 'APP_NOT_EXPORTABLE',
+          message: error.message,
+          hint: 'Only apps developed locally can be pulled: not the standard app, and not apps installed from a package.',
+          details: { universalIdentifier },
+        });
+      }
 
-    throw error;
-  });
+      throw error;
+    });
   return parseAppExport({
     value: data?.exportApplication,
     universalIdentifier,

@@ -3,7 +3,7 @@ import { relative, sep } from 'node:path';
 
 import { glob } from 'tinyglobby';
 
-import { hashContent } from '@/app/pull/hash-content';
+import { hashContent } from '@/utils/hash-content';
 import { listApplicationSourceFiles } from '@/app/source/list-application-source-files';
 import {
   COMPILED_LOCALES_DIR,

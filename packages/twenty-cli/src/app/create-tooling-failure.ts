@@ -1,6 +1,6 @@
 import { type ToolingDiagnostic } from '@/app/types/tooling-result.type';
 import { CliError } from '@/output/cli-error';
-import { EXIT_CODE } from '@/output/constants/exit-code.constant';
+import { createCancelledError } from '@/output/create-cancelled-error';
 
 export const createToolingFailure = ({
   error,
@@ -16,11 +16,7 @@ export const createToolingFailure = ({
   operation?: 'build' | 'generateClient';
 }) => {
   if (error.code === 'CANCELLED') {
-    return new CliError({
-      code: 'CANCELLED',
-      message: 'Cancelled.',
-      exitCode: EXIT_CODE.CANCELLED,
-    });
+    return createCancelledError();
   }
 
   const errorCount = diagnostics.filter(

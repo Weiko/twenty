@@ -4,7 +4,7 @@ import { type Manifest } from 'twenty-shared/application';
 import { isDefined } from 'twenty-shared/utils';
 
 import { buildPullBaseEntities } from '@/app/pull/build-pull-base-entities';
-import { hashContent } from '@/app/pull/hash-content';
+import { hashContent } from '@/utils/hash-content';
 import { type PullDeletion, type PullWrite } from '@/app/pull/plan-pull-writes';
 import { planTranslationWrites } from '@/app/pull/plan-translation-writes';
 import { writeDefineFile } from '@/app/pull/write-define-file';

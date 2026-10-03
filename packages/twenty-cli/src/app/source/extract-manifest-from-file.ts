@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { access } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import vm from 'node:vm';
@@ -11,6 +10,7 @@ import { isDefined, isPlainObject } from 'twenty-shared/utils';
 import { conditionalAvailabilityTransformPlugin } from '@/app/source/conditional-availability-transform-plugin';
 import { type SourceValidationResult } from '@/app/source/types/source-validation-result.type';
 import { getWatchInputPlugins } from '@/app/dev/collect-watch-inputs';
+import { pathExists } from '@/app/fs-utils';
 import { CliError } from '@/output/cli-error';
 
 type CompiledModuleWrapper = (
@@ -112,10 +112,7 @@ const loadModule = async ({
   appPath: string;
 }): Promise<Record<string, unknown>> => {
   const tsconfigPath = path.join(appPath, 'tsconfig.json');
-  const hasTsconfig = await access(tsconfigPath).then(
-    () => true,
-    () => false,
-  );
+  const hasTsconfig = await pathExists(tsconfigPath);
 
   const appRequire = createRequire(path.join(appPath, 'package.json'));
   let reactPath: string | undefined;

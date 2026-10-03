@@ -1,7 +1,6 @@
 import { createInterface } from 'node:readline/promises';
 
-import { CliError } from '@/output/cli-error';
-import { EXIT_CODE } from '@/output/constants/exit-code.constant';
+import { createCancelledError } from '@/output/create-cancelled-error';
 
 export const promptForAppAddValue = async ({
   question,
@@ -28,11 +27,7 @@ export const promptForAppAddValue = async ({
     });
   } catch (error) {
     if (signal.aborted || cancellation.signal.aborted) {
-      throw new CliError({
-        code: 'CANCELLED',
-        exitCode: EXIT_CODE.CANCELLED,
-        message: 'Cancelled.',
-      });
+      throw createCancelledError();
     }
 
     throw error;

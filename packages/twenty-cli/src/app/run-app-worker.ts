@@ -14,7 +14,7 @@ import {
   type AppWorkerResponse,
 } from '@/app/types/app-worker-message.type';
 import { CliError } from '@/output/cli-error';
-import { EXIT_CODE } from '@/output/constants/exit-code.constant';
+import { createCancelledError } from '@/output/create-cancelled-error';
 
 type HeldBuild = {
   result: unknown;
@@ -180,13 +180,7 @@ export const runAppWorker = async ({
         }
 
         if (signal.aborted) {
-          reject(
-            new CliError({
-              code: 'CANCELLED',
-              message: 'Cancelled.',
-              exitCode: EXIT_CODE.CANCELLED,
-            }),
-          );
+          reject(createCancelledError());
 
           return;
         }

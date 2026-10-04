@@ -156,7 +156,13 @@ export const pullApplication = async (
           displayName: applicationExport.application.displayName,
         },
         base: { status: base.status },
-        writes: writes.map(({ content: _content, ...write }) => write),
+        writes: writes.map(
+          ({
+            content: _content,
+            requiredSdkExports: _requiredSdkExports,
+            ...write
+          }) => write,
+        ),
         deletions,
         overwrittenLocalChanges,
         unchangedCount: plan.unchanged.length,

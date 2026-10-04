@@ -20,7 +20,7 @@ export type PullBaseStatus =
 export type PullAppResult = {
   application: { universalIdentifier: string; displayName: string };
   base: { status: PullBaseStatus };
-  writes: Omit<PullWrite, 'content'>[];
+  writes: Omit<PullWrite, 'content' | 'requiredSdkExports'>[];
   deletions: PullDeletion[];
   overwrittenLocalChanges: PullDeletion[];
   unchangedCount: number;

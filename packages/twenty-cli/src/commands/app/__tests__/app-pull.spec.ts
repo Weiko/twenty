@@ -146,7 +146,8 @@ describe('app pull command with the packaged worker', () => {
     );
     expect(
       result.envelope.data.writes.every(
-        (write: Record<string, unknown>) => !('content' in write),
+        (write: Record<string, unknown>) =>
+          !('content' in write) && !('requiredSdkExports' in write),
       ),
     ).toBe(true);
     expect(

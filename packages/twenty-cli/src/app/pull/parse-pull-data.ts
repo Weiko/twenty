@@ -6,7 +6,7 @@ import {
   type PullEntityKind,
   type SkippedPullEntity,
 } from '@/app/pull/build-pull-entities';
-import { type PullWrite, type PullDeletion } from '@/app/pull/plan-pull-writes';
+import { type PullDeletion } from '@/app/pull/plan-pull-writes';
 import { type PullAppResult } from '@/app/pull/types';
 
 const isPullEntityKind = (value: unknown): value is PullEntityKind =>
@@ -17,7 +17,7 @@ const isPath = (value: unknown): value is PullDeletion =>
   isString(value.universalIdentifier) &&
   isString(value.relativePath);
 
-const isWrite = (value: unknown): value is Omit<PullWrite, 'content'> =>
+const isWrite = (value: unknown): value is PullAppResult['writes'][number] =>
   isPlainObject(value) &&
   (isPullEntityKind(value.kind) || value.kind === 'translation') &&
   isBoolean(value.isRegeneration) &&

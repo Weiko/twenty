@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest';
 
 describe('writeDefineFile', () => {
   it('should write an enum-valued property as a symbol and import it', () => {
-    const file = writeDefineFile({
+    const { content: file, requiredSdkExports } = writeDefineFile({
       definer: 'defineField',
       config: {
         universalIdentifier: 'field-uid',
@@ -29,12 +29,17 @@ describe('writeDefineFile', () => {
     expect(file).toContain(
       "import { defineField, FieldType, MetadataWritability } from 'twenty-sdk/define';",
     );
+    expect(requiredSdkExports).toEqual([
+      'defineField',
+      'FieldType',
+      'MetadataWritability',
+    ]);
     expect(file).toContain('type: FieldType.TEXT,');
     expect(file).toContain('writability: MetadataWritability.OPEN,');
   });
 
   it('should look up an enum member whose name differs from its value', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'defineField',
       config: {
         universalIdentifier: 'field-uid',
@@ -48,7 +53,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should leave a string that is not a member of the bound enum as a literal', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'defineField',
       config: { universalIdentifier: 'field-uid', type: 'NOT_A_FIELD_TYPE' },
       enumBindings: FIELD_ENUM_BINDINGS,
@@ -59,7 +64,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should only bind enum properties at the declared path', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'defineIndex',
       config: {
         universalIdentifier: 'index-uid',
@@ -74,7 +79,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should wrap the import statement when it grows past one line', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'defineObject',
       config: {
         writability: 'OPEN',
@@ -99,7 +104,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should quote a key that is not a valid identifier and escape strings', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'defineApplication',
       config: {
         displayName: "Tim's app",
@@ -116,7 +121,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should end with a single default export of the definer call', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'defineObject',
       config: { nameSingular: 'pet' },
     });
@@ -131,7 +136,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should write every bound view property as its enum symbol and import each symbol on its own line', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'defineView',
       config: {
         universalIdentifier: 'view-uid',
@@ -208,7 +213,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should leave a filter operand that is not a member of ViewFilterOperand as a literal', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'defineView',
       config: {
         universalIdentifier: 'view-uid',
@@ -229,7 +234,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should not bind an operand that sits on the view itself rather than inside its filters', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'defineView',
       config: {
         universalIdentifier: 'view-uid',
@@ -243,7 +248,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should write a standalone view field aggregate operation as an AggregateOperations member', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'defineViewField',
       config: {
         universalIdentifier: 'view-field-uid',
@@ -263,7 +268,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should write every bound page layout property as its enum symbol and import each symbol on its own line', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'definePageLayout',
       config: {
         universalIdentifier: 'page-layout-uid',
@@ -350,7 +355,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should not bind a layout mode that sits on the page layout itself rather than on its tabs', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'definePageLayout',
       config: { universalIdentifier: 'page-layout-uid', layoutMode: 'GRID' },
       enumBindings: PAGE_LAYOUT_ENUM_BINDINGS,
@@ -363,7 +368,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should write a standalone page layout tab with its widgets under the tab enum bindings', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'definePageLayoutTab',
       config: {
         universalIdentifier: 'tab-uid',
@@ -420,7 +425,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should write a nameless object navigation menu item with its type as a NavigationMenuItemType member', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'defineNavigationMenuItem',
       config: {
         universalIdentifier: 'ad199fde-d4f4-4634-a94c-95b52fa32567',
@@ -447,7 +452,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should write a folder navigation menu item with its name and icon', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'defineNavigationMenuItem',
       config: {
         universalIdentifier: 'navigation-menu-item-uid',
@@ -476,7 +481,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should write the row-level predicates, predicate groups and system permission flags of a role as enum members', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'defineRole',
       config: {
         universalIdentifier: 'role-uid',
@@ -527,7 +532,7 @@ describe('writeDefineFile', () => {
   });
 
   it('should write a permission flag with its permission type as a literal', () => {
-    const file = writeDefineFile({
+    const { content: file } = writeDefineFile({
       definer: 'definePermissionFlag',
       config: {
         universalIdentifier: 'permission-flag-uid',

@@ -1,5 +1,6 @@
 import { stop } from 'esbuild';
 
+import { getToolingErrorContext } from '@/app/get-tooling-error-context';
 import { readApplicationIdentity } from '@/app/source/read-application-identity';
 import { type AppSourceIdentity } from '@/app/source/types/app-source-identity.type';
 import { type ToolingResult } from '@/app/types/tooling-result.type';
@@ -28,6 +29,7 @@ export const readSourceIdentity = async ({
             ? error.code
             : 'IDENTITY_READ_FAILED',
         message: error instanceof Error ? error.message : String(error),
+        ...getToolingErrorContext(error),
       },
       diagnostics: [],
     };

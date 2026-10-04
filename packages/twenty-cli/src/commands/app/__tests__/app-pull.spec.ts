@@ -191,6 +191,24 @@ describe('app pull command with the packaged worker', () => {
     ]);
   });
 
+  it('preserves the source recovery hint instead of suggesting an unrelated SDK upgrade', async () => {
+    await writeFile(
+      join(appPath, 'invalid.object.ts'),
+      `const defineObject = (config: unknown) => config;
+export default defineObject({ nameSingular: 'invalid' });`,
+    );
+    const result = await runJson();
+
+    expect(result.exitCode).toBe(1);
+    expect(result.envelope.error).toMatchObject({
+      code: 'SDK_SOURCE_UNSUPPORTED',
+      hint: 'Use the SDK define functions, rename local helpers with the same names, or install a compatible twenty-sdk version.',
+      details: { outcome: 'unchanged' },
+    });
+    expect(await readdir(appPath)).toContain('invalid.object.ts');
+    expect(await readdir(appPath)).not.toContain('.twenty');
+  });
+
   it('checks enum imports actually used by generated files', async () => {
     const state = JSON.parse(JSON.stringify(exported));
     state.manifest.objects[0].writability = MetadataWritability.APPLICATION;

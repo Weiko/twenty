@@ -81,12 +81,16 @@ export const readAppIdentity = async ({
           ? 'SDK_SOURCE_UNSUPPORTED'
           : 'IDENTITY_READ_FAILED',
       message: result.error.message,
-      ...(result.error.code === 'SDK_SOURCE_UNSUPPORTED'
-        ? {
-            hint: 'Use the SDK define functions, rename local helpers with the same names, or install a compatible twenty-sdk version.',
-          }
-        : {}),
-      details: { sdkVersion: sdk.version, diagnostics },
+      hint:
+        result.error.hint ??
+        (result.error.code === 'SDK_SOURCE_UNSUPPORTED'
+          ? 'Use the SDK define functions, rename local helpers with the same names, or install a compatible twenty-sdk version.'
+          : undefined),
+      details: {
+        ...result.error.details,
+        sdkVersion: sdk.version,
+        diagnostics,
+      },
     });
   }
 

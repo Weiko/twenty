@@ -1,5 +1,6 @@
 import { stop } from 'esbuild';
 
+import { getToolingErrorContext } from '@/app/get-tooling-error-context';
 import { resolveSourceSdk } from '@/app/resolve-source-sdk';
 import { buildSnapshot, releaseSnapshot } from '@/app/snapshots/build-snapshot';
 import {
@@ -30,6 +31,7 @@ export const buildSourceSnapshot = async ({
             ? error.code
             : 'BUILD_FAILED',
         message: error instanceof Error ? error.message : String(error),
+        ...getToolingErrorContext(error),
       },
       diagnostics: [],
     };

@@ -36,6 +36,7 @@ export type ToolingResult<TData> =
       error: {
         code: string;
         message: string;
+        hint?: string;
         details?: Record<string, unknown>;
       };
       diagnostics: ToolingDiagnostic[];

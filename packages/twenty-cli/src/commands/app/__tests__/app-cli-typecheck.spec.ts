@@ -132,7 +132,10 @@ describe('app typecheck with CLI tooling', () => {
     await rm(join(appPath, 'node_modules/typescript'));
     const result = await run();
     expect(result.exitCode).toBe(1);
-    expect(result.envelope.error.code).toBe('TYPESCRIPT_NOT_INSTALLED');
+    expect(result.envelope.error).toMatchObject({
+      code: 'TYPESCRIPT_NOT_INSTALLED',
+      details: { appPath },
+    });
   });
 
   it('fails on a missing TypeScript configuration', async () => {

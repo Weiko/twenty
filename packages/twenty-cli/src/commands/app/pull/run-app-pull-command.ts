@@ -36,7 +36,10 @@ export const runAppPullCommand: CommandRun<TargetCommandContext> = async ({
 
   const explicitIdentifier = readStringOption(options, 'universalIdentifier');
 
-  if (isDefined(explicitIdentifier) && !isValidUniversalIdentifier(explicitIdentifier)) {
+  if (
+    isDefined(explicitIdentifier) &&
+    !isValidUniversalIdentifier(explicitIdentifier)
+  ) {
     throw new CliError({
       code: 'INVALID_INPUT',
       exitCode: EXIT_CODE.USAGE,
@@ -131,12 +134,12 @@ export const runAppPullCommand: CommandRun<TargetCommandContext> = async ({
           ? EXIT_CODE.CANCELLED
           : EXIT_CODE.FAILURE,
       message: result.error.message,
+      hint:
+        result.error.hint ??
+        (result.error.code === 'SDK_SOURCE_UNSUPPORTED'
+          ? 'Upgrade the app to a compatible twenty-sdk version (2.40.0 or later).'
+          : undefined),
       details: { ...result.error.details, diagnostics },
-      ...(result.error.code === 'SDK_SOURCE_UNSUPPORTED'
-        ? {
-            hint: 'Upgrade the app to a compatible twenty-sdk version (2.40.0 or later).',
-          }
-        : {}),
     });
   }
 

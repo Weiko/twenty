@@ -320,6 +320,17 @@ const generateClient = async ({
 const toFailure = (error: unknown): AppWorkerResponse => ({
   type: 'failure',
   message: error instanceof Error ? error.message : String(error),
+  ...(error instanceof Error && 'code' in error && isString(error.code)
+    ? { code: error.code }
+    : {}),
+  ...(error instanceof Error && 'hint' in error && isString(error.hint)
+    ? { hint: error.hint }
+    : {}),
+  ...(error instanceof Error &&
+  'details' in error &&
+  isPlainObject(error.details)
+    ? { details: error.details }
+    : {}),
 });
 
 process.on('SIGINT', () => undefined);

@@ -9,7 +9,12 @@ export const createToolingFailure = ({
   pipeline = 'sdk',
   operation = 'build',
 }: {
-  error: { code: string; message: string };
+  error: {
+    code: string;
+    message: string;
+    hint?: string;
+    details?: Record<string, unknown>;
+  };
   diagnostics: ToolingDiagnostic[];
   sdkVersion: string;
   pipeline?: 'cli' | 'sdk';
@@ -28,6 +33,7 @@ export const createToolingFailure = ({
   ).length;
   const errorLabel = errorCount === 1 ? 'error' : 'errors';
   const details = {
+    ...error.details,
     ...(pipeline === 'sdk'
       ? { sdkErrorCode: error.code }
       : { toolingErrorCode: error.code }),
@@ -44,6 +50,7 @@ export const createToolingFailure = ({
         return new CliError({
           code: error.code,
           message: error.message,
+          hint: error.hint,
           details,
         });
     }
@@ -56,6 +63,7 @@ export const createToolingFailure = ({
         errorCount > 0
           ? `Typecheck failed with ${errorCount} ${errorLabel}.`
           : `Typecheck failed: ${error.message}`,
+      hint: error.hint,
       details,
     });
   }
@@ -69,6 +77,7 @@ export const createToolingFailure = ({
       operation === 'generateClient'
         ? error.message
         : `The build failed: ${error.message}`,
+    hint: error.hint,
     details,
   });
 };

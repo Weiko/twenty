@@ -3,6 +3,7 @@ import { join, relative } from 'node:path';
 import { isDefined } from 'twenty-shared/utils';
 import type ts from 'typescript';
 
+import { getToolingErrorContext } from '@/app/get-tooling-error-context';
 import {
   type ToolingDiagnostic,
   type ToolingResult,
@@ -153,9 +154,7 @@ export const typecheckApplication = async ({
             ? error.code
             : 'TYPECHECK_FAILED',
         message: error instanceof Error ? error.message : String(error),
-        ...(error instanceof CliError && isDefined(error.details)
-          ? { details: error.details }
-          : {}),
+        ...getToolingErrorContext(error),
       },
       diagnostics: [],
     };

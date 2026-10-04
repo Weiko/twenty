@@ -53,7 +53,8 @@ export const readTargetBoundPullBase = async ({
       (isDefined(base.unreconciledUniversalIdentifiers) &&
         (!isArray(base.unreconciledUniversalIdentifiers) ||
           !base.unreconciledUniversalIdentifiers.every(
-            (identifier) => isString(identifier) && isValidUniversalIdentifier(identifier),
+            (identifier) =>
+              isString(identifier) && isValidUniversalIdentifier(identifier),
           ))) ||
       (isDefined(base.sourceFingerprints) &&
         !isSourceFingerprints(base.sourceFingerprints))

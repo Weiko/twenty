@@ -23,7 +23,10 @@ import { isInteractionAllowed } from '@/program/is-interaction-allowed';
 const readUniversalIdentifierOption = (options: Record<string, unknown>) => {
   const universalIdentifier = readStringOption(options, 'universalIdentifier');
 
-  if (isDefined(universalIdentifier) && !isValidUniversalIdentifier(universalIdentifier)) {
+  if (
+    isDefined(universalIdentifier) &&
+    !isValidUniversalIdentifier(universalIdentifier)
+  ) {
     throw new CliError({
       code: 'INVALID_INPUT',
       exitCode: EXIT_CODE.USAGE,

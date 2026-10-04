@@ -6,15 +6,7 @@ import { isApplicationNotFoundError } from '@/app/is-application-not-found-error
 import { isSameUniversalIdentifier } from '@/app/is-same-universal-identifier';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
-import { sendGraphqlRequest } from '@/transport/graphql/send-graphql-request';
-
-const INSTALLED_APP_QUERY = `query FindInstalledApplication($universalIdentifier: UUID!) {
-  findOneApplication(universalIdentifier: $universalIdentifier) {
-    name
-    universalIdentifier
-    canBeUninstalled
-  }
-}`;
+import { createMetadataClient } from '@/transport/metadata/create-metadata-client';
 
 export const fetchInstalledApp = async ({
   universalIdentifier,
@@ -25,22 +17,26 @@ export const fetchInstalledApp = async ({
   target: ResolvedTarget;
   signal: AbortSignal;
 }) => {
-  const data = await sendGraphqlRequest({
-    target,
-    signal,
-    endpoint: 'metadata',
-    query: INSTALLED_APP_QUERY,
-    variables: { universalIdentifier },
-  }).catch((error: unknown) => {
-    if (isApplicationNotFoundError({ error, field: 'findOneApplication' })) {
-      throw createAppNotInstalledError({
-        universalIdentifier,
-        apiUrl: target.apiUrl,
-      });
-    }
+  const data = await createMetadataClient({ target, signal })
+    .query({
+      __name: 'FindInstalledApplication',
+      findOneApplication: {
+        __args: { universalIdentifier },
+        name: true,
+        universalIdentifier: true,
+        canBeUninstalled: true,
+      },
+    })
+    .catch((error: unknown) => {
+      if (isApplicationNotFoundError({ error, field: 'findOneApplication' })) {
+        throw createAppNotInstalledError({
+          universalIdentifier,
+          apiUrl: target.apiUrl,
+        });
+      }
 
-    throw error;
-  });
+      throw error;
+    });
   const application = data?.findOneApplication;
 
   if (

@@ -5,16 +5,7 @@ import { isSameUniversalIdentifier } from '@/app/is-same-universal-identifier';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
-import { sendGraphqlRequest } from '@/transport/graphql/send-graphql-request';
-
-const REGISTER_MUTATION = `mutation RegisterApplication($input: CreateApplicationRegistrationInput!) {
-  createApplicationRegistration(input: $input) {
-    applicationRegistration {
-      id
-      universalIdentifier
-    }
-  }
-}`;
+import { createMetadataClient } from '@/transport/metadata/create-metadata-client';
 
 export const registerApp = async ({
   application,
@@ -25,16 +16,16 @@ export const registerApp = async ({
   target: ResolvedTarget;
   signal: AbortSignal;
 }) => {
-  const data = await sendGraphqlRequest({
-    target,
-    signal,
-    endpoint: 'metadata',
-    query: REGISTER_MUTATION,
-    variables: {
-      input: {
-        name: application.displayName,
-        universalIdentifier: application.universalIdentifier,
+  const data = await createMetadataClient({ target, signal }).mutation({
+    __name: 'RegisterApplication',
+    createApplicationRegistration: {
+      __args: {
+        input: {
+          name: application.displayName,
+          universalIdentifier: application.universalIdentifier,
+        },
       },
+      applicationRegistration: { id: true, universalIdentifier: true },
     },
   });
   const created = data?.createApplicationRegistration;

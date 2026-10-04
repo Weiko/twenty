@@ -2,11 +2,7 @@ import { createAppNotInstalledError } from '@/app/create-app-not-installed-error
 import { isApplicationNotFoundError } from '@/app/is-application-not-found-error';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
-import { sendGraphqlRequest } from '@/transport/graphql/send-graphql-request';
-
-const UNINSTALL_MUTATION = `mutation UninstallApplication($universalIdentifier: String!) {
-  uninstallApplication(universalIdentifier: $universalIdentifier)
-}`;
+import { createMetadataClient } from '@/transport/metadata/create-metadata-client';
 
 export const uninstallApp = async ({
   universalIdentifier,
@@ -17,22 +13,23 @@ export const uninstallApp = async ({
   target: ResolvedTarget;
   signal: AbortSignal;
 }) => {
-  const data = await sendGraphqlRequest({
-    target,
-    signal,
-    endpoint: 'metadata',
-    query: UNINSTALL_MUTATION,
-    variables: { universalIdentifier },
-  }).catch((error: unknown) => {
-    if (isApplicationNotFoundError({ error, field: 'uninstallApplication' })) {
-      throw createAppNotInstalledError({
-        universalIdentifier,
-        apiUrl: target.apiUrl,
-      });
-    }
+  const data = await createMetadataClient({ target, signal })
+    .mutation({
+      __name: 'UninstallApplication',
+      uninstallApplication: { __args: { universalIdentifier } },
+    })
+    .catch((error: unknown) => {
+      if (
+        isApplicationNotFoundError({ error, field: 'uninstallApplication' })
+      ) {
+        throw createAppNotInstalledError({
+          universalIdentifier,
+          apiUrl: target.apiUrl,
+        });
+      }
 
-    throw error;
-  });
+      throw error;
+    });
 
   if (data?.uninstallApplication !== true) {
     throw new CliError({

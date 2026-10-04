@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { readGraphqlRequest } from '@/__tests__/utils/read-graphql-request';
 import { isDefined } from 'twenty-shared/utils';
 import {
   afterAll,
@@ -201,9 +202,10 @@ describe('app plan with the legacy SDK fallback', () => {
         path: '/metadata',
         headers: { authorization: 'Bearer plan-test-key' },
       });
-      expect(JSON.parse(server.requests[0].body)).toMatchObject({
-        query: expect.stringContaining('dryRun: true'),
-        variables: {
+      expect(readGraphqlRequest(server.requests[0])).toMatchObject({
+        query: expect.stringContaining('mutation PreviewApplication'),
+        arguments: {
+          dryRun: true,
           manifest: MANIFEST,
           inferDeletionFromMissingEntities: options.length === 0,
         },

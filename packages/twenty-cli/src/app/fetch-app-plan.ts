@@ -5,7 +5,7 @@ import { parseAppPlan } from '@/app/parse-app-plan';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
-import { sendGraphqlRequest } from '@/transport/graphql/send-graphql-request';
+import { createMetadataClient } from '@/transport/metadata/create-metadata-client';
 
 export const fetchAppPlan = async ({
   build,
@@ -31,17 +31,17 @@ export const fetchAppPlan = async ({
   }
 
   try {
-    const data = await sendGraphqlRequest({
-      target,
-      signal,
-      endpoint: 'metadata',
-      query: `mutation PreviewApplication($manifest: JSON!, $inferDeletionFromMissingEntities: Boolean!) {
-        syncApplication(manifest: $manifest, dryRun: true, inferDeletionFromMissingEntities: $inferDeletionFromMissingEntities) {
-          applicationUniversalIdentifier
-          actions
-        }
-      }`,
-      variables: { manifest: build.manifest, inferDeletionFromMissingEntities },
+    const data = await createMetadataClient({ target, signal }).mutation({
+      __name: 'PreviewApplication',
+      syncApplication: {
+        __args: {
+          manifest: build.manifest,
+          dryRun: true,
+          inferDeletionFromMissingEntities,
+        },
+        applicationUniversalIdentifier: true,
+        actions: true,
+      },
     });
 
     return parseAppPlan({

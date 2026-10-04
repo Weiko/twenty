@@ -6,14 +6,7 @@ import { parseAppPlan } from '@/app/parse-app-plan';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';
-import { sendGraphqlRequest } from '@/transport/graphql/send-graphql-request';
-
-const SYNC_MUTATION = `mutation SyncApplication($manifest: JSON!, $inferDeletionFromMissingEntities: Boolean!) {
-  syncApplication(manifest: $manifest, inferDeletionFromMissingEntities: $inferDeletionFromMissingEntities) {
-    applicationUniversalIdentifier
-    actions
-  }
-}`;
+import { createMetadataClient } from '@/transport/metadata/create-metadata-client';
 
 const withoutResponseContent = (error: unknown) => {
   if (!(error instanceof CliError) || !isPlainObject(error.details)) {
@@ -61,15 +54,18 @@ export const syncAppManifest = async ({
   signal: AbortSignal;
 }) => {
   const applicationUniversalIdentifier = build.application.universalIdentifier;
-  const data = await sendGraphqlRequest({
-    target,
-    signal,
-    endpoint: 'metadata',
-    query: SYNC_MUTATION,
-    variables: { manifest: build.manifest, inferDeletionFromMissingEntities },
-  }).catch((error: unknown) => {
-    throw withoutResponseContent(error);
-  });
+  const data = await createMetadataClient({ target, signal })
+    .mutation({
+      __name: 'SyncApplication',
+      syncApplication: {
+        __args: { manifest: build.manifest, inferDeletionFromMissingEntities },
+        applicationUniversalIdentifier: true,
+        actions: true,
+      },
+    })
+    .catch((error: unknown) => {
+      throw withoutResponseContent(error);
+    });
   const acknowledgement = data?.syncApplication;
 
   if (

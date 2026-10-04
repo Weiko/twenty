@@ -8,11 +8,7 @@ import { toWorkerOutputDiagnostics } from '@/app/to-worker-output-diagnostics';
 import { type AppTooling } from '@/app/types/app-tooling.type';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';
 import { CliError } from '@/output/cli-error';
-import { sendGraphqlRequest } from '@/transport/graphql/send-graphql-request';
-
-const SCHEMA_QUERY = `query ApplicationCoreGraphqlSchema($applicationUniversalIdentifier: String!) {
-  applicationCoreGraphqlSchema(applicationUniversalIdentifier: $applicationUniversalIdentifier)
-}`;
+import { createMetadataClient } from '@/transport/metadata/create-metadata-client';
 
 export const fetchAppClientSchema = async ({
   applicationUniversalIdentifier,
@@ -23,12 +19,11 @@ export const fetchAppClientSchema = async ({
 }) => {
   output.progress('Fetching the application schema…');
 
-  const data = await sendGraphqlRequest({
-    target,
-    signal,
-    endpoint: 'metadata',
-    query: SCHEMA_QUERY,
-    variables: { applicationUniversalIdentifier },
+  const data = await createMetadataClient({ target, signal }).query({
+    __name: 'ApplicationCoreGraphqlSchema',
+    applicationCoreGraphqlSchema: {
+      __args: { applicationUniversalIdentifier },
+    },
   });
   const schema = data?.applicationCoreGraphqlSchema;
 

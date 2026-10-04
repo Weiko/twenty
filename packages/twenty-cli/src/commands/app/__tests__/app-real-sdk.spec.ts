@@ -14,7 +14,8 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { isArray, isString } from '@sniptt/guards';
+import { readGraphqlRequest } from '@/__tests__/utils/read-graphql-request';
+import { isArray } from '@sniptt/guards';
 import { isDefined, isPlainObject } from 'twenty-shared/utils';
 import {
   afterAll,
@@ -67,18 +68,6 @@ const listSnapshots = async () =>
     ? await readdir(snapshotsPath(APP_PATH))
     : [];
 
-const readGraphqlBody = (body: string) => {
-  const parsed: unknown = JSON.parse(body);
-
-  return {
-    query: isPlainObject(parsed) && isString(parsed.query) ? parsed.query : '',
-    variables:
-      isPlainObject(parsed) && isPlainObject(parsed.variables)
-        ? parsed.variables
-        : {},
-  };
-};
-
 const readManifestIdentifier = (variables: Record<string, unknown>) => {
   const manifest = isPlainObject(variables.manifest)
     ? variables.manifest
@@ -96,10 +85,10 @@ const server = await startTestServer((request, response) => {
     return sendJson(response, 200, {});
   }
 
-  const { query, variables } = readGraphqlBody(request.body);
+  const { query, arguments: variables } = readGraphqlRequest(request);
 
   if (query.includes('syncApplication')) {
-    if (!query.includes('dryRun: true')) {
+    if (!(variables.dryRun === true)) {
       syncedManifest = variables.manifest;
     }
     return sendJson(response, 200, {
@@ -363,7 +352,9 @@ describe.each(['SDK', 'CLI'])('app commands with %s snapshots', (mode) => {
       ]);
       const uploadTargets = server.requests.find(({ body, method }) =>
         method === 'POST'
-          ? readGraphqlBody(body).query.includes('createApplicationFileUploads')
+          ? readGraphqlRequest({ body }).query.includes(
+              'createApplicationFileUploads',
+            )
           : false,
       );
       const puts = server.requests.filter(({ method }) => method === 'PUT');
@@ -385,8 +376,7 @@ describe.each(['SDK', 'CLI'])('app commands with %s snapshots', (mode) => {
       expect(puts).toHaveLength(envelope.data.upload.fileCount);
       expect(puts.every(({ body }) => body.length > 0)).toBe(true);
       expect(
-        isDefined(uploadTargets) &&
-          readGraphqlBody(uploadTargets.body).variables,
+        isDefined(uploadTargets) && readGraphqlRequest(uploadTargets).arguments,
       ).toMatchObject({
         files: expect.arrayContaining([
           expect.objectContaining({ fileFolder: 'BuiltLogicFunction' }),

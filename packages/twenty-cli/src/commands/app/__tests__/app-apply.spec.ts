@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { readGraphqlRequest } from '@/__tests__/utils/read-graphql-request';
 import { isArray, isString } from '@sniptt/guards';
 import { type ServerResponse } from 'node:http';
 import { isDefined, isPlainObject } from 'twenty-shared/utils';
@@ -151,26 +152,14 @@ const graphqlError = (code: string, subCode?: string) => ({
   ],
 });
 
-const readGraphqlRequest = (request: RecordedRequest) => {
-  const body: unknown = JSON.parse(request.body);
-
-  return {
-    query: isPlainObject(body) && isString(body.query) ? body.query : '',
-    variables:
-      isPlainObject(body) && isPlainObject(body.variables)
-        ? body.variables
-        : {},
-  };
-};
-
 const getOperation = (request: RecordedRequest) => {
   if (request.method === 'PUT') {
     return 'put';
   }
 
-  const { query } = readGraphqlRequest(request);
+  const { query, arguments: variables } = readGraphqlRequest(request);
 
-  if (query.includes('dryRun: true')) {
+  if (variables.dryRun === true) {
     return 'preview';
   }
 
@@ -237,7 +226,7 @@ const server = await startTestServer((request, response) => {
     );
   }
 
-  const { variables } = readGraphqlRequest(request);
+  const { arguments: variables } = readGraphqlRequest(request);
 
   if (operation === 'preview') {
     return sendJson(
@@ -617,18 +606,18 @@ describe('app apply with the legacy SDK fallback', () => {
         (request) => getOperation(request) === 'sync',
       );
 
-      expect(readGraphqlRequest(preview).variables).toMatchObject({
+      expect(readGraphqlRequest(preview).arguments).toMatchObject({
         manifest: MANIFEST,
         inferDeletionFromMissingEntities: inferDeletion,
       });
       expect(isDefined(sync) && readGraphqlRequest(sync)).toMatchObject({
         query: expect.not.stringContaining('dryRun'),
-        variables: {
+        arguments: {
           manifest: MANIFEST,
           inferDeletionFromMissingEntities: inferDeletion,
         },
       });
-      expect(readGraphqlRequest(uploadTargets).variables).toMatchObject({
+      expect(readGraphqlRequest(uploadTargets).arguments).toMatchObject({
         applicationUniversalIdentifier: APPLICATION.universalIdentifier,
         files: [
           {
@@ -704,7 +693,7 @@ describe('app apply with the legacy SDK fallback', () => {
     );
     expect(exportRequest?.headers.authorization).toBe('Bearer apply-test-key');
     expect(
-      exportRequest && readGraphqlRequest(exportRequest).variables,
+      exportRequest && readGraphqlRequest(exportRequest).arguments,
     ).toEqual({
       universalIdentifier: APPLICATION.universalIdentifier,
     });
@@ -1201,7 +1190,7 @@ describe('app apply with the legacy SDK fallback', () => {
       headers: { authorization: 'Bearer apply-test-key' },
     });
     expect(
-      isDefined(schemaRequest) && readGraphqlRequest(schemaRequest).variables,
+      isDefined(schemaRequest) && readGraphqlRequest(schemaRequest).arguments,
     ).toEqual({
       applicationUniversalIdentifier: APPLICATION.universalIdentifier,
     });
@@ -1232,7 +1221,7 @@ describe('app apply with the legacy SDK fallback', () => {
     expect(exitCode).toBe(0);
     expect(envelope.data.clientGeneration).toBe('generated');
     expect(
-      isDefined(schemaRequest) && readGraphqlRequest(schemaRequest).variables,
+      isDefined(schemaRequest) && readGraphqlRequest(schemaRequest).arguments,
     ).toEqual({
       applicationUniversalIdentifier: APPLICATION.universalIdentifier,
     });

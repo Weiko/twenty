@@ -36,6 +36,7 @@ type Scenario = {
   returnedIssuer?: string | null;
   advertisedIssuer?: string;
   tokenEndpointOrigin?: string;
+  tokenEndpointPath?: string;
 };
 
 type ServerState = {
@@ -81,7 +82,7 @@ const server = await startTestServer((request, response) => {
     return sendJson(response, 200, {
       issuer: state.scenario.advertisedIssuer ?? server.url,
       authorization_endpoint: `${server.url}/authorize`,
-      token_endpoint: `${state.scenario.tokenEndpointOrigin ?? server.url}/oauth/token`,
+      token_endpoint: `${state.scenario.tokenEndpointOrigin ?? server.url}${state.scenario.tokenEndpointPath ?? '/oauth/token'}`,
       cli_client_id: CLIENT_ID,
       code_challenge_methods_supported: ['S256'],
       authorization_response_iss_parameter_supported: true,
@@ -118,7 +119,7 @@ const server = await startTestServer((request, response) => {
     return response.end();
   }
 
-  if (url.pathname === '/oauth/token') {
+  if (url.pathname === (state.scenario.tokenEndpointPath ?? '/oauth/token')) {
     const parameters: unknown = JSON.parse(request.body);
 
     if (!isPlainObject(parameters)) {
@@ -405,22 +406,40 @@ describe('browser sign-in and session refresh', () => {
     );
   });
 
-  it('refreshes an expiring session and keeps the rotated tokens', async () => {
+  it.each(['/oauth/token', '/custom/token'])(
+    'refreshes an expiring session at the advertised %s endpoint and keeps the rotated tokens',
+    async (tokenEndpointPath) => {
+      state.scenario = { tokenEndpointPath };
+      await writeSession(createAccessToken(10, 'expiring'), 'refresh-1');
+
+      const { envelope, exitCode } = await runJson(['auth', 'status']);
+      const { remotes } = await readConfigFile();
+
+      expect(exitCode).toBe(0);
+      expect(envelope.data).toMatchObject({
+        credentials: 'oauth',
+        email: 'jane@acme.com',
+      });
+      expect(state.refreshCalls).toBe(1);
+      expect(remotes.cloud.twentyCLIRefreshToken).toBe('refresh-3');
+      expect(
+        state.validAccessTokens.has(remotes.cloud.twentyCLIAccessToken ?? ''),
+      ).toBe(true);
+    },
+  );
+
+  it('rejects a foreign refresh endpoint without sending or changing credentials', async () => {
+    state.scenario = { tokenEndpointOrigin: 'https://elsewhere.example.com' };
     await writeSession(createAccessToken(10, 'expiring'), 'refresh-1');
 
+    const configBefore = await readConfigFile();
     const { envelope, exitCode } = await runJson(['auth', 'status']);
-    const { remotes } = await readConfigFile();
 
-    expect(exitCode).toBe(0);
-    expect(envelope.data).toMatchObject({
-      credentials: 'oauth',
-      email: 'jane@acme.com',
-    });
-    expect(state.refreshCalls).toBe(1);
-    expect(remotes.cloud.twentyCLIRefreshToken).toBe('refresh-3');
-    expect(
-      state.validAccessTokens.has(remotes.cloud.twentyCLIAccessToken ?? ''),
-    ).toBe(true);
+    expect(exitCode).toBe(1);
+    expect(envelope.error).toMatchObject({ code: 'OAUTH_UNAVAILABLE' });
+    expect(state.refreshCalls).toBe(0);
+    expect(await readConfigFile()).toEqual(configBefore);
+    expect(openBrowser).not.toHaveBeenCalled();
   });
 
   it('asks to sign in again when the refresh is rejected, without a browser', async () => {

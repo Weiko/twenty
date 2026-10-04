@@ -31,6 +31,18 @@ const state = {
   operationStatus: 200,
 };
 const server = await startTestServer((request, response) => {
+  if (request.path === '/.well-known/oauth-authorization-server') {
+    sendJson(response, 200, {
+      issuer: server.url,
+      authorization_endpoint: `${server.url}/authorize`,
+      token_endpoint: `${server.url}/oauth/token`,
+      cli_client_id: 'old-client',
+      code_challenge_methods_supported: ['S256'],
+    });
+
+    return;
+  }
+
   if (request.path === '/oauth/token') {
     sendJson(response, state.refreshStatus, { error: 'invalid_grant' });
 
@@ -193,7 +205,9 @@ describe('interactive OAuth session recovery', () => {
     const result = await runMutation();
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(server.requests[0].path).toBe('/oauth/token');
+    expect(server.requests.map((request) => request.path)).toContain(
+      '/oauth/token',
+    );
     expect(vi.mocked(signInWithBrowser)).toHaveBeenCalledTimes(1);
     expect(operationRequests()).toHaveLength(1);
     expect(operationRequests()[0].headers.authorization).toBe(

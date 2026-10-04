@@ -1,5 +1,5 @@
 import { CliError } from '@/output/cli-error';
-import { EXIT_CODE } from '@/output/constants/exit-code.constant';
+import { createCancelledError } from '@/output/create-cancelled-error';
 
 export const toCliError = (error: unknown, signal?: AbortSignal): CliError => {
   if (error instanceof CliError) {
@@ -7,11 +7,7 @@ export const toCliError = (error: unknown, signal?: AbortSignal): CliError => {
   }
 
   if (signal?.aborted === true) {
-    return new CliError({
-      code: 'CANCELLED',
-      message: 'Cancelled.',
-      exitCode: EXIT_CODE.CANCELLED,
-    });
+    return createCancelledError();
   }
 
   return new CliError({

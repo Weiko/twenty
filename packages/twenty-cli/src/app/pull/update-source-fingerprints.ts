@@ -1,4 +1,4 @@
-import { hashContent } from '@/app/pull/hash-content';
+import { hashContent } from '@/utils/hash-content';
 import { type PullDeletion, type PullWrite } from '@/app/pull/plan-pull-writes';
 
 export const updateSourceFingerprints = ({

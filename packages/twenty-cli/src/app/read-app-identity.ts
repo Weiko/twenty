@@ -8,7 +8,7 @@ import { runAppWorker } from '@/app/run-app-worker';
 import { type AppSourceIdentity } from '@/app/source/types/app-source-identity.type';
 import { toWorkerOutputDiagnostics } from '@/app/to-worker-output-diagnostics';
 import { CliError } from '@/output/cli-error';
-import { EXIT_CODE } from '@/output/constants/exit-code.constant';
+import { createCancelledError } from '@/output/create-cancelled-error';
 
 const parseIdentity = (
   value: unknown,
@@ -58,11 +58,7 @@ export const readAppIdentity = async ({
   });
 
   if (signal.aborted) {
-    throw new CliError({
-      code: 'CANCELLED',
-      message: 'Cancelled.',
-      exitCode: EXIT_CODE.CANCELLED,
-    });
+    throw createCancelledError();
   }
 
   const result = parseToolingResult({

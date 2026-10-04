@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { hashContent } from '@/utils/hash-content';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
@@ -37,7 +37,7 @@ export const readSnapshotFile = async ({
   }
 
   const bytes = await readFile(filePath);
-  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  const sha256 = hashContent(bytes);
 
   if (bytes.length !== artifact.size || sha256 !== artifact.sha256) {
     throw createSnapshotInvalidError({

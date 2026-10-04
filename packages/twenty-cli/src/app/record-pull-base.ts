@@ -2,8 +2,7 @@ import { fetchAppExport } from '@/app/fetch-app-export';
 import { fetchWorkspaceId } from '@/app/fetch-workspace-id';
 import { writePullBase } from '@/app/pull/write-pull-base';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';
-import { CliError } from '@/output/cli-error';
-import { EXIT_CODE } from '@/output/constants/exit-code.constant';
+import { createCancelledError } from '@/output/create-cancelled-error';
 import { toCliError } from '@/output/to-cli-error';
 
 export type PullBaseRecording = 'recorded' | 'failed' | 'unsupported';
@@ -40,11 +39,7 @@ export const recordPullBase = async ({
     return 'recorded';
   } catch (error) {
     if (signal.aborted) {
-      throw new CliError({
-        code: 'CANCELLED',
-        message: 'Cancelled.',
-        exitCode: EXIT_CODE.CANCELLED,
-      });
+      throw createCancelledError();
     }
 
     const cliError = toCliError(error);

@@ -1,4 +1,4 @@
-import { access, realpath } from 'node:fs/promises';
+import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { isDefined } from 'twenty-shared/utils';
@@ -6,15 +6,13 @@ import { isDefined } from 'twenty-shared/utils';
 import { hasYarnPlugAndPlay } from '@/app/has-yarn-plug-and-play';
 import { listAncestorDirectories } from '@/app/list-ancestor-directories';
 import { readJsonObject } from '@/app/read-json-object';
+import { pathExists } from '@/app/fs-utils';
 import { CliError } from '@/output/cli-error';
 
 const findInstalledSdk = async (appPath: string) => {
   for (const directory of listAncestorDirectories(appPath)) {
     const packagePath = join(directory, 'node_modules', 'twenty-sdk');
-    const isInstalled = await access(packagePath).then(
-      () => true,
-      () => false,
-    );
+    const isInstalled = await pathExists(packagePath);
 
     if (!isInstalled) {
       continue;

@@ -1,5 +1,3 @@
-import { setTimeout } from 'node:timers/promises';
-
 import { Agent, getGlobalDispatcher, setGlobalDispatcher } from 'undici';
 import { afterEach, expect, it, vi } from 'vitest';
 
@@ -18,9 +16,8 @@ it('allows an execution to outlast the HTTP dispatcher header deadline', async (
   ]) {
     vi.stubEnv(name, undefined);
   }
-  const server = await startTestServer(async (_request, response) => {
-    await setTimeout(2_000);
-    sendJson(response, 200, { completed: true });
+  const server = await startTestServer((_request, response) => {
+    setTimeout(() => sendJson(response, 200, { completed: true }), 2_000);
   });
   const originalDispatcher = getGlobalDispatcher();
   const shortDeadlineDispatcher = new Agent({ headersTimeout: 1 });
@@ -55,11 +52,10 @@ it('keeps an idle subscription open past the HTTP dispatcher body deadline', asy
   ]) {
     vi.stubEnv(name, undefined);
   }
-  const server = await startTestServer(async (_request, response) => {
+  const server = await startTestServer((_request, response) => {
     response.writeHead(200, { 'content-type': 'text/event-stream' });
     response.write(':\n\n');
-    await setTimeout(2_000);
-    response.end('event: complete\n\n');
+    setTimeout(() => response.end('event: complete\n\n'), 2_000);
   });
   const originalDispatcher = getGlobalDispatcher();
   const shortDeadlineDispatcher = new Agent({ bodyTimeout: 1 });

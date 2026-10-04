@@ -250,9 +250,9 @@ export const runAppWorker = async ({
         return;
       }
 
-      heldWork.then((heldOutcome) =>
-        finish({ exitCode, exitSignal, heldOutcome }),
-      );
+      heldWork
+        .then((heldOutcome) => finish({ exitCode, exitSignal, heldOutcome }))
+        .catch((error: unknown) => settle(() => reject(error)));
     });
 
     worker.send(request);

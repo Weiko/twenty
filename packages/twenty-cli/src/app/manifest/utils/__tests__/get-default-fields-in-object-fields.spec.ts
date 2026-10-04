@@ -1,5 +1,5 @@
 import { getDefaultFieldsInObjectFields } from '@/app/manifest/utils/get-default-fields-in-object-fields';
-import { type ObjectConfig } from '@/app/manifest/types/object-config';
+import { type ObjectConfig } from '@/app/manifest/types/object-config.type';
 import { getFieldUniversalIdentifier } from 'twenty-shared/application';
 import { FieldMetadataType } from 'twenty-shared/types';
 import { describe, expect, it } from 'vitest';

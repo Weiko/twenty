@@ -217,7 +217,7 @@ const writeGeneratedAsset = async ({
     .update(generatedAsset.content)
     .digest('hex');
 
-  collectFileBuilt({
+  await collectFileBuilt({
     fileFolder: FileFolder.PublicAsset,
     builtPath,
     sourcePath: generatedAsset.relativePath,
@@ -261,7 +261,7 @@ const copyStaticFiles = async ({
     const content = await readFile(absoluteBuiltPath);
     const checksum = crypto.createHash('md5').update(content).digest('hex');
 
-    collectFileBuilt({
+    await collectFileBuilt({
       fileFolder,
       builtPath,
       sourcePath,

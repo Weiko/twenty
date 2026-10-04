@@ -21,7 +21,10 @@ type ScenarioName =
   | 'named'
   | 'appsDenied'
   | 'objectsDenied'
-  | 'truncated'
+  | 'paginated'
+  | 'repeatedCursor'
+  | 'missingCursor'
+  | 'laterPageDenied'
   | 'appsPending';
 
 const objectNode = (
@@ -43,7 +46,7 @@ const objectNode = (
 const objectsResponse = (hasNextPage: boolean) => ({
   data: {
     objects: {
-      pageInfo: { hasNextPage },
+      pageInfo: { hasNextPage, endCursor: hasNextPage ? 'next-page' : null },
       edges: [
         objectNode('surveyResults', 'custom-id'),
         objectNode('people', 'standard-id'),
@@ -82,6 +85,7 @@ const FORBIDDEN_RESPONSE = {
 };
 
 let scenario: ScenarioName = 'named';
+const requestedCursors: unknown[] = [];
 const pendingResponses: ServerResponse[] = [];
 
 const server = await startTestServer((request, response) => {
@@ -109,7 +113,46 @@ const server = await startTestServer((request, response) => {
     );
   }
 
-  return sendJson(response, 200, objectsResponse(scenario === 'truncated'));
+  const { variables } = JSON.parse(request.body);
+  const after = Object.values(variables).find(
+    (value) => typeof value === 'object' && value !== null && 'after' in value,
+  ) as { after?: string } | undefined;
+
+  requestedCursors.push(after?.after ?? null);
+
+  if (scenario === 'laterPageDenied' && after?.after) {
+    return sendJson(response, 200, FORBIDDEN_RESPONSE);
+  }
+
+  if (scenario === 'paginated' && after?.after === 'next-page') {
+    return sendJson(response, 200, {
+      data: {
+        objects: {
+          pageInfo: { hasNextPage: false },
+          edges: [
+            objectNode('deals', 'custom-id'),
+            objectNode('tokens', 'standard-id', true),
+          ],
+        },
+        currentWorkspace: { workspaceCustomApplicationId: 'custom-id' },
+      },
+    });
+  }
+
+  const result = objectsResponse(
+    [
+      'paginated',
+      'repeatedCursor',
+      'missingCursor',
+      'laterPageDenied',
+    ].includes(scenario),
+  );
+
+  if (scenario === 'missingCursor') {
+    result.data.objects.pageInfo.endCursor = null;
+  }
+
+  return sendJson(response, 200, result);
 });
 
 const listObjects = async (options: string[] = []) => {
@@ -138,6 +181,7 @@ describe('metadata object list', () => {
     vi.stubEnv('TWENTY_API_KEY', 'test-key');
     vi.stubEnv('TWENTY_REMOTE', '');
     scenario = 'named';
+    requestedCursors.length = 0;
   });
 
   afterEach(() => {
@@ -198,14 +242,51 @@ describe('metadata object list', () => {
     expect(envelope.warnings).toEqual([]);
   });
 
-  it('warns when the server has more objects than one page', async () => {
-    scenario = 'truncated';
+  it.each([false, true])(
+    'lists every page before filtering system objects (all: %s)',
+    async (includeSystem) => {
+      scenario = 'paginated';
 
-    const { envelope } = await listObjects();
+      const { envelope, exitCode } = await listObjects(
+        includeSystem ? ['--all'] : [],
+      );
 
-    expect(envelope.warnings).toEqual([
-      expect.objectContaining({ code: 'INCOMPLETE_LIST' }),
-    ]);
+      expect(exitCode).toBe(0);
+      expect(envelope.warnings).toEqual([]);
+      expect(requestedCursors).toEqual([null, 'next-page']);
+      expect(envelope.data.objects).toHaveLength(includeSystem ? 8 : 6);
+      expect(envelope.data.hiddenSystemObjectCount).toBe(includeSystem ? 0 : 2);
+      expect(envelope.data.objects).toContainEqual(
+        expect.objectContaining({
+          namePlural: 'deals',
+          owner: expect.objectContaining({ kind: 'custom' }),
+        }),
+      );
+    },
+  );
+
+  it.each(['repeatedCursor', 'missingCursor'] as const)(
+    'fails instead of returning a partial list for %s',
+    async (paginationScenario) => {
+      scenario = paginationScenario;
+
+      const { envelope, exitCode } = await listObjects();
+
+      expect(exitCode).toBe(1);
+      expect(envelope.error.code).toBe('INVALID_RESPONSE');
+      expect(envelope).not.toHaveProperty('data');
+      expect(requestedCursors.length).toBeLessThanOrEqual(2);
+    },
+  );
+
+  it('fails instead of returning a partial list when a later page is denied', async () => {
+    scenario = 'laterPageDenied';
+
+    const { envelope, exitCode } = await listObjects();
+
+    expect(exitCode).toBe(3);
+    expect(envelope.error.code).toBe('PERMISSION_DENIED');
+    expect(envelope).not.toHaveProperty('data');
   });
 
   it('cancels the app lookup once the command has failed', async () => {

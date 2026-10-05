@@ -93,7 +93,7 @@ compiler used for typechecking.
 
 The archive includes the command reference, contributor guide and application
 module READMEs so their relative links also work outside a repository checkout.
-It does not include TypeScript source or tests.
+It does not include the CLI's TypeScript implementation or tests.
 
 For packaging changes, build and inspect the archive before release:
 

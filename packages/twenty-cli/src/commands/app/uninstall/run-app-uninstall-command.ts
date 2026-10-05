@@ -3,9 +3,8 @@ import { isDefined } from 'twenty-shared/utils';
 
 import { createUninstallFailure } from '@/app/deployment/create-uninstall-failure';
 import { fetchInstalledApp } from '@/app/fetch-installed-app';
-import { parseBuildData } from '@/app/parse-tooling-result';
 import { requireApproval } from '@/app/deployment/require-approval';
-import { runAppOperation } from '@/app/run-app-operation';
+import { runAppBuild } from '@/app/run-app-operation';
 import { type AppUninstallPhase } from '@/app/deployment/types/app-uninstall-phase.type';
 import { uninstallApp } from '@/app/deployment/uninstall-app';
 import {
@@ -52,11 +51,7 @@ export const runAppUninstallCommand: CommandRun<TargetCommandContext> = async (
       return explicitIdentifier;
     }
 
-    const { data: build } = await runAppOperation({
-      operation: 'build',
-      parseData: parseBuildData,
-      context,
-    });
+    const { data: build } = await runAppBuild({ context });
 
     completedPhases.push('build');
 

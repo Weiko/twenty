@@ -1,15 +1,10 @@
 import { formatBuildSummary } from '@/app/format-build-summary';
-import { parseBuildData } from '@/app/parse-tooling-result';
-import { runAppOperation } from '@/app/run-app-operation';
+import { runAppBuild } from '@/app/run-app-operation';
 import { type CommandRun } from '@/catalog/types/command-run.type';
 
 export const runAppBuildCommand: CommandRun = async (context) => {
   const { project, sdk, data, diagnostics, durationMilliseconds } =
-    await runAppOperation({
-      operation: 'build',
-      parseData: parseBuildData,
-      context,
-    });
+    await runAppBuild({ context });
 
   return {
     data: {

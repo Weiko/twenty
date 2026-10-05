@@ -2,7 +2,11 @@ import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import { createToolingFailure } from '@/app/create-tooling-failure';
 import { formatToolingDiagnostic } from '@/app/format-tooling-diagnostic';
-import { parseToolingResult } from '@/app/parse-tooling-result';
+import {
+  parseBuildData,
+  parseNullData,
+  parseToolingResult,
+} from '@/app/parse-tooling-result';
 import { resolveAppProject } from '@/app/project/resolve-app-project';
 import { resolveSourceSdk } from '@/app/project/resolve-source-sdk';
 import { runAppWorker } from '@/app/run-app-worker';
@@ -11,12 +15,15 @@ import { type AppOperation } from '@/app/types/app-operation.type';
 import { type AppProject } from '@/app/project/types/app-project.type';
 import { type AppWorkerOutput } from '@/app/types/app-worker-output.type';
 import { type ProjectSdk } from '@/app/project/types/project-sdk.type';
-import { type ToolingDiagnostic } from '@/app/types/tooling-result.type';
+import {
+  type ToolingBuild,
+  type ToolingDiagnostic,
+} from '@/app/types/tooling-result.type';
 import { readStringOption } from '@/catalog/read-command-values';
 import { type CommandContext } from '@/catalog/types/command-context.type';
 import { CLI_VERSION } from '@/constants/cli-version.constant';
 
-type AppBuildResult<TData> = {
+type AppOperationResult<TData> = {
   data: TData;
   diagnostics: ToolingDiagnostic[];
 };
@@ -37,7 +44,7 @@ const hasReleaseFailed = ({
     ? !isPlainObject(release) || release.success !== true
     : isPlainObject(release) && release.success === false;
 
-export const runAppOperation = async <TData>({
+const runAppOperation = async <TData>({
   operation,
   parseData,
   context: { options, output, outputMode, signal },
@@ -47,7 +54,10 @@ export const runAppOperation = async <TData>({
   parseData: (data: unknown) => { data: TData } | undefined;
   context: CommandContext;
   useHeldBuild?: (
-    heldBuild: AppBuildResult<TData> & { project: AppProject; sdk: ProjectSdk },
+    heldBuild: AppOperationResult<TData> & {
+      project: AppProject;
+      sdk: ProjectSdk;
+    },
   ) => Promise<void>;
 }) => {
   const project = await resolveAppProject({
@@ -69,7 +79,7 @@ export const runAppOperation = async <TData>({
   }: {
     result: unknown;
     output: AppWorkerOutput;
-  }): AppBuildResult<TData> => {
+  }): AppOperationResult<TData> => {
     const toolingResult = parseToolingResult({ value: result, parseData });
     const diagnostics = [
       ...toolingResult.diagnostics,
@@ -92,7 +102,7 @@ export const runAppOperation = async <TData>({
 
     return { data: toolingResult.data, diagnostics };
   };
-  let heldBuildResult: AppBuildResult<TData> | undefined;
+  let heldBuildResult: AppOperationResult<TData> | undefined;
 
   const workerRun = await runAppWorker({
     request:
@@ -137,3 +147,29 @@ export const runAppOperation = async <TData>({
     durationMilliseconds: Math.round(performance.now() - startedAt),
   };
 };
+
+export const runAppBuild = ({
+  context,
+  useHeldBuild,
+}: {
+  context: CommandContext;
+  useHeldBuild?: (
+    heldBuild: AppOperationResult<ToolingBuild> & {
+      project: AppProject;
+      sdk: ProjectSdk;
+    },
+  ) => Promise<void>;
+}) =>
+  runAppOperation({
+    operation: 'build',
+    parseData: parseBuildData,
+    context,
+    useHeldBuild,
+  });
+
+export const runAppTypecheck = ({ context }: { context: CommandContext }) =>
+  runAppOperation({
+    operation: 'typecheck',
+    parseData: parseNullData,
+    context,
+  });

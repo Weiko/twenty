@@ -1,17 +1,13 @@
 # CLI app function execution
 
-Port source: twenty-sdk at `767236cf59fb087676f7e0b5ee6cfa680e744c`,
-`src/cli/commands/dev/exec.ts`, `src/cli/operations/execute.ts` and
-`src/cli/utilities/api/logic-function-api.ts`. The SDK stays unchanged.
-
-The command preserves the SDK's flow: select one deployed function from the
-local app's identifiers, execute it once with a payload, and report status,
+The command selects one deployed function from the
+local app's identifiers, executes it once with a payload, and reports status,
 duration, data, error and logs. Name matching is exact. Hooks select their
 function identifier; executing an uninstall hook does not uninstall the app.
 A non-SUCCESS result exits with failure. It executes deployed code, so local
 edits must be synced with apply or dev first.
 
-Intentional CLI adaptations:
+## Contract
 
 - Flags follow the space-separated command surface and kebab-case convention:
   `app exec --name`, `--universal-identifier`, `--post-install`, `--pre-install`
@@ -30,8 +26,7 @@ Intentional CLI adaptations:
   app functions, functions exposed as workflow actions, or functions from an
   app registered by this workspace. The CLI does not bypass those checks.
 - Payloads use the existing JSON-object input reader: inline JSON, `@file` or
-  `-` for stdin, default `{}`. The legacy SDK parsed arbitrary JSON despite its
-  object input type; non-object values are deliberately rejected here.
+  `-` for stdin, default `{}`. Non-object values are rejected.
 - Human output escapes terminal controls. JSON success includes function/app
   identity, status, `durationMilliseconds`, data, logs, error and diagnostics.
   A completed non-SUCCESS result exits 1 with `EXECUTION_FAILED` and retains
@@ -51,7 +46,4 @@ Intentional CLI adaptations:
 Command tests use the public command runner and real HTTP metadata transport,
 with controlled worker results. They cover selection, application binding,
 payloads, returned errors, rejection/unknown outcomes, cancellation and no
-replay. The packaged rehearsal additionally loads the repository's real
-`function-execute-app` through the production worker with an authoring-only SDK
-copy, and exercises human, JSON/stdin and missing-function output against a local
-mock API. This is not evidence of live workspace execution.
+replay. These tests do not establish live workspace authorization or execution.

@@ -5,10 +5,10 @@ for build, plan and apply. The worker evaluates definitions through
 [app/source](../source/README.md); bundling and final artifact checksums belong to
 [app/bundles](../bundles/README.md).
 
-The SDK implementation remains a test-only parity reference for the default
-pipeline. See the [app tooling overview](../README.md) for package ownership.
+The SDK implementation is a test-only parity reference. See the
+[app tooling overview](../README.md) for package ownership.
 
-## Preserved behavior
+## Contract
 
 The builder discovers definitions and assets, derives default object fields and
 permission identifiers, infers logic-function input schemas, resolves lifecycle
@@ -20,32 +20,32 @@ the bundler.
 `package.json`'s `engines.twenty` is copied unchanged into
 `application.requiredServerVersionRange`, apart from the SDK's existing trim and
 empty-value handling. No CLI version is substituted. Package dependency warnings
-and empty-lockfile validation are preserved. The legacy warning about SDK tooling
-will need revisiting when the runtime-only SDK ships.
+and empty-lockfile validation are preserved. The SDK dependency warning describes
+its current packaging; review it when removing tooling from the SDK in a
+coordinated release.
 
-Translation compilation reuses the locale catalog helpers already ported for
+Translation compilation reuses the locale catalog helpers shared with
 pull. It preserves the distinction between no locale directory (`undefined`)
 and an empty one (`{}`), context-dependent message IDs, authored-over-compiled
 precedence, orphan compiled translations, collision handling and skipped-file
 warnings. It reads catalogs without rewriting them.
 
-## CLI adaptations
+## Implementation
 
 - Definition discovery, detection and evaluation reuse `app/source`, including
-  its shared source and ignore globs. Enum references become
-  the loader's string literals; the unreachable public-assets switch case is
-  omitted. The loader's existing validation-result shape check still applies.
+  its source and ignore globs and validation-result shape check.
 - Source and public-asset discovery is sorted. The SDK processes files in
   tinyglobby's order, which changes between runs, so its warnings, errors and
   entity file lists can come out in a different order for the same app. The
   manifest itself was already sorted. The parity suites sort the SDK
   reference's discovery the same way, so their comparisons stay exact.
 - The loader result accepts a compile-time config type, with the same runtime
-  shape check. Config types are copied locally rather than importing the SDK.
+  shape check. Config types describe the authoring values consumed by the builder
+  without importing SDK tooling.
   Handler parameters use `never` and return `unknown`; front components expose
   only the `name` consumed here. The builder never calls those callbacks.
-- The version helper requires an explicit app path. It cannot fall back to the
-  legacy CLI's process-wide execution directory.
+- The version helper requires an explicit app path; the process working directory
+  cannot choose another app's version.
 - Filesystem reads use Node and the existing CLI `pathExists` helper. The small
   generic JSON reader preserves the SDK's thrown parse errors.
 - The worker resolves the app's authoring SDK with the existing source gate,
@@ -53,8 +53,6 @@ warnings. It reads catalogs without rewriting them.
   stops esbuild before exiting. It uses the existing credential filtering,
   bounded output capture and cancellation/termination behavior. It does not hold
   a snapshot or write build state.
-- Test imports use Vitest and CLI paths. Runtime behavior is otherwise ported
-  unchanged; generic names and formatting follow CLI conventions.
 
 ## Verification
 
@@ -75,4 +73,4 @@ Comparisons remove only JSON-omitted `undefined` properties, matching the worker
 IPC boundary; arrays and diagnostics are not reordered. The invalid-app fixture
 throws `Invalid UUID` in both implementations. Additional cases cover duplicate
 identifiers, empty lockfiles, translations, source output and credential filtering.
-The copied SDK unit tests cover individual validation and translation rules.
+Unit tests cover individual validation and translation rules.

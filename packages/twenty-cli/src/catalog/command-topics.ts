@@ -4,7 +4,7 @@ import { type CommandTopicDefinition } from '@/catalog/types/command-topic-defin
 export const COMMAND_TOPICS: CommandTopicDefinition[] = [
   {
     path: ['app'],
-    description: 'Build and check apps with their own twenty-sdk',
+    description: 'Create, develop and manage applications',
     helpGroup: HELP_GROUP.APP,
   },
   {

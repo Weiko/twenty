@@ -8,7 +8,7 @@ Worker requests are internal, not a public API or a way to bypass build checks.
 
 See the [app tooling overview](../README.md) for package ownership.
 
-## Preserved behavior
+## Contract
 
 Logic functions use the same ESM/CJS banner, external modules and define stubs.
 Front components use the same JSX wrappers, remote-DOM transformation, optional
@@ -29,7 +29,7 @@ by that worker. Failed and cooperatively cancelled builds remove their temporary
 directory. Forced worker termination can leave a snapshot behind, as with the
 SDK. Cleanup never removes legacy output or another build's snapshot.
 
-## CLI adaptations
+## Implementation
 
 - Source loading, manifest generation, translations and filesystem helpers are
   shared with the other CLI app operations. The [dev session](../dev/README.md)
@@ -48,15 +48,13 @@ SDK. Cleanup never removes legacy output or another build's snapshot.
 - Workers run from the selected app directory, so invoking the CLI from a
   parent or nested directory produces the same bundle paths, bytes and hashes.
   SDK parity references run from the app root as well.
-- Snapshot storage moves to `.twenty/cli/snapshots`. Upload validation accepts
-  both this directory and `.twenty/snapshots`, retaining the existing path and
-  per-file hash checks. Neither producer can upload from sibling folders.
+- Upload validation accepts only snapshots inside the selected app's
+  `.twenty/cli/snapshots`, with path containment and per-file hash checks.
+  The old SDK's `.twenty/snapshots` directory is not an accepted upload source.
 - The internal worker reuses the source SDK gate, credential filtering, output
   capture, cancellation and held-snapshot release flow, and stops esbuild after
-  building. SDK public commands continue using the same worker lifecycle.
-- Types use the existing `ToolingResult` contract. Test imports and formatting
-  follow CLI conventions; copied explanatory comments are omitted, except those
-  inside generated JavaScript, whose bytes are preserved for parity.
+  building. Public app commands share this worker lifecycle and its
+  `ToolingResult` contract.
 
 ## Verification
 

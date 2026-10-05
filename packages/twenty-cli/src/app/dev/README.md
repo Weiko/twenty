@@ -31,4 +31,5 @@ abnormal worker exits and watcher failures require restart.
 The watcher and scheduler own no SDK API. There is no incremental compiler cache
 or package-manager dependency watcher. Arbitrary app-code filesystem reads,
 concurrent independent dev processes, and SIGKILL recovery are outside this
-session's guarantees. See the package README for user-visible limits.
+session's guarantees. See the [command reference](../../../docs/commands.md#develop-an-app) for
+user-visible limits.

@@ -1,5 +1,8 @@
 # Application tooling
 
+See [Contributing](../../CONTRIBUTING.md) for package setup and tests, and the
+[command reference](../../docs/commands.md) for user-visible behavior.
+
 The `twenty` CLI owns filesystem operations, source loading, build, typecheck,
 watching, pull and deployment. Apps use `twenty-sdk` to define application
 metadata and runtime behavior. They do not import or depend on the CLI, which

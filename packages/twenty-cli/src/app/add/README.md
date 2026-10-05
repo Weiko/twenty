@@ -8,7 +8,7 @@ preserving their reuse. It covers every field type and both runtime templates.
 The CLI reuses its existing kebab-case helper and the label helper already used
 by app init. It never imports SDK tooling.
 
-Intentional CLI adaptations:
+## Contract
 
 - `twenty app add [entity]` accepts `object`, `field`, `logic-function` and
   `front-component`. A human terminal can supply omitted values interactively.

@@ -5,7 +5,7 @@ The SDK implementation is retained as a test-only parity reference; see the
 [app tooling overview](../README.md) for package ownership.
 
 The internal `typecheckSource` worker request checks an app without loading SDK
-tooling. `bundleSnapshot` now runs this typecheck after bundling, in the SDK's
+tooling. `bundleSnapshot` runs this typecheck after bundling, in the SDK's
 existing order. A failed check discards that build's snapshot. Public build,
 typecheck, plan, apply and uninstall commands use this pipeline.
 
@@ -20,7 +20,7 @@ Missing TypeScript returns `TYPESCRIPT_NOT_INSTALLED`. An incomplete installatio
 missing compiler API or unsupported Plug'n'Play installation returns
 `TOOLING_UNSUPPORTED`. Resolution reuses the CLI's existing directory, filesystem
 and package-reading helpers. The resolved entry must belong to that installation.
-This boundary is needed because the compiler now comes from the app instead of
+This boundary is needed because the compiler comes from the app instead of
 being the SDK's own dependency.
 
 TypeScript is loaded only in the child worker. Its public JavaScript compiler API
@@ -28,7 +28,7 @@ is required. The CLI uses the installed compiler's diagnostic categories and
 message formatter, so diagnostics follow the project's compiler version. The CLI
 parser used for source loading remains independent.
 
-## Preserved behavior and migration
+## Compiler contract and migration
 
 - Read the app's `tsconfig.json`, preserve its project references and force
   `noEmit: true`. Do not write JavaScript, declarations or build information.
@@ -65,15 +65,15 @@ From `packages/twenty-cli`, after building the shared and SDK dependencies:
 node ../../node_modules/vitest/vitest.mjs run --config vitest.config.ts src/app/typecheck src/app/snapshots --maxWorkers=1
 ```
 
-The typecheck suite compares the unmodified SDK reference, the CLI port and the
-production worker with the same compiler. It also tests absent and hoisted
+The typecheck suite compares the unmodified SDK reference, the CLI implementation
+and the production worker with the same compiler. It also tests absent and hoisted
 compilers, global-path fallback, incomplete installations and actual TypeScript
 5.9.3 versus 5.7.3 behavior. The older compiler comes from the SDK's existing
 ts-morph dependency for this test only, without a new CLI dependency.
 
-Snapshot parity now runs both real typecheck phases, with no compiler bypass.
+Snapshot parity runs both real typecheck phases, with no compiler bypass.
 The app fixture supplies only the SDK's authoring/runtime exports. The apply
-contract still exercises both snapshot producers against the local HTTP fixture.
+contract exercises CLI snapshots against a local HTTP fixture.
 For the fresh CLI template, parity compares successful builds with the test
 setup included and Vitest configuration files excluded. The template supplied
 by `create-twenty-app` remains separate from the CLI overlay.

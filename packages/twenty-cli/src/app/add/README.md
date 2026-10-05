@@ -2,7 +2,7 @@
 
 The templates create object, field, logic-function and front-component
 definitions. Names and filenames use the CLI's kebab-case helper; display labels
-use the same helper as app init. Generation does not import SDK tooling.
+use the same helper as app init.
 
 ## Contract
 

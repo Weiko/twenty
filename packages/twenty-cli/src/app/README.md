@@ -35,9 +35,8 @@ file watchers. Keep these guarantees when simplifying implementation details.
 ## Package boundaries
 
 The CLI imports the app's public SDK authoring exports and invokes its installed
-client SDK generator. It owns the tooling implementation and does not call SDK
-tooling APIs. The [typecheck documentation](typecheck/README.md) describes compiler
-resolution and project requirements.
+client SDK generator. The [typecheck documentation](typecheck/README.md) describes
+compiler resolution and project requirements.
 
 Parity tests compare generated source, manifests and bundles with the repository
 SDK. Command failure and cancellation tests inject tooling fixtures into a bundle

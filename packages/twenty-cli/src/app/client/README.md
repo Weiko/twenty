@@ -6,8 +6,8 @@ package boundaries. The package manifest is read through `readJsonObject`;
 missing or malformed JSON and incorrect package names produce an expected-package
 diagnostic.
 
-The internal `generateSourceClient` worker request needs no application SDK
-build entry or descriptor. Public `app apply` uses this worker request.
+Public `app apply` invokes the generator through the internal
+`generateSourceClient` worker request.
 
 ## Package and output ownership
 

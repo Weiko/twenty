@@ -1,11 +1,10 @@
 # Application typechecking
 
 The CLI typechecks applications using their own TypeScript installation.
-The SDK implementation is a test-only parity reference; see the
-[app tooling overview](../README.md) for package ownership.
+See the [app tooling overview](../README.md) for package ownership.
 
-The internal `typecheckSource` worker request checks an app without loading SDK
-tooling. `bundleSnapshot` runs this typecheck after bundling. A failed check
+The internal `typecheckSource` worker request checks the app's source and compiler
+configuration. `bundleSnapshot` runs this typecheck after bundling. A failed check
 discards that build's snapshot. Public build, typecheck, plan, apply and uninstall
 commands use this pipeline.
 
@@ -65,5 +64,4 @@ Snapshot parity runs both real typecheck phases, with no compiler bypass.
 The app fixture supplies only the SDK's authoring/runtime exports. The apply
 contract exercises CLI snapshots against a local HTTP fixture.
 For the fresh CLI template, parity compares successful builds with the test
-setup included and Vitest configuration files excluded. The template supplied
-by `create-twenty-app` remains separate from the CLI overlay.
+setup included and Vitest configuration files excluded.

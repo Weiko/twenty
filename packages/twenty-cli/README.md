@@ -3,8 +3,8 @@
 Work with [Twenty](https://twenty.com) from your terminal: connect to workspaces,
 inspect metadata and records, send API requests, and develop applications.
 
-Build this CLI from source using the instructions below. Application publishing
-uses the `twenty-sdk` CLI; this package supports development-app deployment.
+Build this CLI from source using the instructions below. It supports
+development-app deployment. Application publishing is not supported.
 
 ## Get started
 

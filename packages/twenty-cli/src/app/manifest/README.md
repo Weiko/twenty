@@ -5,8 +5,7 @@ for build, plan and apply. The worker evaluates definitions through
 [app/source](../source/README.md); bundling and final artifact checksums belong to
 [app/bundles](../bundles/README.md).
 
-The SDK implementation is a test-only parity reference. See the
-[app tooling overview](../README.md) for package ownership.
+See the [app tooling overview](../README.md) for package ownership.
 
 ## Contract
 
@@ -34,8 +33,7 @@ warnings. It reads catalogs without rewriting them.
 - Source and public-asset discovery is sorted so warning, error and entity file
   order is deterministic.
 - The loader result accepts a compile-time config type, with the same runtime
-  shape check. Config types describe the authoring values consumed by the builder
-  without importing SDK tooling.
+  shape check. Config types describe the authoring values consumed by the builder.
   Handler parameters use `never` and return `unknown`; front components expose
   only the `name` consumed here. The builder never calls those callbacks.
 - The version helper requires an explicit app path; the process working directory

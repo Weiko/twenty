@@ -1,7 +1,7 @@
 import { isDefined } from 'twenty-shared/utils';
 
-import { applyAppBuild } from '@/app/apply-app-build';
-import { createPostSyncFailure } from '@/app/create-post-sync-failure';
+import { applyAppBuild } from '@/app/deployment/apply-app-build';
+import { createPostSyncFailure } from '@/app/deployment/create-post-sync-failure';
 import {
   buildDevSnapshot,
   type BuiltDevSnapshot,
@@ -13,7 +13,7 @@ import { watchAppInputs } from '@/app/dev/watch-app-inputs';
 import { isToolingDiagnostic } from '@/app/parse-tooling-result';
 import { formatToolingDiagnostic } from '@/app/format-tooling-diagnostic';
 import { recordPullBase } from '@/app/record-pull-base';
-import { resolveAppProject } from '@/app/resolve-app-project';
+import { resolveAppProject } from '@/app/project/resolve-app-project';
 import {
   readBooleanOption,
   readStringOption,

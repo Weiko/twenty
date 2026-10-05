@@ -6,7 +6,7 @@ import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import { type ToolingResult } from '@/app/types/tooling-result.type';
 import { readJsonObject } from '@/app/read-json-object';
-import { resolveInsideSdk } from '@/app/resolve-inside-sdk';
+import { resolveInsideSdk } from '@/app/project/resolve-inside-sdk';
 import { validateAppPath } from '@/app/snapshots/validate-app-path';
 
 export const generateApplicationClient = async ({

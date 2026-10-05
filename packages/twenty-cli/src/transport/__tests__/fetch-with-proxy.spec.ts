@@ -188,7 +188,7 @@ describe('environment proxies', () => {
 
   it('routes signed uploads through the same proxy', async () => {
     vi.stubEnv('HTTP_PROXY', proxyUrl);
-    const { putUploadFile } = await import('@/app/put-upload-file');
+    const { putUploadFile } = await import('@/app/deployment/put-upload-file');
 
     expect(
       await putUploadFile({

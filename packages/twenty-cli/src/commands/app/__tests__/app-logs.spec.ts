@@ -18,7 +18,7 @@ import { runCli } from '@/run-cli';
 
 vi.mock('@/app/read-app-identity');
 vi.mock('@/program/resolve-command-target');
-vi.mock('@/app/resolve-app-project', () => ({
+vi.mock('@/app/project/resolve-app-project', () => ({
   resolveAppProject: async () => ({ path: '/test-app', name: 'test-app' }),
 }));
 

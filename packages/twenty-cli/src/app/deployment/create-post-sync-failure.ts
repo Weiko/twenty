@@ -1,7 +1,7 @@
 import { isNonEmptyString } from '@sniptt/guards';
 
-import { type AppApplyPhase } from '@/app/types/app-apply-phase.type';
-import { withPhaseDetails } from '@/app/with-phase-details';
+import { type AppApplyPhase } from '@/app/deployment/types/app-apply-phase.type';
+import { withPhaseDetails } from '@/app/deployment/with-phase-details';
 import { CliError } from '@/output/cli-error';
 import { toCliError } from '@/output/to-cli-error';
 

@@ -5,7 +5,7 @@ import { retainDevSnapshot } from '@/app/dev/retain-dev-snapshot';
 import { type WatchInputs } from '@/app/dev/types/watch-inputs.type';
 import { parseBuildData, parseToolingResult } from '@/app/parse-tooling-result';
 import { collectSourceFingerprints } from '@/app/pull/collect-source-fingerprints';
-import { resolveSourceSdk } from '@/app/resolve-source-sdk';
+import { resolveSourceSdk } from '@/app/project/resolve-source-sdk';
 import { runAppWorker } from '@/app/run-app-worker';
 import { toWorkerOutputDiagnostics } from '@/app/to-worker-output-diagnostics';
 import { CliError } from '@/output/cli-error';

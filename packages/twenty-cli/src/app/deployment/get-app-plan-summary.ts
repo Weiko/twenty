@@ -1,8 +1,8 @@
-import { isDestructiveAppPlanAction } from '@/app/is-destructive-app-plan-action';
+import { isDestructiveAppPlanAction } from '@/app/deployment/is-destructive-app-plan-action';
 import {
   type AppPlanAction,
   type AppPlanSummary,
-} from '@/app/types/app-plan.type';
+} from '@/app/deployment/types/app-plan.type';
 
 export const getAppPlanSummary = (actions: AppPlanAction[]): AppPlanSummary => {
   const summary = { create: 0, update: 0, delete: 0, destructive: 0 };

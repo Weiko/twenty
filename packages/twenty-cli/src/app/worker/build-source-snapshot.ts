@@ -1,7 +1,7 @@
 import { stop } from 'esbuild';
 
 import { getToolingErrorContext } from '@/app/get-tooling-error-context';
-import { resolveSourceSdk } from '@/app/resolve-source-sdk';
+import { resolveSourceSdk } from '@/app/project/resolve-source-sdk';
 import { buildSnapshot, releaseSnapshot } from '@/app/snapshots/build-snapshot';
 import {
   type ToolingBuild,

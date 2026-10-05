@@ -1,8 +1,8 @@
 import { isDefined } from 'twenty-shared/utils';
 
-import { resolveAppProject } from '@/app/resolve-app-project';
-import { resolveSourceSdk } from '@/app/resolve-source-sdk';
-import { type AppProject } from '@/app/types/app-project.type';
+import { resolveAppProject } from '@/app/project/resolve-app-project';
+import { resolveSourceSdk } from '@/app/project/resolve-source-sdk';
+import { type AppProject } from '@/app/project/types/app-project.type';
 import { type DoctorCheck } from '@/doctor/types/doctor-check.type';
 import { CliError } from '@/output/cli-error';
 

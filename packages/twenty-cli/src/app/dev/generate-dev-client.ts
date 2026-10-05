@@ -4,8 +4,8 @@ import { join } from 'node:path';
 
 import { isDefined } from 'twenty-shared/utils';
 
-import { type AppApplyResult } from '@/app/apply-app-build';
-import { createPostSyncFailure } from '@/app/create-post-sync-failure';
+import { type AppApplyResult } from '@/app/deployment/apply-app-build';
+import { createPostSyncFailure } from '@/app/deployment/create-post-sync-failure';
 import { readWatchInputStamp } from '@/app/dev/read-watch-input-stamp';
 import { type BuiltDevSnapshot } from '@/app/dev/build-dev-snapshot';
 import {
@@ -14,7 +14,7 @@ import {
 } from '@/app/generate-app-client';
 import { getClientGenerationSkipReason } from '@/app/get-client-generation-skip-reason';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';
-import { withPhaseDetails } from '@/app/with-phase-details';
+import { withPhaseDetails } from '@/app/deployment/with-phase-details';
 import { toCliError } from '@/output/to-cli-error';
 
 export const createDevClientGenerator = ({ appPath }: { appPath: string }) => {

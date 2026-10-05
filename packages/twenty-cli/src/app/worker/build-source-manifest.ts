@@ -3,7 +3,7 @@ import { stop } from 'esbuild';
 import { getToolingErrorContext } from '@/app/get-tooling-error-context';
 import { buildAndValidateManifest } from '@/app/manifest/build-and-validate-manifest';
 import { type AppManifest } from '@/app/manifest/types/app-manifest.type';
-import { resolveSourceSdk } from '@/app/resolve-source-sdk';
+import { resolveSourceSdk } from '@/app/project/resolve-source-sdk';
 import { compileApplicationTranslations } from '@/app/translations/compile-application-translations';
 import {
   type ToolingDiagnostic,

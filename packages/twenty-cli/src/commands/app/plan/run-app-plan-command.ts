@@ -1,6 +1,6 @@
-import { fetchAppPlan } from '@/app/fetch-app-plan';
-import { formatAppPlan } from '@/app/format-app-plan';
-import { getAppPlanSummary } from '@/app/get-app-plan-summary';
+import { fetchAppPlan } from '@/app/deployment/fetch-app-plan';
+import { formatAppPlan } from '@/app/deployment/format-app-plan';
+import { getAppPlanSummary } from '@/app/deployment/get-app-plan-summary';
 import { runAppBuild } from '@/app/run-app-operation';
 import { type CommandRun } from '@/catalog/types/command-run.type';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';

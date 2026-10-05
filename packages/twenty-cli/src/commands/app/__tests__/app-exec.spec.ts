@@ -22,10 +22,10 @@ import { resolveCommandTarget } from '@/program/resolve-command-target';
 
 vi.mock('@/app/run-app-worker');
 vi.mock('@/program/resolve-command-target');
-vi.mock('@/app/resolve-app-project', () => ({
+vi.mock('@/app/project/resolve-app-project', () => ({
   resolveAppProject: async () => ({ path: '/test-app', name: 'test-app' }),
 }));
-vi.mock('@/app/resolve-source-sdk', () => ({
+vi.mock('@/app/project/resolve-source-sdk', () => ({
   resolveSourceSdk: async () => ({
     version: '2.44.0',
     packagePath: '/test-app/node_modules/twenty-sdk',

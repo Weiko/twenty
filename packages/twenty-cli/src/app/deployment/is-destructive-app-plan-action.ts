@@ -1,4 +1,4 @@
-import { type AppPlanAction } from '@/app/types/app-plan.type';
+import { type AppPlanAction } from '@/app/deployment/types/app-plan.type';
 
 export const isDestructiveAppPlanAction = (action: AppPlanAction) =>
   action.type === 'delete' &&

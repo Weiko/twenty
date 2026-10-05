@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { checkNodeRequirement } from '@/app/check-node-requirement';
+import { checkNodeRequirement } from '@/app/project/check-node-requirement';
 
 describe('checkNodeRequirement', () => {
   it.each([

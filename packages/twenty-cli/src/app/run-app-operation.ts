@@ -7,14 +7,14 @@ import {
   parseNullData,
   parseToolingResult,
 } from '@/app/parse-tooling-result';
-import { resolveAppProject } from '@/app/resolve-app-project';
-import { resolveSourceSdk } from '@/app/resolve-source-sdk';
+import { resolveAppProject } from '@/app/project/resolve-app-project';
+import { resolveSourceSdk } from '@/app/project/resolve-source-sdk';
 import { runAppWorker } from '@/app/run-app-worker';
 import { toWorkerOutputDiagnostics } from '@/app/to-worker-output-diagnostics';
 import { type AppOperation } from '@/app/types/app-operation.type';
-import { type AppProject } from '@/app/types/app-project.type';
+import { type AppProject } from '@/app/project/types/app-project.type';
 import { type AppWorkerOutput } from '@/app/types/app-worker-output.type';
-import { type ProjectSdk } from '@/app/types/project-sdk.type';
+import { type ProjectSdk } from '@/app/project/types/project-sdk.type';
 import {
   type ToolingBuild,
   type ToolingDiagnostic,

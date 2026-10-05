@@ -6,7 +6,7 @@ import { formatToolingDiagnostic } from '@/app/format-tooling-diagnostic';
 import { readLogsFilter } from '@/app/function-logs/read-logs-filter';
 import { subscribeToAppLogs } from '@/app/function-logs/subscribe-to-app-logs';
 import { readAppIdentity } from '@/app/read-app-identity';
-import { resolveAppProject } from '@/app/resolve-app-project';
+import { resolveAppProject } from '@/app/project/resolve-app-project';
 import { readStringOption } from '@/catalog/read-command-values';
 import { type CommandRun } from '@/catalog/types/command-run.type';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';

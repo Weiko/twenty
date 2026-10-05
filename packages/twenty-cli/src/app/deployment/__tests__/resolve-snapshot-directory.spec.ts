@@ -2,7 +2,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { resolveSnapshotDirectory } from '@/app/resolve-snapshot-directory';
+import { resolveSnapshotDirectory } from '@/app/deployment/resolve-snapshot-directory';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
 
 const appPath = '/app';

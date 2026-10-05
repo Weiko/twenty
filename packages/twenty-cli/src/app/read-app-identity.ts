@@ -3,7 +3,7 @@ import { isValidUniversalIdentifier } from 'twenty-shared/application';
 import { isPlainObject } from 'twenty-shared/utils';
 
 import { parseToolingResult } from '@/app/parse-tooling-result';
-import { resolveSourceSdk } from '@/app/resolve-source-sdk';
+import { resolveSourceSdk } from '@/app/project/resolve-source-sdk';
 import { runAppWorker } from '@/app/run-app-worker';
 import { type AppSourceIdentity } from '@/app/source/types/app-source-identity.type';
 import { toWorkerOutputDiagnostics } from '@/app/to-worker-output-diagnostics';

@@ -1,11 +1,11 @@
 import { isBoolean, isNumber, isString } from '@sniptt/guards';
 import { isDefined } from 'twenty-shared/utils';
 
-import { isDestructiveAppPlanAction } from '@/app/is-destructive-app-plan-action';
+import { isDestructiveAppPlanAction } from '@/app/deployment/is-destructive-app-plan-action';
 import {
   type AppPlanAction,
   type AppPlanSummary,
-} from '@/app/types/app-plan.type';
+} from '@/app/deployment/types/app-plan.type';
 import { formatDataValue } from '@/data/format-data-value';
 import { boldText, colorText, dimText } from '@/output/style';
 

@@ -2,8 +2,8 @@ import { isNonEmptyString } from '@sniptt/guards';
 import { formatBytes, isDefined } from 'twenty-shared/utils';
 
 import { formatAppDuration } from '@/app/format-app-duration';
-import { type AppPlanSummary } from '@/app/types/app-plan.type';
-import { type AppUploadProgress } from '@/app/types/app-upload-progress.type';
+import { type AppPlanSummary } from '@/app/deployment/types/app-plan.type';
+import { type AppUploadProgress } from '@/app/deployment/types/app-upload-progress.type';
 import { formatDataValue } from '@/data/format-data-value';
 import { dimText, formatSuccessLine } from '@/output/style';
 

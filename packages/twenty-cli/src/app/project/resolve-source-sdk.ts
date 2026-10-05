@@ -5,9 +5,9 @@ import { isString } from '@sniptt/guards';
 import satisfies from 'semver/functions/satisfies';
 import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
-import { checkNodeRequirement } from '@/app/check-node-requirement';
-import { resolveInstalledSdk } from '@/app/resolve-installed-sdk';
-import { resolveInsideSdk } from '@/app/resolve-inside-sdk';
+import { checkNodeRequirement } from '@/app/project/check-node-requirement';
+import { resolveInstalledSdk } from '@/app/project/resolve-installed-sdk';
+import { resolveInsideSdk } from '@/app/project/resolve-inside-sdk';
 import { CliError } from '@/output/cli-error';
 
 const SOURCE_SDK_RANGE = '>=1.23.0';

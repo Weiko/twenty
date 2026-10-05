@@ -2,7 +2,7 @@ import { isArray, isNonEmptyString, isUndefined } from '@sniptt/guards';
 import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import { isSameUniversalIdentifier } from '@/app/is-same-universal-identifier';
-import { type AppPlanAction } from '@/app/types/app-plan.type';
+import { type AppPlanAction } from '@/app/deployment/types/app-plan.type';
 import { CliError } from '@/output/cli-error';
 import { RESULT_ITEM_LIMIT } from '@/transport/constants/result-item-limit.constant';
 

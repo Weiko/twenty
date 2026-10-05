@@ -1,7 +1,7 @@
 import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import { isApplicationNotFoundError } from '@/app/is-application-not-found-error';
-import { parseAppPlan } from '@/app/parse-app-plan';
+import { parseAppPlan } from '@/app/deployment/parse-app-plan';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';

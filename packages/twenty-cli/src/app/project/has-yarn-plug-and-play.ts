@@ -1,7 +1,7 @@
 import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { listAncestorDirectories } from '@/app/list-ancestor-directories';
+import { listAncestorDirectories } from '@/app/project/list-ancestor-directories';
 
 export const hasYarnPlugAndPlay = async (appPath: string) => {
   for (const directory of listAncestorDirectories(appPath)) {

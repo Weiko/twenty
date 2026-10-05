@@ -10,6 +10,8 @@ is normally installed globally.
 
 | Module                                   | Responsibility                                                       |
 | ---------------------------------------- | -------------------------------------------------------------------- |
+| `project`                             | Locate the app and resolve its installed SDK and Node requirements   |
+| `deployment`                          | Preview metadata changes, approve them, upload snapshots and sync    |
 | [source](source/README.md)               | Discover and evaluate trusted app definitions in a disposable worker |
 | [manifest](manifest/README.md)           | Construct and validate metadata, compile translations                |
 | [bundles](bundles/README.md)             | Build artifacts and hold immutable snapshots for consumers           |

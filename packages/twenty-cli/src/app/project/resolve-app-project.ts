@@ -4,9 +4,9 @@ import { basename, join, relative, resolve } from 'node:path';
 import { isNonEmptyString } from '@sniptt/guards';
 import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
-import { listAncestorDirectories } from '@/app/list-ancestor-directories';
+import { listAncestorDirectories } from '@/app/project/list-ancestor-directories';
 import { readJsonObject } from '@/app/read-json-object';
-import { type AppProject } from '@/app/types/app-project.type';
+import { type AppProject } from '@/app/project/types/app-project.type';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 

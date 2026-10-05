@@ -15,27 +15,19 @@ import {
   buildIndexFileBaseName,
   buildViewFieldFileBaseName,
   type FieldLocation,
-  isUsableFileNameSegment,
   toFileBaseName,
 } from '@/app/pull/pull-file-base-name';
 import { stripGraphqlTypename } from '@/app/pull/strip-graphql-typename';
 import { kebabCase } from '@/app/pull/kebab-case';
+import { type Manifest } from 'twenty-shared/application';
+import { fromApplicationManifestToApplicationConfig } from '@/app/pull/from-application-manifest-to-application-config';
+import { fromRoleManifestToRoleConfig } from '@/app/pull/from-role-manifest-to-role-config';
 import {
-  type ApplicationManifest,
-  getFieldPermissionUniversalIdentifier,
-  getObjectPermissionUniversalIdentifier,
-  getSystemRecordFormPageLayoutUniversalIdentifier,
-  getSystemRecordPageLayoutUniversalIdentifier,
-  getSystemViewUniversalIdentifier,
-  type Manifest,
-  type NavigationMenuItemManifest,
-  type RoleManifest,
-  SYSTEM_VIEW_KEYS,
-} from 'twenty-shared/application';
-import {
-  STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS,
-  STANDARD_PAGE_LAYOUT_UNIVERSAL_IDENTIFIERS,
-} from 'twenty-shared/metadata';
+  getObjectName,
+  getPageLayoutName,
+  getNavigationMenuItemName,
+  getNavigationMenuItemFolderName,
+} from '@/app/pull/pull-entity-names';
 import { isDefined } from 'twenty-shared/utils';
 
 export const PULL_ENTITY_KINDS = [
@@ -73,292 +65,6 @@ export type SkippedPullEntity = {
   reason: string;
 };
 
-const APPLICATION_PROPERTIES_TO_STRIP = [
-  'packageJsonChecksum',
-  'yarnLockChecksum',
-  'requiredServerVersionRange',
-  'aboutDescription',
-  'postInstallLogicFunction',
-  'preInstallLogicFunction',
-  'uninstallLogicFunction',
-  'healthCheckLogicFunction',
-  'settingsFrontComponent',
-  'settingsCustomTabFrontComponentUniversalIdentifier',
-  'frontComponentSharedDependencies',
-  'logoUrl',
-  'screenshots',
-] as const;
-
-const APPLICATION_PROPERTY_NAMES_TO_STRIP = new Set<string>(
-  APPLICATION_PROPERTIES_TO_STRIP,
-);
-
-const GENERATED_COVER_GALLERY_IMAGE = 'public/cover.generated.png';
-
-const STANDARD_OBJECT_NAME_BY_UNIVERSAL_IDENTIFIER = new Map<string, string>(
-  Object.entries(STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS).map(
-    ([name, universalIdentifier]) => [universalIdentifier, name] as const,
-  ),
-);
-
-const STANDARD_PAGE_LAYOUT_NAME_BY_UNIVERSAL_IDENTIFIER = new Map<
-  string,
-  string
->(
-  Object.entries(STANDARD_PAGE_LAYOUT_UNIVERSAL_IDENTIFIERS).map(
-    ([name, { universalIdentifier }]) => [universalIdentifier, name] as const,
-  ),
-);
-
-const isDefaultRoleExported = (manifest: Manifest): boolean =>
-  (manifest.roles ?? []).some(
-    ({ universalIdentifier }) =>
-      universalIdentifier ===
-      manifest.application.defaultRoleUniversalIdentifier,
-  );
-
-const buildApplicationConfig = (
-  manifest: Manifest,
-): Partial<ApplicationManifest> => {
-  const applicationConfig = Object.fromEntries(
-    Object.entries(manifest.application).filter(
-      ([property]) =>
-        !APPLICATION_PROPERTY_NAMES_TO_STRIP.has(property) &&
-        !(
-          property === 'defaultRoleUniversalIdentifier' &&
-          isDefaultRoleExported(manifest)
-        ),
-    ),
-  ) as Partial<ApplicationManifest>;
-
-  const { galleryImages } = applicationConfig;
-
-  if (
-    !Array.isArray(galleryImages) ||
-    galleryImages.length === 0 ||
-    galleryImages.every((image) => image === GENERATED_COVER_GALLERY_IMAGE)
-  ) {
-    const { galleryImages: _galleryImages, ...withoutGalleryImages } =
-      applicationConfig;
-
-    return withoutGalleryImages;
-  }
-
-  return applicationConfig;
-};
-
-const omitDerivedUniversalIdentifiers = <
-  TPermission extends { universalIdentifier?: string },
->({
-  permissions,
-  getDerivedUniversalIdentifier,
-}: {
-  permissions: TPermission[];
-  getDerivedUniversalIdentifier: (
-    permission: Omit<TPermission, 'universalIdentifier'>,
-  ) => string;
-}) =>
-  permissions.map(({ universalIdentifier, ...permission }) =>
-    universalIdentifier === getDerivedUniversalIdentifier(permission)
-      ? permission
-      : { universalIdentifier, ...permission },
-  );
-
-const buildRoleConfig = ({
-  roleManifest,
-  applicationUniversalIdentifier,
-}: {
-  roleManifest: RoleManifest;
-  applicationUniversalIdentifier: string;
-}): RoleManifest => {
-  const {
-    universalIdentifier: roleUniversalIdentifier,
-    objectPermissions,
-    fieldPermissions,
-  } = roleManifest;
-
-  return {
-    ...roleManifest,
-    ...(isDefined(objectPermissions)
-      ? {
-          objectPermissions: omitDerivedUniversalIdentifiers({
-            permissions: objectPermissions,
-            getDerivedUniversalIdentifier: ({ objectUniversalIdentifier }) =>
-              getObjectPermissionUniversalIdentifier({
-                applicationUniversalIdentifier,
-                roleUniversalIdentifier,
-                objectUniversalIdentifier,
-              }),
-          }),
-        }
-      : {}),
-    ...(isDefined(fieldPermissions)
-      ? {
-          fieldPermissions: omitDerivedUniversalIdentifiers({
-            permissions: fieldPermissions,
-            getDerivedUniversalIdentifier: ({ fieldUniversalIdentifier }) =>
-              getFieldPermissionUniversalIdentifier({
-                applicationUniversalIdentifier,
-                roleUniversalIdentifier,
-                fieldUniversalIdentifier,
-              }),
-          }),
-        }
-      : {}),
-  };
-};
-
-const getObjectName = ({
-  objectUniversalIdentifier,
-  manifest,
-}: {
-  objectUniversalIdentifier: string;
-  manifest: Manifest;
-}): string | null =>
-  (manifest.objects ?? []).find(
-    (objectManifest) =>
-      objectManifest.universalIdentifier === objectUniversalIdentifier,
-  )?.nameSingular ??
-  STANDARD_OBJECT_NAME_BY_UNIVERSAL_IDENTIFIER.get(objectUniversalIdentifier) ??
-  null;
-
-const getPageLayoutName = ({
-  pageLayoutUniversalIdentifier,
-  manifest,
-}: {
-  pageLayoutUniversalIdentifier: string;
-  manifest: Manifest;
-}): string | null => {
-  const pageLayoutManifest = manifest.pageLayouts?.find(
-    (candidate) =>
-      candidate.universalIdentifier === pageLayoutUniversalIdentifier,
-  );
-
-  if (isDefined(pageLayoutManifest)) {
-    return pageLayoutManifest.name;
-  }
-
-  const standardPageLayoutName =
-    STANDARD_PAGE_LAYOUT_NAME_BY_UNIVERSAL_IDENTIFIER.get(
-      pageLayoutUniversalIdentifier,
-    );
-
-  if (isDefined(standardPageLayoutName)) {
-    return standardPageLayoutName;
-  }
-
-  const objectMetadataApplicationUniversalIdentifier =
-    manifest.application.universalIdentifier;
-
-  for (const objectManifest of manifest.objects ?? []) {
-    const systemPageLayoutUniversalIdentifiers = {
-      objectMetadataApplicationUniversalIdentifier,
-      objectUniversalIdentifier: objectManifest.universalIdentifier,
-    };
-
-    if (
-      getSystemRecordPageLayoutUniversalIdentifier(
-        systemPageLayoutUniversalIdentifiers,
-      ) === pageLayoutUniversalIdentifier
-    ) {
-      return `${objectManifest.nameSingular}RecordPage`;
-    }
-
-    if (
-      getSystemRecordFormPageLayoutUniversalIdentifier(
-        systemPageLayoutUniversalIdentifiers,
-      ) === pageLayoutUniversalIdentifier
-    ) {
-      return `${objectManifest.nameSingular}RecordForm`;
-    }
-  }
-
-  return null;
-};
-
-const getViewName = ({
-  viewUniversalIdentifier,
-  manifest,
-}: {
-  viewUniversalIdentifier: string;
-  manifest: Manifest;
-}): string | null => {
-  const viewManifest = manifest.views?.find(
-    (candidate) => candidate.universalIdentifier === viewUniversalIdentifier,
-  );
-
-  if (isDefined(viewManifest)) {
-    return viewManifest.name;
-  }
-
-  const objectMetadataApplicationUniversalIdentifier =
-    manifest.application.universalIdentifier;
-
-  for (const objectManifest of manifest.objects ?? []) {
-    if (
-      getSystemViewUniversalIdentifier({
-        objectMetadataApplicationUniversalIdentifier,
-        objectUniversalIdentifier: objectManifest.universalIdentifier,
-        viewKey: SYSTEM_VIEW_KEYS.INDEX,
-      }) === viewUniversalIdentifier
-    ) {
-      return `${objectManifest.nameSingular}IndexView`;
-    }
-  }
-
-  return null;
-};
-
-const getNavigationMenuItemName = ({
-  navigationMenuItemManifest,
-  manifest,
-}: {
-  navigationMenuItemManifest: NavigationMenuItemManifest;
-  manifest: Manifest;
-}): string | null => {
-  const {
-    name,
-    targetObjectUniversalIdentifier,
-    viewUniversalIdentifier,
-    pageLayoutUniversalIdentifier,
-  } = navigationMenuItemManifest;
-
-  if (isUsableFileNameSegment(name)) {
-    return name;
-  }
-
-  if (isDefined(targetObjectUniversalIdentifier)) {
-    return getObjectName({
-      objectUniversalIdentifier: targetObjectUniversalIdentifier,
-      manifest,
-    });
-  }
-
-  if (isDefined(viewUniversalIdentifier)) {
-    return getViewName({ viewUniversalIdentifier, manifest });
-  }
-
-  if (isDefined(pageLayoutUniversalIdentifier)) {
-    return getPageLayoutName({ pageLayoutUniversalIdentifier, manifest });
-  }
-
-  return null;
-};
-
-const getNavigationMenuItemFolderName = ({
-  folderUniversalIdentifier,
-  manifest,
-}: {
-  folderUniversalIdentifier: string;
-  manifest: Manifest;
-}): string | null => {
-  const folderName = manifest.navigationMenuItems?.find(
-    (candidate) => candidate.universalIdentifier === folderUniversalIdentifier,
-  )?.name;
-
-  return isUsableFileNameSegment(folderName) ? folderName : null;
-};
-
 export const buildPullEntities = (
   manifest: Manifest,
 ): { entities: PullEntity[]; skipped: SkippedPullEntity[] } => {
@@ -371,7 +77,7 @@ export const buildPullEntities = (
     kind: 'application',
     universalIdentifier: applicationUniversalIdentifier,
     definer: 'defineApplication',
-    config: buildApplicationConfig(manifest),
+    config: fromApplicationManifestToApplicationConfig(manifest),
     enumBindings: [],
     defaultFolder: 'src',
     fileSuffix: '.config.ts',
@@ -494,7 +200,10 @@ export const buildPullEntities = (
         manifest.application.defaultRoleUniversalIdentifier
           ? 'defineApplicationRole'
           : 'defineRole',
-      config: buildRoleConfig({ roleManifest, applicationUniversalIdentifier }),
+      config: fromRoleManifestToRoleConfig({
+        roleManifest,
+        applicationUniversalIdentifier,
+      }),
       enumBindings: ROLE_ENUM_BINDINGS,
       defaultFolder: 'src/roles',
       fileSuffix: '.role.ts',

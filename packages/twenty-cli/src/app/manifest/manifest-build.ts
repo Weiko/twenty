@@ -1,3 +1,6 @@
+import { fromObjectConfigToObjectManifest } from '@/app/manifest/utils/from-object-config-to-object-manifest';
+import { fromLogicFunctionConfigToLogicFunctionManifest } from '@/app/manifest/utils/from-logic-function-config-to-logic-function-manifest';
+import { fromFrontComponentConfigToFrontComponentManifest } from '@/app/manifest/utils/from-front-component-config-to-front-component-manifest';
 import { listApplicationSourceFiles } from '@/app/source/list-application-source-files';
 import { type EntityFilePaths } from '@/app/manifest/types/entity-file-paths.type';
 import {
@@ -7,7 +10,6 @@ import {
 import { extractManifestFromFile } from '@/app/source/extract-manifest-from-file';
 import { addMissingFieldOptionIds } from '@/app/manifest/utils/add-missing-field-option-ids';
 import { fromRoleConfigToRoleManifest } from '@/app/manifest/utils/from-role-config-to-role-manifest';
-import { getDefaultFieldsInObjectFields } from '@/app/manifest/utils/get-default-fields-in-object-fields';
 import { extractFrontComponentSharedDependencies } from '@/app/manifest/utils/extract-front-component-shared-dependencies';
 import { validateConditionalAvailabilityUsage } from '@/app/manifest/utils/validate-conditional-availability-usage';
 import { validateAgentRolesWithinApplicationRole } from '@/app/manifest/utils/validate-agent-roles-within-application-role';
@@ -59,10 +61,6 @@ import {
   type TimelineActivityTypeManifest,
   type ViewManifest,
 } from 'twenty-shared/application';
-import {
-  getInputSchemaFromSourceCode,
-  jsonSchemaToInputSchema,
-} from 'twenty-shared/logic-function';
 import { assertUnreachable, isDefined } from 'twenty-shared/utils';
 
 const loadSources = (appPath: string): Promise<string[]> =>
@@ -282,47 +280,11 @@ export const buildManifest = async (
         errors.push(...extract.errors);
         warnings.push(...(extract.warnings ?? []));
 
-        const { handler: _, ...rest } = extract.config;
-
-        const inferredJsonSchema =
-          (rest.toolTriggerSettings && !rest.toolTriggerSettings.inputSchema) ||
-          (rest.workflowActionTriggerSettings &&
-            !rest.workflowActionTriggerSettings.inputSchema)
-            ? await getInputSchemaFromSourceCode(fileContent)
-            : null;
-
-        const toolTriggerSettings = rest.toolTriggerSettings
-          ? {
-              ...rest.toolTriggerSettings,
-              inputSchema:
-                rest.toolTriggerSettings.inputSchema ??
-                inferredJsonSchema ??
-                undefined,
-            }
-          : undefined;
-
-        const workflowActionTriggerSettings = rest.workflowActionTriggerSettings
-          ? {
-              ...rest.workflowActionTriggerSettings,
-              inputSchema:
-                rest.workflowActionTriggerSettings.inputSchema ??
-                (inferredJsonSchema
-                  ? jsonSchemaToInputSchema(inferredJsonSchema)
-                  : undefined),
-            }
-          : undefined;
-
-        const config: LogicFunctionManifest = {
-          ...rest,
-          ...(toolTriggerSettings ? { toolTriggerSettings } : {}),
-          ...(workflowActionTriggerSettings
-            ? { workflowActionTriggerSettings }
-            : {}),
-          handlerName: 'default.config.handler',
-          sourceHandlerPath: relativePath,
-          builtHandlerPath: relativePath.replace(/\.tsx?$/, '.mjs'),
-          builtHandlerChecksum: '[default-checksum]',
-        };
+        const config = await fromLogicFunctionConfigToLogicFunctionManifest({
+          logicFunctionConfig: extract.config,
+          sourceCode: fileContent,
+          sourcePath: relativePath,
+        });
 
         logicFunctions.push(config);
         logicFunctionsFilePaths.push(relativePath);
@@ -374,18 +336,10 @@ export const buildManifest = async (
         errors.push(...extract.errors);
         warnings.push(...(extract.warnings ?? []));
 
-        const { component, ...rest } = extract.config;
-
-        const relativeFilePath = relative(appPath, filePath);
-
-        const config: FrontComponentManifest = {
-          ...rest,
-          componentName: component.name,
-          sourceComponentPath: relativeFilePath,
-          builtComponentPath: relativeFilePath.replace(/\.tsx?$/, '.mjs'),
-          builtComponentChecksum: '',
-          isHeadless: rest.isHeadless ?? false,
-        };
+        const config = fromFrontComponentConfigToFrontComponentManifest({
+          frontComponentConfig: extract.config,
+          sourcePath: relativePath,
+        });
 
         frontComponents.push(config);
         frontComponentsFilePaths.push(relativePath);
@@ -566,29 +520,17 @@ export const buildManifest = async (
 
   if (applicationConfig) {
     for (const objectConfig of objectConfigs) {
-      const { objectFields: objectFieldsWithDefaults } =
-        getDefaultFieldsInObjectFields({
+      const { objectManifest, errors: objectErrors } =
+        fromObjectConfigToObjectManifest({
           objectConfig,
           applicationUniversalIdentifier: applicationConfig.universalIdentifier,
         });
 
-      const labelIdentifierFieldMetadataUniversalIdentifier =
-        objectConfig.labelIdentifierFieldMetadataUniversalIdentifier ??
-        objectFieldsWithDefaults.find((field) => field.name === 'name')
-          ?.universalIdentifier;
+      errors.push(...objectErrors);
 
-      if (!labelIdentifierFieldMetadataUniversalIdentifier) {
-        errors.push(
-          `No label identifier field found for object ${objectConfig.nameSingular}. Please add a field with name "name" to your object.`,
-        );
+      if (!objectManifest) {
         continue;
       }
-
-      const objectManifest: ObjectManifest = {
-        ...objectConfig,
-        fields: objectFieldsWithDefaults.map(addMissingFieldOptionIds),
-        labelIdentifierFieldMetadataUniversalIdentifier,
-      };
 
       objects.push(objectManifest);
     }

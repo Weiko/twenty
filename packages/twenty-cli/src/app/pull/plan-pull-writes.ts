@@ -5,10 +5,9 @@ import {
   type PullEntity,
   type PullEntityKind,
 } from '@/app/pull/build-pull-entities';
-import { capFileBaseName } from '@/app/pull/pull-file-base-name';
+import { resolvePullFileNameCollisions } from '@/app/pull/resolve-pull-file-name-collisions';
 import { type ScannedSourceFile } from '@/app/source/scan-project-source-files';
 import { writeDefineFile } from '@/app/pull/write-define-file';
-import { kebabCase } from '@/app/pull/kebab-case';
 import { dirname, posix } from 'node:path';
 import { type Manifest } from 'twenty-shared/application';
 import { isDefined } from 'twenty-shared/utils';
@@ -81,55 +80,6 @@ const findExistingFolderForKind = ({
   );
 
   return sortedFolders[0]?.[0] ?? null;
-};
-
-const resolveFileBaseNames = (entities: PullEntity[]): Map<string, string> => {
-  const entitiesByCandidate = new Map<string, PullEntity[]>();
-
-  for (const entity of entities) {
-    const candidate = `${entity.defaultFolder}/${entity.fileBaseName}${entity.fileSuffix}`;
-    const existing = entitiesByCandidate.get(candidate) ?? [];
-
-    entitiesByCandidate.set(candidate, [...existing, entity]);
-  }
-
-  const fileBaseNameByUniversalIdentifier = new Map<string, string>();
-
-  for (const collidingEntities of entitiesByCandidate.values()) {
-    if (collidingEntities.length === 1) {
-      fileBaseNameByUniversalIdentifier.set(
-        collidingEntities[0].universalIdentifier,
-        collidingEntities[0].fileBaseName,
-      );
-      continue;
-    }
-
-    const qualifiedNames = collidingEntities.map((entity) =>
-      isDefined(entity.parentName)
-        ? capFileBaseName(
-            `${kebabCase(entity.parentName)}-${entity.fileBaseName}`,
-          )
-        : entity.fileBaseName,
-    );
-
-    collidingEntities.forEach((entity, index) => {
-      const qualifiedName = qualifiedNames[index];
-      const isQualifiedNameUnique =
-        qualifiedNames.indexOf(qualifiedName) ===
-        qualifiedNames.lastIndexOf(qualifiedName);
-
-      fileBaseNameByUniversalIdentifier.set(
-        entity.universalIdentifier,
-        isQualifiedNameUnique
-          ? qualifiedName
-          : capFileBaseName(
-              `${entity.universalIdentifier.slice(0, 8)}-${qualifiedName}`,
-            ),
-      );
-    });
-  }
-
-  return fileBaseNameByUniversalIdentifier;
 };
 
 const reserveRelativePath = ({
@@ -206,7 +156,8 @@ export const planPullWrites = ({
       JSON.stringify(entity.config),
     ]),
   );
-  const fileBaseNameByUniversalIdentifier = resolveFileBaseNames(entities);
+  const fileBaseNameByUniversalIdentifier =
+    resolvePullFileNameCollisions(entities);
 
   const scannedFileByUniversalIdentifier = new Map<string, ScannedSourceFile>();
   const applicationFile = scannedFiles.find(

@@ -149,32 +149,37 @@ describe('runCli', () => {
     });
   });
 
-  it('points old twenty-sdk spellings at their replacement', async () => {
-    const { stdout, exitCode } = await runCliForTest([
-      'remote',
-      'add',
-      '--url',
-      'https://example.com',
-      '--json',
-    ]);
-    const { error } = parseSingleJsonLine(stdout);
+  it.each([
+    { args: ['build'], unknownCommand: 'build', helpCommand: 'twenty' },
+    { args: ['dev:build'], unknownCommand: 'dev:build', helpCommand: 'twenty' },
+    {
+      args: ['app:publish'],
+      unknownCommand: 'app:publish',
+      helpCommand: 'twenty',
+    },
+    {
+      args: ['remote:add'],
+      unknownCommand: 'remote:add',
+      helpCommand: 'twenty',
+    },
+    {
+      args: ['remote', 'add'],
+      unknownCommand: 'add',
+      helpCommand: 'twenty remote',
+    },
+  ])(
+    'rejects $args with normal usage guidance',
+    async ({ args, unknownCommand, helpCommand }) => {
+      const { stdout, exitCode } = await runCliForTest([...args, '--json']);
+      const { error } = parseSingleJsonLine(stdout);
 
-    expect(exitCode).toBe(2);
-    expect(error.details).toEqual({
-      legacyCommand: 'remote add',
-      replacement: 'auth login',
-      replacementAvailable: true,
-    });
-    expect(error.hint).toBe('Use: twenty auth login --url https://example.com');
-  });
-
-  it('keeps pointing unported twenty-sdk commands at twenty-sdk', async () => {
-    const { stdout, exitCode } = await runCliForTest(['app:publish', '--json']);
-    const { error } = parseSingleJsonLine(stdout);
-
-    expect(exitCode).toBe(2);
-    expect(error.hint).toBe(
-      'In your app project, keep using: yarn twenty app:publish',
-    );
-  });
+      expect(exitCode).toBe(2);
+      expect(error).toMatchObject({
+        code: 'USAGE',
+        message: expect.stringContaining(`Unknown command '${unknownCommand}'`),
+        hint: `See: ${helpCommand} --help`,
+      });
+      expect(error.details).toBeUndefined();
+    },
+  );
 });

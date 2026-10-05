@@ -45,7 +45,7 @@ const VIRTUAL_NAMESPACE = 'twenty-sdk-define-stub';
 const STUB_RESOLVED_PATH = '__twenty-sdk-define-stub__';
 
 const STUB_PRELUDE = `
-// Auto-generated stub for twenty-sdk/define injected by the SDK CLI build.
+// Auto-generated stub for twenty-sdk/define injected by the Twenty CLI.
 // Real implementations would pull in zod, twenty-shared and ~1MB of code; at
 // runtime only \`default.config.handler\` is consumed, so tiny no-ops suffice.
 const __defineFactoryStub = (config) => ({

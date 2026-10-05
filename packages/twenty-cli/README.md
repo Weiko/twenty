@@ -3,9 +3,8 @@
 Work with [Twenty](https://twenty.com) from your terminal: connect to workspaces,
 inspect metadata and records, send API requests, and develop applications.
 
-This implementation is not released on npm yet. Build this checkout to try it.
-Application publishing is not available here; continue using the existing
-`twenty-sdk` CLI for that workflow.
+Build this CLI from source using the instructions below. Application publishing
+uses the `twenty-sdk` CLI; this package supports development-app deployment.
 
 ## Get started
 
@@ -17,8 +16,8 @@ yarn nx build twenty-cli
 node packages/twenty-cli/dist/cli.cjs --help
 ```
 
-The examples below use `twenty` for the built executable. Until release, replace
-it with `node /absolute/path/to/twenty/packages/twenty-cli/dist/cli.cjs`.
+The examples below use `twenty` for the built executable. Run it as
+`node /absolute/path/to/twenty/packages/twenty-cli/dist/cli.cjs`.
 
 ```bash
 twenty doctor --offline
@@ -62,15 +61,13 @@ keep `twenty-sdk` for authoring and runtime APIs, `typescript` for checks, and
 packages need `twenty` in their dependencies or devDependencies. CI can pin its
 CLI installation separately.
 
-The new CLI owns builds and filesystem operations. It uses the app's installed
+The CLI owns builds and filesystem operations. It uses the app's installed
 SDK authoring exports and TypeScript compiler. Configuration and project-reference
-errors fail builds, including errors an old SDK watch command could ignore.
-See [build compatibility](docs/commands.md#build-and-check-an-app) before migrating
-an existing app. Existing SDK tooling remains available during migration.
+errors fail builds. See [build requirements](docs/commands.md#build-and-check-an-app)
+for supported SDK exports and compiler configuration.
 
-If an older global SDK owns the `twenty` executable, use `twenty doctor --offline`
-to inspect PATH ownership before replacing it. A missing project-local CLI is
-normal.
+Use `twenty doctor --offline` to inspect which package owns the `twenty`
+executable on PATH. A missing project-local CLI is normal.
 
 ## Documentation
 

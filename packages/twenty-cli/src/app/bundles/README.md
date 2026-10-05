@@ -10,47 +10,41 @@ See the [app tooling overview](../README.md) for package ownership.
 
 ## Contract
 
-Logic functions use the same ESM/CJS banner, external modules and define stubs.
-Front components use the same JSX wrappers, remote-DOM transformation, optional
+Logic functions use an ESM/CJS banner, external modules and define stubs.
+Front components use JSX wrappers, remote-DOM transformation, optional
 preact aliases, CSS injection, comment stripping, shared dependency export probes
-and shims. The app's translation catalogs are baked into the bundles with the
-same global key.
+and shims. The app's translation catalogs are embedded in the bundles.
 
-Source and dependency files, public and generated assets, README selection and
-manifest checksum updates follow the SDK. Snapshot copies dereference symlinks.
-The upload artifact list retains the SDK's roles, byte sizes and SHA-256 hashes;
-manifest checksums keep their original algorithms. README and source maps are
-copied/generated but are not upload artifacts, as in the SDK. The content hash
-combines the sorted artifact paths, roles and hashes with the exact manifest
-bytes.
+The bundler collects source and dependency files, public and generated assets,
+and the README, and updates the manifest's artifact checksums. Snapshot copies
+dereference symlinks. Each upload artifact records its role, byte size and
+SHA-256 hash. README and source maps are included in the snapshot but are not
+upload artifacts. The content hash combines the sorted artifact paths, roles and
+hashes with the exact manifest bytes.
 
 Each build has its own directory and lease. Release removes only a snapshot held
 by that worker. Failed and cooperatively cancelled builds remove their temporary
-directory. Forced worker termination can leave a snapshot behind, as with the
-SDK. Cleanup never removes legacy output or another build's snapshot.
+directory. Forced worker termination can leave a snapshot behind. Cleanup only
+removes snapshots owned by the current build.
 
 ## Implementation
 
 - Source loading, manifest generation, translations and filesystem helpers are
   shared with the other CLI app operations. The [dev session](../dev/README.md)
   observes the build's inputs and retains immutable copies for remote apply.
-- The define stub reads `twenty-sdk/define` from the app's installed SDK instead
-  of importing the SDK's own source barrel. Its factory/plain-data/proxy
-  partition and emitted JavaScript are unchanged. This keeps runtime constants
-  aligned with the SDK the app actually uses, without shipping SDK tooling.
+- The define stub reads `twenty-sdk/define` from the app's installed SDK. Factories
+  become no-op validators, plain-data exports retain their values, and other
+  exports use proxy stubs. Runtime constants match the SDK the app uses.
 - `sharp` is optional and resolved from the app. It is not a CLI dependency.
-  When unavailable, cover generation produces the existing warning and the
-  build continues. When available, the algorithm is unchanged. Vite embeds the
-  original backdrop PNG as a data URI so it works in the standalone package.
-- `compileApplication` runs the CLI typecheck after bundling, in the SDK's
-  existing order. Both parity pipelines run their real typecheck phase with the
-  same compiler; the CLI resolves it from the app.
+  When unavailable, cover generation warns and the build continues. Vite embeds
+  the backdrop PNG as a data URI so it works in the standalone package.
+- `compileApplication` runs the CLI typecheck after bundling, using the compiler
+  resolved from the app.
 - Workers run from the selected app directory, so invoking the CLI from a
   parent or nested directory produces the same bundle paths, bytes and hashes.
   SDK parity references run from the app root as well.
 - Upload validation accepts only snapshots inside the selected app's
   `.twenty/cli/snapshots`, with path containment and per-file hash checks.
-  The old SDK's `.twenty/snapshots` directory is not an accepted upload source.
 - The internal worker reuses the source SDK gate, credential filtering, output
   capture, cancellation and held-snapshot release flow, and stops esbuild after
   building. Public app commands share this worker lifecycle and its
@@ -75,9 +69,10 @@ on application source, including the test setup.
 
 Only build IDs/directories and JSON-omitted `undefined` properties are normalized
 in snapshot comparisons. File bytes, including the manifest, are exact except
-source-map `sources`: real paths are resolved against each map's directory to
-account for the extra `cli` path segment. Virtual plugin source names remain
-unchanged. Map contents and mappings are otherwise compared as-is.
+source maps: real paths are resolved against each map's directory, and the
+define stub's generator banner comment is excluded from `sourcesContent`.
+Virtual plugin source names, generated statements, mappings and all other map
+contents are compared as-is.
 
 Additional tests cover optional covers, project SDK constants, baked translations
 and CSS, README selection, immutable symlink copies, concurrent snapshots,

@@ -9,7 +9,7 @@ import { type MessageDescriptor } from '@/app/translations/message';
 
 // Which manifest collection carries which metadata entity. The properties to
 // extract are not listed here on purpose: they come from the shared registry,
-// so the SDK cannot drift from what the server actually resolves at runtime.
+// so extraction matches what the server resolves at runtime.
 // Metadata names with no manifest collection (viewFieldGroup) are simply absent.
 const MANIFEST_KEY_BY_METADATA_NAME = {
   objectMetadata: 'objects',

@@ -207,7 +207,7 @@ twenty app add logic-function --name send-invoice --no-input
 twenty app add front-component --name invoice-panel --no-input
 ```
 
-`app add` creates one standalone definition using the SDK's existing templates.
+`app add` creates one standalone definition from the CLI's templates.
 It discovers the containing app, or accepts `--path <app-directory>`. No sign-in
 or workspace connection is needed. Use `object`, `field`, `logic-function` or
 `front-component`; other generators and optional object views, layouts and menu
@@ -225,7 +225,7 @@ or the command exits 2 before creating files. Labels default to the name; fields
 default to `TEXT`. `--object` requires the parent's universal identifier, not its
 workspace database ID. Relations additionally require `--target-object` and
 `--target-field`; `--relation-type` defaults to `ONE_TO_MANY` and `--on-delete`
-to `CASCADE`, as in the SDK. The command does not create the reverse field or
+to `CASCADE`. The command does not create the reverse field or
 check that these identifiers exist in a workspace.
 
 Review the generated definition and its type-specific settings, then run
@@ -255,10 +255,10 @@ substitutes another SDK. Yarn Plug'n'Play is not supported; use
 Typechecking uses `typescript` installed in the app or its workspace, never the
 global CLI's parser dependency. Missing TypeScript fails with
 `TYPESCRIPT_NOT_INSTALLED`. Configuration errors and unbuilt project references
-fail with `TYPECHECK_FAILED`, even when the old SDK command silently accepted
-them. For example, older templates reference `tsconfig.spec.json` and can report
-`TS6305`: remove an unintended reference, or build the referenced project before
-checking the app. Changing compiler versions can also change diagnostics.
+fail with `TYPECHECK_FAILED`. For example, a project with an unbuilt reference
+to `tsconfig.spec.json` can report `TS6305`: remove an unintended reference, or
+build the referenced project before checking the app. Changing compiler versions
+can also change diagnostics.
 
 Builds run in a separate worker process. That process does not receive the CLI's
 connections or credentials: `TWENTY_API_URL`, `TWENTY_API_KEY`, `TWENTY_REMOTE`
@@ -277,10 +277,9 @@ project without writing files. Build and type errors exit 1 with diagnostics in
 worker that does not stop within a few seconds is killed. The JSON `sdk` object
 identifies the app's installed authoring SDK version.
 
-The CLI carries the current repository SDK's build rules. Older published SDKs
-can produce different manifests, including different derived permission
-identifiers. Run `twenty app plan` and inspect the changes before applying an
-existing app with the new CLI.
+The CLI version determines build rules, including derived permission identifiers.
+Different tooling versions can produce different manifests. Run `twenty app plan`
+and inspect the changes before applying an app with a different tooling version.
 
 ## Preview app changes
 
@@ -308,7 +307,7 @@ twenty app apply --no-delete
 - **New apps.** An app without a registration needs `--create`, or a yes at the prompt in an interactive terminal. The CLI then registers the app (the server also requires `API_KEYS_AND_WEBHOOKS` for this), installs it, and previews it before uploading anything. Without approval it stops with `CREATE_REQUIRED` (exit 2). The registration's client secret is never requested.
 - **Deletions.** Entities missing from source are deleted by default, as in `app plan`; `--no-delete` keeps them and is sent to both the preview and the sync. Object and field deletions permanently delete stored data, so they need `--yes` or a yes at the prompt. Otherwise the command stops with `CONFIRMATION_REQUIRED` (exit 2) before changing anything. `--yes` never changes which entities are deleted.
 - **Uploads.** File bytes go straight to the upload URLs the server returns, without the CLI's credentials. Each file is checked against the build's size and SHA-256 before anything is uploaded.
-- **Pull baseline.** After an acknowledged sync, the CLI fetches the workspace ID and fresh application export, then atomically records `.twenty/cli/pull-base.json`. It is bound to the normalized API URL, workspace UUID and app UUID. The legacy SDK base at `.twenty/pull-base.json` is untouched. JSON reports `pullBase: "recorded"`, `"failed"` or `"unsupported"`; only a recorded base adds `pullBase` to `completedPhases`. Invalid exports or file-write errors preserve the prior base, warn with `PULL_BASE_NOT_RECORDED`, and allow client generation to continue. A server without the export API reports `"unsupported"` without a warning on every apply. The export is recorded as the server sent it; collections it lacks are read as empty by pull. Cancellation before the base is committed exits 130 with `outcome: "applied"` and `phase: "pullBase"`. The baseline lets `app pull` distinguish workspace changes from local edits.
+- **Pull baseline.** After an acknowledged sync, the CLI fetches the workspace ID and fresh application export, then atomically records `.twenty/cli/pull-base.json`. It is bound to the normalized API URL, workspace UUID and app UUID. The SDK's separate baseline at `.twenty/pull-base.json` is untouched. JSON reports `pullBase: "recorded"`, `"failed"` or `"unsupported"`; only a recorded base adds `pullBase` to `completedPhases`. Invalid exports or file-write errors preserve the prior base, warn with `PULL_BASE_NOT_RECORDED`, and allow client generation to continue. A server without the export API reports `"unsupported"` without a warning on every apply. The export is recorded as the server sent it; collections it lacks are read as empty by pull. Cancellation before the base is committed exits 130 with `outcome: "applied"` and `phase: "pullBase"`. The baseline lets `app pull` distinguish workspace changes from local edits.
 - **Typed client.** After the sync, the CLI fetches the app's GraphQL schema from the workspace and calls the app's own `twenty-client-sdk/generate` to regenerate the client in the app's own `node_modules/twenty-client-sdk` (`clientGeneration: "generated"`). It is skipped with a `CLIENT_NOT_GENERATED` warning when the app has no `node_modules/twenty-client-sdk` of its own, as in a hoisted workspace. A symlinked client package is followed and its target rewritten, so don't apply two apps that share one client package at the same time.
 - **Failures.** A failed apply reports `details.phase`, `details.completedPhases` and `details.outcome`: `not-started` when the failing step changed nothing, `partial` when some files were uploaded, `unknown` when a request was sent but its effect is not known, such as a failed or interrupted sync, and `applied` when the sync succeeded but baseline recording was cancelled or client generation failed. Earlier steps, like a new registration, stay done. There is no rollback and no automatic retry: run `twenty app plan` to see where the workspace stands, then apply again. After `applied`, the workspace has the new version but the client files may be incomplete: fix the problem, then run `twenty app apply` again, which repeats the preview, upload and sync before regenerating the client. Ctrl+C exits with 130 and reports the step it interrupted.
 
@@ -387,7 +386,7 @@ The CLI owns source loading, reconciliation and file writing. The project suppli
 
 Pull overwrites local edits to entities that changed on the workspace, without a confirmation prompt. With a matching baseline, unchanged workspace entities keep their local source, and confirmed remote deletions remove their files. Without a matching baseline, local-only definitions stay in place and pull does not infer deletions. Coverage gaps, unreadable definitions and local-only nested entities are preserved and reported; gaps do not require `--force` or an opt-in partial mode. JSON includes `coverage`, `skipped`, `unreadableRelativePaths`, `localOnlyRelativePaths` and `overwrittenLocalChanges`. Without a baseline, overwritten local edits cannot be distinguished from generated source.
 
-Writes are staged and originals backed up. `.twenty/cli/pull-base.json` is written last, bound to API URL, workspace UUID and application UUID; `.twenty/pull-base.json` from the old SDK stays untouched. Ordinary write failures restore the previous files and baseline. Failures in reconciliation report `error.details.outcome`: `unchanged` after an acknowledged refusal, cancellation before writing or successful rollback; `unknown` if a worker stops without acknowledging completion or rollback fails; `pulled` if writes and baseline completed but temporary-file cleanup failed. An interrupted worker can leave files partially written; inspect the changes and retained `.twenty/cli/pull-backup-*` files before retrying. A failed rollback also reports `backupDirectory`. Ctrl+C exits 130 unless the worker acknowledges a completed commit, in which case pull returns its result.
+Writes are staged and originals backed up. `.twenty/cli/pull-base.json` is written last, bound to API URL, workspace UUID and application UUID; the SDK's separate `.twenty/pull-base.json` stays untouched. Ordinary write failures restore the previous files and baseline. Failures in reconciliation report `error.details.outcome`: `unchanged` after an acknowledged refusal, cancellation before writing or successful rollback; `unknown` if a worker stops without acknowledging completion or rollback fails; `pulled` if writes and baseline completed but temporary-file cleanup failed. An interrupted worker can leave files partially written; inspect the changes and retained `.twenty/cli/pull-backup-*` files before retrying. A failed rollback also reports `backupDirectory`. Ctrl+C exits 130 unless the worker acknowledges a completed commit, in which case pull returns its result.
 
 The current export contains metadata and translations, not application source assets or dependency files. Logic-function/front-component code and unsupported metadata are not regenerated. An export with nonempty `files` is refused before writing. Package files, dependency pins and the installed generated client are left alone; pull never installs dependencies. Each export response is limited to 16 MiB. See the [pull implementation](../src/app/pull/README.md) for reconciliation and compatibility details.
 
@@ -462,10 +461,10 @@ mutually exclusive. Human output labels each execution with its function name
 and identifier; NDJSON records contain `applicationUniversalIdentifier`,
 `functionName`, `functionUniversalIdentifier` and `logs`.
 
-Older servers expose only log text. If the identity fields are unsupported, the
-CLI warns and subscribes once using the old selection. An explicit filter still
+Some server schemas expose only log text. If the identity fields are unsupported,
+the CLI warns and subscribes once requesting only `logs`. An explicit filter
 supplies that name or identifier; unknown identities are `null` in NDJSON and
-omitted from human labels. With neither filter, older servers cannot attribute
+omitted from human labels. With neither filter, those schemas cannot attribute
 mixed output to individual functions.
 
 The stream supports human output and `--format ndjson`; finite `--json` is
@@ -532,4 +531,3 @@ Exit codes:
 | 5    | Partial failure                     |
 | 6    | Conflict                            |
 | 130  | Cancelled                           |
-

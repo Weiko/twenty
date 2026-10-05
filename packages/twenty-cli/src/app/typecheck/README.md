@@ -1,13 +1,13 @@
 # Application typechecking
 
 The CLI typechecks applications using their own TypeScript installation.
-The SDK implementation is retained as a test-only parity reference; see the
+The SDK implementation is a test-only parity reference; see the
 [app tooling overview](../README.md) for package ownership.
 
 The internal `typecheckSource` worker request checks an app without loading SDK
-tooling. `bundleSnapshot` runs this typecheck after bundling, in the SDK's
-existing order. A failed check discards that build's snapshot. Public build,
-typecheck, plan, apply and uninstall commands use this pipeline.
+tooling. `bundleSnapshot` runs this typecheck after bundling. A failed check
+discards that build's snapshot. Public build, typecheck, plan, apply and uninstall
+commands use this pipeline.
 
 ## Compiler ownership
 
@@ -18,17 +18,15 @@ development dependencies; neither apps nor the SDK depend on the CLI.
 
 Missing TypeScript returns `TYPESCRIPT_NOT_INSTALLED`. An incomplete installation,
 missing compiler API or unsupported Plug'n'Play installation returns
-`TOOLING_UNSUPPORTED`. Resolution reuses the CLI's existing directory, filesystem
-and package-reading helpers. The resolved entry must belong to that installation.
-This boundary is needed because the compiler comes from the app instead of
-being the SDK's own dependency.
+`TOOLING_UNSUPPORTED`. The resolved compiler entry must belong to the app's
+TypeScript installation so checks use the project's compiler version.
 
 TypeScript is loaded only in the child worker. Its public JavaScript compiler API
 is required. The CLI uses the installed compiler's diagnostic categories and
 message formatter, so diagnostics follow the project's compiler version. The CLI
 parser used for source loading remains independent.
 
-## Compiler contract and migration
+## Compiler contract
 
 - Read the app's `tsconfig.json`, preserve its project references and force
   `noEmit: true`. Do not write JavaScript, declarations or build information.
@@ -41,21 +39,13 @@ parser used for source loading remains independent.
 - Build warnings remain alongside typecheck diagnostics. Failure never holds a
   snapshot for upload, and cleanup preserves unrelated snapshots.
 - Check cancellation before and after the synchronous compiler work. A busy
-  compiler cannot process IPC cancellation mid-call; the existing worker grace
+  compiler cannot process IPC cancellation mid-call; the worker grace
   period and forced termination remain the fallback.
 
-The SDK's programmatic build API already enforces configuration errors. Its
-legacy watch typecheck plugin parses only source-located `tsc` output and can
-miss configuration or project-reference errors. Moving to the CLI pipeline will
-require fixing those configurations. Different project and SDK compiler versions
-can also produce different diagnostics; align versions when comparing results.
-The SDK package keeps its existing behavior during migration.
-
-New `twenty app init` projects use the CLI test-harness overlay and no longer
-import `twenty-sdk/cli`. The separate `create-twenty-app` package still has its
-legacy test harness. Its compatibility must be handled before removing the SDK
-CLI export; existing app maintainers also need to migrate their own harnesses.
-Neither harness should import a global CLI package as a library.
+Different compiler versions can produce different diagnostics. Align compiler
+versions when comparing CLI results with another tool. See the
+[build requirements](../../../docs/commands.md#build-and-check-an-app) for
+configuration and project-reference troubleshooting.
 
 ## Verification
 
@@ -65,11 +55,11 @@ From `packages/twenty-cli`, after building the shared and SDK dependencies:
 node ../../node_modules/vitest/vitest.mjs run --config vitest.config.ts src/app/typecheck src/app/snapshots --maxWorkers=1
 ```
 
-The typecheck suite compares the unmodified SDK reference, the CLI implementation
+The typecheck suite compares the SDK reference, the CLI implementation
 and the production worker with the same compiler. It also tests absent and hoisted
 compilers, global-path fallback, incomplete installations and actual TypeScript
-5.9.3 versus 5.7.3 behavior. The older compiler comes from the SDK's existing
-ts-morph dependency for this test only, without a new CLI dependency.
+5.9.3 versus 5.7.3 behavior. The 5.7.3 compiler comes from the SDK's
+ts-morph dependency for this test only.
 
 Snapshot parity runs both real typecheck phases, with no compiler bypass.
 The app fixture supplies only the SDK's authoring/runtime exports. The apply

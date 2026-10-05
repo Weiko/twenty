@@ -141,7 +141,7 @@ describe('collectFrontComponentStrings', () => {
     ]);
   });
 
-  it('preserves legacy property-name and first-property extraction rules', async () => {
+  it('uses identifier keys and the first matching property in message descriptors', async () => {
     const filePath = await writeFrontComponent(String.raw`
       t({ 'message': 'Quoted' });
       t({ ['message']: 'Computed' });

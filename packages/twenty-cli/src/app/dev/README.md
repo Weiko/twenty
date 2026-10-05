@@ -20,7 +20,7 @@ attaching the watcher, changed stamps invalidate the result. A successful graph
 replaces the previous graph; a failure watches the last successful graph plus
 only that attempt's inputs. External directory observation is shallow.
 
-`applyAppBuild` remains the remote-operation implementation. Dev supplies a
+`applyAppBuild` handles remote operations. Dev supplies a
 revision-specific approval signal and a check immediately before the first
 write. Once writes start, a newer build does not cancel those writes. Client
 generation pauses compilation and invalidates pending builds; its successful

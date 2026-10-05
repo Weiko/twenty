@@ -32,20 +32,13 @@ Snapshots retain files until their consumers finish. Uploads verify containment,
 size and checksums. Pull and scaffolding stage writes before exposing them to
 file watchers. Keep these guarantees when simplifying implementation details.
 
-## SDK migration
+## Package boundaries
 
-The SDK still ships its old tooling until the separate CLI is released. Copied
-algorithms are checked against SDK source by parity tests; SDK fixes affecting
-both implementations need assessment in both places during this transition.
-The CLI does not import the SDK's tooling APIs.
+The CLI imports the app's public SDK authoring exports and invokes its installed
+client SDK generator. It owns the tooling implementation and does not call SDK
+tooling APIs. The [typecheck documentation](typecheck/README.md) describes compiler
+resolution and project requirements.
 
-The CLI has no SDK tooling fallback or build-descriptor negotiation. Command
-failure and cancellation tests inject tooling fixtures into a bundle of the
-production worker; real-app tests exercise its actual compiler and bundler.
-SDK source remains a test-only parity reference while old SDK tooling exists.
-
-SDK slimming and deprecating `create-twenty-app` require a coordinated release.
-The CLI template overlay already uses subprocess commands for its test harness;
-existing apps and the separate scaffolder must also stop importing SDK tooling
-before those exports are removed. Keep useful compiler/configuration migration
-notes in the [typecheck documentation](typecheck/README.md).
+Parity tests compare generated source, manifests and bundles with the repository
+SDK. Command failure and cancellation tests inject tooling fixtures into a bundle
+of the production worker; real-app tests exercise its compiler and bundler.

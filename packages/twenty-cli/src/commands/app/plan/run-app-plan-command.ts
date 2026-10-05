@@ -37,7 +37,7 @@ export const runAppPlanCommand: CommandRun<TargetCommandContext> = async (
   return {
     data: {
       app: { path: project.path, name: project.name },
-      sdk: { version: sdk.version, protocolVersion: sdk.protocolVersion },
+      sdk: { version: sdk.version },
       application: build.application,
       contentHash: build.contentHash,
       plan: true,

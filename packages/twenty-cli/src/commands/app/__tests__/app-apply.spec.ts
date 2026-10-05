@@ -1,3 +1,5 @@
+import { buildTestAppWorker } from '@/app/__tests__/utils/build-test-app-worker';
+import { writeTestSourceSdk } from '@/app/__tests__/utils/write-test-source-sdk';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import {
@@ -11,7 +13,6 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { readGraphqlRequest } from '@/__tests__/utils/read-graphql-request';
 import { isArray, isString } from '@sniptt/guards';
@@ -19,6 +20,7 @@ import { type ServerResponse } from 'node:http';
 import { isDefined, isPlainObject } from 'twenty-shared/utils';
 import {
   afterAll,
+  beforeAll,
   afterEach,
   beforeEach,
   describe,
@@ -38,17 +40,21 @@ import {
   startTestServer,
 } from '@/__tests__/utils/start-test-server';
 
+const worker = vi.hoisted(() => ({ modulePath: '', execArgv: [] as string[] }));
+
 vi.mock('@/app/get-app-worker-launch', () => ({
-  getAppWorkerLaunch: () => ({
-    modulePath: fileURLToPath(
-      new URL('../../../app/worker/app-worker.ts', import.meta.url),
-    ),
-    execArgv: [
-      '--disable-warning=ExperimentalWarning',
-      '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON',
-    ],
-  }),
+  getAppWorkerLaunch: () => worker,
 }));
+
+let workerDirectory: string;
+
+beforeAll(async () => {
+  workerDirectory = await mkdtemp(join(tmpdir(), 'twenty-command-worker-'));
+  await buildTestAppWorker(workerDirectory, { useToolingFixture: true });
+  worker.modulePath = join(workerDirectory, 'app-worker.cjs');
+}, 60_000);
+
+afterAll(() => rm(workerDirectory, { recursive: true, force: true }));
 
 const APPLICATION = {
   universalIdentifier: '6a0c9d8e-8f5f-4c43-9b8e-0e1f2a3b4c5d',
@@ -389,12 +395,11 @@ const server = await startTestServer((request, response) => {
   return sendJson(response, 400, { errors: [{ message: 'Unexpected' }] });
 });
 
-describe('app apply with the legacy SDK fallback', () => {
+describe('app apply', () => {
   let appPath: string;
-  let sdkPath: string;
 
   const run = (...args: string[]) =>
-    runCliForTest(['app', 'apply', '--legacy-sdk', '--path', appPath, ...args]);
+    runCliForTest(['app', 'apply', '--path', appPath, ...args]);
   const runJson = async (...args: string[]) => {
     const result = await run(...args, '--json');
 
@@ -402,9 +407,9 @@ describe('app apply with the legacy SDK fallback', () => {
   };
   const operations = () => server.requests.map(getOperation);
   const readReleasedBuildId = () =>
-    readFile(join(sdkPath, 'released.txt'), 'utf8');
+    readFile(join(appPath, 'released.txt'), 'utf8');
 
-  const writeSdk = async ({
+  const writeTooling = async ({
     corruptPath,
     application = APPLICATION,
     generateClientBody,
@@ -416,7 +421,7 @@ describe('app apply with the legacy SDK fallback', () => {
     editDuringBuild?: { relativePath: string; content: string };
   } = {}) => {
     await writeFile(
-      join(sdkPath, 'build.cjs'),
+      join(appPath, 'test-tooling.cjs'),
       `
       const fs = require('node:fs');
       const path = require('node:path');
@@ -426,11 +431,11 @@ describe('app apply with the legacy SDK fallback', () => {
       const EDIT_DURING_BUILD = ${JSON.stringify(editDuringBuild ?? null)};
       const sha256 = (content) => createHash('sha256').update(content).digest('hex');
       let snapshotDirectory;
-      exports.buildAppSnapshot = async ({ appPath }) => {
+      exports.buildSourceSnapshot = async ({ appPath }) => {
         if (EDIT_DURING_BUILD) {
           fs.writeFileSync(path.join(appPath, EDIT_DURING_BUILD.relativePath), EDIT_DURING_BUILD.content);
         }
-        snapshotDirectory = path.join(appPath, '.twenty', 'snapshots', 'build-test');
+        snapshotDirectory = path.join(appPath, '.twenty', 'cli', 'snapshots', 'build-test');
         const filesDirectory = path.join(snapshotDirectory, 'files');
         const files = FILES.map((file) => {
           const absolutePath = path.join(filesDirectory, file.path);
@@ -458,12 +463,12 @@ describe('app apply with the legacy SDK fallback', () => {
           diagnostics: [],
         };
       };
-      exports.releaseAppSnapshot = async ({ buildId }) => {
+      exports.releaseSourceSnapshot = async ({ buildId }) => {
         fs.rmSync(snapshotDirectory, { recursive: true, force: true });
         fs.writeFileSync(path.join(__dirname, 'released.txt'), buildId);
         return { success: true, data: null, diagnostics: [] };
       };
-      ${isDefined(generateClientBody) ? `exports.generateAppClient = async ({ appPath, schema, signal }) => { ${generateClientBody} };` : ''}
+      ${isDefined(generateClientBody) ? `exports.generateApplicationClient = async ({ appPath, schema, signal }) => { ${generateClientBody} };` : ''}
     `,
     );
   };
@@ -475,21 +480,12 @@ describe('app apply with the legacy SDK fallback', () => {
     await mkdir(join(appPath, 'node_modules', 'twenty-client-sdk'), {
       recursive: true,
     });
-    await writeFile(
-      join(sdkPath, 'descriptor.json'),
-      JSON.stringify({
-        protocolVersion: 1,
-        requiredNode: '24',
-        capabilities: ['build', 'releaseSnapshot', 'generateClient'],
-      }),
-    );
-    await writeSdk({ generateClientBody: body, application });
+
+    await writeTooling({ generateClientBody: body, application });
   };
 
   beforeEach(async () => {
     appPath = await mkdtemp(join(tmpdir(), 'twenty-cli-apply-'));
-    sdkPath = join(appPath, 'node_modules', 'twenty-sdk');
-    await mkdir(sdkPath, { recursive: true });
     await writeFile(
       join(appPath, 'package.json'),
       JSON.stringify({
@@ -497,26 +493,8 @@ describe('app apply with the legacy SDK fallback', () => {
         devDependencies: { 'twenty-sdk': '9.9.9' },
       }),
     );
-    await writeFile(
-      join(sdkPath, 'package.json'),
-      JSON.stringify({
-        name: 'twenty-sdk',
-        version: '9.9.9',
-        exports: {
-          './build': './build.cjs',
-          './build/descriptor.json': './descriptor.json',
-        },
-      }),
-    );
-    await writeFile(
-      join(sdkPath, 'descriptor.json'),
-      JSON.stringify({
-        protocolVersion: 1,
-        requiredNode: '24',
-        capabilities: ['build', 'releaseSnapshot'],
-      }),
-    );
-    await writeSdk();
+    await writeTestSourceSdk({ appPath });
+    await writeTooling();
     vi.stubEnv('TWENTY_API_URL', server.url);
     vi.stubEnv('TWENTY_API_KEY', 'apply-test-key');
     vi.stubEnv('TWENTY_REMOTE', '');
@@ -537,7 +515,7 @@ describe('app apply with the legacy SDK fallback', () => {
       isSyncHeld: false,
       heldSyncResponse: undefined,
       wasSnapshotPresentAtSync: undefined,
-      snapshotPath: join(appPath, '.twenty', 'snapshots', 'build-test'),
+      snapshotPath: join(appPath, '.twenty', 'cli', 'snapshots', 'build-test'),
       workspaceResponse: undefined,
       exportResponse: undefined,
       exportStatus: undefined,
@@ -646,7 +624,7 @@ describe('app apply with the legacy SDK fallback', () => {
   );
 
   it('accepts the lowercase identifier the server returns for an uppercase manifest identifier', async () => {
-    await writeSdk({
+    await writeTooling({
       application: {
         ...APPLICATION,
         universalIdentifier: APPLICATION.universalIdentifier.toUpperCase(),
@@ -697,8 +675,9 @@ describe('app apply with the legacy SDK fallback', () => {
     ).toEqual({
       universalIdentifier: APPLICATION.universalIdentifier,
     });
-    expect(await readdir(join(appPath, '.twenty/cli'))).toEqual([
+    expect((await readdir(join(appPath, '.twenty/cli'))).sort()).toEqual([
       'pull-base.json',
+      'snapshots',
     ]);
   });
 
@@ -707,7 +686,7 @@ describe('app apply with the legacy SDK fallback', () => {
     await writeFile(join(appPath, 'src/role.ts'), 'applied role');
     await mkdir(join(appPath, 'locales'), { recursive: true });
     await writeFile(join(appPath, 'locales/fr-FR.json'), '{"Pet":"Animal"}');
-    await writeSdk({
+    await writeTooling({
       editDuringBuild: {
         relativePath: 'src/role.ts',
         content: 'edited during the build',
@@ -865,7 +844,8 @@ describe('app apply with the legacy SDK fallback', () => {
     expect(envelope.warnings).toContainEqual(
       expect.objectContaining({ code: 'PULL_BASE_NOT_RECORDED' }),
     );
-    expect(existsSync(join(appPath, '.twenty/cli'))).toBe(false);
+    expect(existsSync(join(appPath, '.twenty/cli/pull-base.json'))).toBe(false);
+    expect(await readdir(join(appPath, '.twenty/cli/snapshots'))).toEqual([]);
   });
 
   it('keeps permission failures separate from an unapplied app', async () => {
@@ -878,7 +858,8 @@ describe('app apply with the legacy SDK fallback', () => {
     expect(envelope.warnings).toContainEqual(
       expect.objectContaining({ code: 'PULL_BASE_NOT_RECORDED' }),
     );
-    expect(existsSync(join(appPath, '.twenty/cli'))).toBe(false);
+    expect(existsSync(join(appPath, '.twenty/cli/pull-base.json'))).toBe(false);
+    expect(await readdir(join(appPath, '.twenty/cli/snapshots'))).toEqual([]);
   });
 
   it.each(['.twenty', '.twenty/cli', '.twenty/cli/pull-base.json'])(
@@ -908,8 +889,8 @@ describe('app apply with the legacy SDK fallback', () => {
           isFile
             ? ['base.json']
             : relativePath === '.twenty'
-              ? ['snapshots']
-              : [],
+              ? ['cli']
+              : ['snapshots'],
         );
         if (isFile) {
           expect(await readFile(target, 'utf8')).toBe('external baseline');
@@ -935,8 +916,9 @@ describe('app apply with the legacy SDK fallback', () => {
     expect(await readFile(join(basePath, 'keep.txt'), 'utf8')).toBe(
       'user contents',
     );
-    expect(await readdir(join(appPath, '.twenty/cli'))).toEqual([
+    expect((await readdir(join(appPath, '.twenty/cli'))).sort()).toEqual([
       'pull-base.json',
+      'snapshots',
     ]);
   });
 
@@ -1260,29 +1242,7 @@ describe('app apply with the legacy SDK fallback', () => {
     expect(operations()).not.toContain('schema');
   });
 
-  it('skips generation without fetching the schema when the SDK does not advertise it', async () => {
-    await writeSdk({
-      generateClientBody: "throw new Error('generation must not start');",
-    });
-    await mkdir(join(appPath, 'node_modules', 'twenty-client-sdk'), {
-      recursive: true,
-    });
-
-    const { envelope, exitCode } = await runJson();
-
-    expect(exitCode).toBe(0);
-    expect(envelope.data.clientGeneration).toBe('skipped');
-    expect(envelope.warnings).toEqual([
-      {
-        code: 'CLIENT_NOT_GENERATED',
-        message:
-          "The app's typed API client was not regenerated: twenty-sdk 9.9.9 cannot generate it. Upgrade twenty-sdk in this app to regenerate the client on apply.",
-      },
-    ]);
-    expect(operations()).not.toContain('schema');
-  });
-
-  it('leaves a dangling client package link to the SDK instead of skipping generation', async () => {
+  it('leaves a dangling client package link to the client generator instead of skipping generation', async () => {
     await enableClientGeneration(`
       if (!fs.existsSync(path.join(appPath, 'node_modules', 'twenty-client-sdk', 'package.json'))) {
         return { success: false, error: { code: 'CLIENT_GENERATION_FAILED', message: 'twenty-client-sdk is unreadable.' }, diagnostics: [] };
@@ -1739,7 +1699,7 @@ describe('app apply with the legacy SDK fallback', () => {
   });
 
   it('refuses a snapshot file that changed after the build before uploading', async () => {
-    await writeSdk({ corruptPath: 'public/logo.svg' });
+    await writeTooling({ corruptPath: 'public/logo.svg' });
 
     const { envelope, exitCode } = await runJson();
 
@@ -1758,7 +1718,6 @@ describe('app apply with the legacy SDK fallback', () => {
     const plan = await runCliForTest([
       'app',
       'plan',
-      '--legacy-sdk',
       '--path',
       appPath,
       '--json',

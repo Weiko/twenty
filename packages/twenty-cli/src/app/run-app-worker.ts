@@ -47,8 +47,6 @@ export const runAppWorker = async ({
     AppWorkerRequest,
     {
       type:
-        | 'run'
-        | 'generateClient'
         | 'generateSourceClient'
         | 'readSourceIdentity'
         | 'buildManifest'

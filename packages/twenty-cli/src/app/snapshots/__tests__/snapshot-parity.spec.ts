@@ -108,21 +108,24 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
     return appPath;
   };
 
-  const buildSdkSnapshot = (
+  const buildSdkSnapshot = async (
     appPath: string,
     useHeldSnapshot?: Parameters<typeof runAppWorker>[0]['useHeldSnapshot'],
-  ) =>
-    runAppWorker({
-      request: {
-        type: 'run',
-        operation: 'build',
-        appPath,
-        buildEntryPath: sdkEntryPath,
-        holdSnapshot: true,
-      },
-      signal: new AbortController().signal,
-      useHeldSnapshot,
-    });
+  ) => {
+    launch.modulePath = join(root, 'reference/app-worker.cjs');
+    try {
+      return await runAppWorker({
+        request: { type: 'bundleSnapshot', appPath, holdSnapshot: true },
+        signal: new AbortController().signal,
+        useHeldSnapshot: async (snapshot) => {
+          launch.modulePath = join(root, 'cli/app-worker.cjs');
+          await useHeldSnapshot?.(snapshot);
+        },
+      });
+    } finally {
+      launch.modulePath = join(root, 'cli/app-worker.cjs');
+    }
+  };
 
   const compareSnapshot = async (appPath: string) => {
     const compareBuild = async ({ result }: { result: unknown }) => {
@@ -263,7 +266,7 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
 
     await bundle({
       stdin: {
-        contents: `export { buildSnapshot as buildAppSnapshot, releaseSnapshot as releaseAppSnapshot } from './application-build/build-snapshot';`,
+        contents: `export { buildSnapshot as buildSourceSnapshot, releaseSnapshot as releaseSourceSnapshot } from './application-build/build-snapshot';`,
         resolveDir: sdkSource,
       },
       outfile: sdkEntryPath,
@@ -281,6 +284,9 @@ describe('CLI bundles and snapshots match the repository SDK', () => {
       join(sdkSource, 'cli/utilities/build/cover/assets/halftone-backdrop.png'),
       join(root, 'assets/halftone-backdrop.png'),
     );
+    await buildTestAppWorker(join(root, 'reference'), {
+      aliases: { '@/app/worker/build-source-snapshot': sdkEntryPath },
+    });
     await buildTestAppWorker(join(root, 'cli'));
     launch.modulePath = join(root, 'cli/app-worker.cjs');
   }, 60000);

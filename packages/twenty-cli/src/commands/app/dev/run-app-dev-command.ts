@@ -167,7 +167,6 @@ export const runAppDevCommand: CommandRun<TargetCommandContext> = async (
         applied = await applyAppBuild({
           build: snapshot.build,
           appPath: project.path,
-          sdkVersion: snapshot.tooling.version,
           context: currentContext,
           inferDeletionFromMissingEntities: context.options.delete !== false,
           isCreationApproved: readBooleanOption(context.options, 'create'),

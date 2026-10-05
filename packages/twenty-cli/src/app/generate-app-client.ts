@@ -5,7 +5,7 @@ import { formatToolingDiagnostic } from '@/app/format-tooling-diagnostic';
 import { parseNullData, parseToolingResult } from '@/app/parse-tooling-result';
 import { runAppWorker } from '@/app/run-app-worker';
 import { toWorkerOutputDiagnostics } from '@/app/to-worker-output-diagnostics';
-import { type AppTooling } from '@/app/types/app-tooling.type';
+import { type ProjectSdk } from '@/app/types/project-sdk.type';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';
 import { CliError } from '@/output/cli-error';
 import { createMetadataClient } from '@/transport/metadata/create-metadata-client';
@@ -45,21 +45,13 @@ export const generateAppClientFromSchema = async ({
 }: {
   appPath: string;
   schema: string;
-  sdk: AppTooling;
+  sdk: ProjectSdk;
   context: TargetCommandContext;
 }) => {
   output.progress('Generating the typed API client…');
 
   const workerRun = await runAppWorker({
-    request:
-      sdk.pipeline === 'sdk'
-        ? {
-            type: 'generateClient',
-            appPath,
-            buildEntryPath: sdk.buildEntryPath,
-            schema,
-          }
-        : { type: 'generateSourceClient', appPath, schema },
+    request: { type: 'generateSourceClient', appPath, schema },
     signal,
   });
   const result = parseToolingResult({
@@ -82,7 +74,6 @@ export const generateAppClientFromSchema = async ({
       error: result.error,
       diagnostics,
       sdkVersion: sdk.version,
-      pipeline: sdk.pipeline,
       operation: 'generateClient',
     });
   }
@@ -95,7 +86,7 @@ export const generateAppClientFromSchema = async ({
 export const generateAppClient = async (options: {
   appPath: string;
   applicationUniversalIdentifier: string;
-  sdk: AppTooling;
+  sdk: ProjectSdk;
   context: TargetCommandContext;
 }) =>
   generateAppClientFromSchema({

@@ -15,12 +15,12 @@ export const runAppTypecheckCommand: CommandRun = async (context) => {
   return {
     data: {
       app: { path: project.path, name: project.name },
-      sdk: { version: sdk.version, protocolVersion: sdk.protocolVersion },
+      sdk: { version: sdk.version },
       diagnostics,
       durationMilliseconds,
     },
     human: formatSuccessLine(
-      `No type errors in ${project.name} ${dimText(`· ${sdk.pipeline === 'cli' ? 'project TypeScript' : `twenty-sdk ${sdk.version}`} · ${formatAppDuration(durationMilliseconds)}`)}`,
+      `No type errors in ${project.name} ${dimText(`· project TypeScript · ${formatAppDuration(durationMilliseconds)}`)}`,
     ),
   };
 };

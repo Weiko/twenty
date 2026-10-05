@@ -8,19 +8,16 @@ import { type ToolingBuild } from '@/app/types/tooling-result.type';
 export const retainDevSnapshot = async ({
   build,
   appPath,
-  sdkVersion,
   signal,
 }: {
   build: ToolingBuild;
   appPath: string;
-  sdkVersion: string;
   signal: AbortSignal;
 }) => {
   signal.throwIfAborted();
   const sourceDirectory = resolveSnapshotDirectory({
     build,
     appPath,
-    sdkVersion,
   });
   const root = join(appPath, '.twenty', 'cli', 'snapshots');
 

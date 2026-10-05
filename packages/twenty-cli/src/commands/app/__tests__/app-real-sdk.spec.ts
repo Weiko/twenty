@@ -38,7 +38,6 @@ import { installTestClientSdk } from '@/app/__tests__/utils/install-test-client-
 import { buildTestAppWorker } from '@/app/__tests__/utils/build-test-app-worker';
 
 const buildMode = vi.hoisted(() => ({
-  value: 'SDK',
   launch: { modulePath: '', execArgv: [] as string[] },
 }));
 
@@ -56,12 +55,7 @@ const APP_PATH = join(
 );
 
 const snapshotsPath = (appPath: string) =>
-  join(
-    appPath,
-    '.twenty',
-    ...(buildMode.value === 'CLI' ? ['cli'] : []),
-    'snapshots',
-  );
+  join(appPath, '.twenty', 'cli', 'snapshots');
 
 const listSnapshots = async () =>
   existsSync(snapshotsPath(APP_PATH))
@@ -191,11 +185,7 @@ const server = await startTestServer((request, response) => {
 });
 
 const runJson = async (args: string[]) => {
-  const result = await runCliForTest([
-    ...args,
-    ...(buildMode.value === 'SDK' ? ['--legacy-sdk'] : []),
-    '--json',
-  ]);
+  const result = await runCliForTest([...args, '--json']);
 
   return { ...result, envelope: parseSingleJsonLine(result.stdout) };
 };
@@ -213,9 +203,8 @@ afterAll(async () => {
   await rm(workerDirectory, { recursive: true, force: true });
 });
 
-describe.each(['SDK', 'CLI'])('app commands with %s snapshots', (mode) => {
+describe('app commands with CLI snapshots', () => {
   beforeEach(() => {
-    buildMode.value = mode;
     vi.stubEnv('TWENTY_API_URL', server.url);
     vi.stubEnv('TWENTY_API_KEY', 'real-sdk-test-key');
     vi.stubEnv('TWENTY_REMOTE', '');
@@ -235,7 +224,7 @@ describe.each(['SDK', 'CLI'])('app commands with %s snapshots', (mode) => {
     ]);
 
     expect(exitCode, JSON.stringify(envelope)).toBe(0);
-    expect(envelope.data.sdk.protocolVersion).toBe(1);
+    expect(envelope.data.sdk).not.toHaveProperty('protocolVersion');
     expect(envelope.data.files).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ role: 'built-logic-function' }),
@@ -294,7 +283,7 @@ describe.each(['SDK', 'CLI'])('app commands with %s snapshots', (mode) => {
           'dir',
         );
       }
-      if (mode === 'CLI') {
+      {
         const sdkPath = join(appPath, 'node_modules', 'twenty-sdk');
         const repositorySdkPath = join(REPOSITORY_ROOT, 'packages/twenty-sdk');
         await rm(sdkPath);
@@ -329,20 +318,6 @@ describe.each(['SDK', 'CLI'])('app commands with %s snapshots', (mode) => {
         const result = await runJson(['app', command, '--path', appPath]);
         expect(result.exitCode, JSON.stringify(result.envelope)).toBe(0);
         expect(await readdir(snapshotsPath(appPath))).toEqual([]);
-      }
-      if (mode === 'CLI') {
-        const legacy = await runCliForTest([
-          'app',
-          'build',
-          '--path',
-          appPath,
-          '--legacy-sdk',
-          '--json',
-        ]);
-        expect(legacy.exitCode).toBe(1);
-        expect(parseSingleJsonLine(legacy.stdout).error.code).toBe(
-          'TOOLING_UNSUPPORTED',
-        );
       }
       const { envelope, exitCode } = await runJson([
         'app',

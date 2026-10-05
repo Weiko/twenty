@@ -52,7 +52,6 @@ const fixture = async () => {
   return {
     build,
     appPath,
-    sdkVersion: '2.44.0',
     signal: new AbortController().signal,
   };
 };

@@ -1,6 +1,4 @@
-import { createRequire } from 'node:module';
-
-import { isFunction, isNonEmptyString, isString } from '@sniptt/guards';
+import { isNonEmptyString, isString } from '@sniptt/guards';
 import { isDefined, isPlainObject } from 'twenty-shared/utils';
 
 import type {
@@ -8,38 +6,16 @@ import type {
   AppWorkerResponse,
 } from '@/app/types/app-worker-message.type';
 
-type TypecheckApi = {
-  typecheckApp: (options: {
+type SnapshotApi = {
+  buildSourceSnapshot: (options: {
     appPath: string;
     signal: AbortSignal;
   }) => Promise<unknown>;
+  releaseSourceSnapshot: (options: { buildId: string }) => Promise<unknown>;
 };
-
-type BuildApi = {
-  buildAppSnapshot: (options: {
-    appPath: string;
-    signal: AbortSignal;
-  }) => Promise<unknown>;
-  releaseAppSnapshot: (options: { buildId: string }) => Promise<unknown>;
-};
-
-type GenerateClientApi = {
-  generateAppClient: (options: {
-    appPath: string;
-    schema: string;
-    signal: AbortSignal;
-  }) => Promise<unknown>;
-};
-
-type RunRequest = Extract<AppWorkerRequest, { type: 'run' }>;
-
-type GenerateClientRequest = Extract<
-  AppWorkerRequest,
-  { type: 'generateClient' }
->;
 
 type HeldSnapshot = {
-  buildModule: BuildApi;
+  snapshotApi: SnapshotApi;
   buildId: string;
 };
 
@@ -48,30 +24,6 @@ const PARENT_DISCONNECT_EXIT_MILLISECONDS = 5000;
 const abortController = new AbortController();
 
 let heldSnapshot: HeldSnapshot | undefined;
-
-const isTypecheckApi = (value: unknown): value is TypecheckApi =>
-  isPlainObject(value) && isFunction(value.typecheckApp);
-
-const isBuildApi = (value: unknown): value is BuildApi =>
-  isPlainObject(value) &&
-  isFunction(value.buildAppSnapshot) &&
-  isFunction(value.releaseAppSnapshot);
-
-const isGenerateClientApi = (value: unknown): value is GenerateClientApi =>
-  isPlainObject(value) && isFunction(value.generateAppClient);
-
-const createMissingExportsError = ({
-  buildEntryPath,
-  exportNames,
-  purpose,
-}: {
-  buildEntryPath: string;
-  exportNames: string[];
-  purpose: string;
-}) =>
-  new Error(
-    `${buildEntryPath} must export ${exportNames.join(' and ')} to ${purpose}.`,
-  );
 
 const parseRequest = (message: unknown): AppWorkerRequest | undefined => {
   if (!isPlainObject(message)) {
@@ -138,39 +90,7 @@ const parseRequest = (message: unknown): AppWorkerRequest | undefined => {
       : undefined;
   }
 
-  if (message.type === 'generateClient') {
-    if (
-      !isNonEmptyString(message.appPath) ||
-      !isNonEmptyString(message.buildEntryPath) ||
-      !isString(message.schema)
-    ) {
-      return undefined;
-    }
-
-    return {
-      type: 'generateClient',
-      appPath: message.appPath,
-      buildEntryPath: message.buildEntryPath,
-      schema: message.schema,
-    };
-  }
-
-  if (
-    message.type !== 'run' ||
-    (message.operation !== 'build' && message.operation !== 'typecheck') ||
-    !isNonEmptyString(message.appPath) ||
-    !isNonEmptyString(message.buildEntryPath)
-  ) {
-    return undefined;
-  }
-
-  return {
-    type: 'run',
-    operation: message.operation,
-    appPath: message.appPath,
-    buildEntryPath: message.buildEntryPath,
-    holdSnapshot: message.holdSnapshot === true,
-  };
+  return undefined;
 };
 
 const respond = (response: AppWorkerResponse) => {
@@ -186,11 +106,11 @@ const releaseHeldSnapshot = async () => {
     return null;
   }
 
-  const { buildModule, buildId } = heldSnapshot;
+  const { snapshotApi, buildId } = heldSnapshot;
 
   heldSnapshot = undefined;
 
-  return buildModule.releaseAppSnapshot({ buildId });
+  return snapshotApi.releaseSourceSnapshot({ buildId });
 };
 
 const exitAfterReleasing = () => {
@@ -224,53 +144,17 @@ const readSuccessfulBuildId = (result: unknown) => {
     : undefined;
 };
 
-const runOperation = async ({
-  operation,
-  appPath,
-  buildEntryPath,
-  holdSnapshot,
-}: RunRequest): Promise<AppWorkerResponse> => {
-  const buildModule: unknown = createRequire(buildEntryPath)(buildEntryPath);
-  const signal = abortController.signal;
-
-  if (operation === 'typecheck') {
-    if (!isTypecheckApi(buildModule)) {
-      throw createMissingExportsError({
-        buildEntryPath,
-        exportNames: ['typecheckApp'],
-        purpose: 'typecheck the app',
-      });
-    }
-
-    return {
-      type: 'result',
-      result: await buildModule.typecheckApp({ appPath, signal }),
-      isSnapshotHeld: false,
-    };
-  }
-
-  if (!isBuildApi(buildModule)) {
-    throw createMissingExportsError({
-      buildEntryPath,
-      exportNames: ['buildAppSnapshot', 'releaseAppSnapshot'],
-      purpose: 'build the app',
-    });
-  }
-
-  return runSnapshotBuild({ buildModule, appPath, holdSnapshot });
-};
-
 const runSnapshotBuild = async ({
-  buildModule,
+  snapshotApi,
   appPath,
   holdSnapshot,
 }: {
-  buildModule: BuildApi;
+  snapshotApi: SnapshotApi;
   appPath: string;
   holdSnapshot: boolean;
 }): Promise<AppWorkerResponse> => {
   const signal = abortController.signal;
-  const result = await buildModule.buildAppSnapshot({ appPath, signal });
+  const result = await snapshotApi.buildSourceSnapshot({ appPath, signal });
   const buildId = readSuccessfulBuildId(result);
 
   if (!isDefined(buildId)) {
@@ -278,7 +162,7 @@ const runSnapshotBuild = async ({
   }
 
   if (holdSnapshot) {
-    heldSnapshot = { buildModule, buildId };
+    heldSnapshot = { snapshotApi, buildId };
 
     return { type: 'result', result, isSnapshotHeld: true };
   }
@@ -286,33 +170,7 @@ const runSnapshotBuild = async ({
   return {
     type: 'result',
     result,
-    release: await buildModule.releaseAppSnapshot({ buildId }),
-    isSnapshotHeld: false,
-  };
-};
-
-const generateClient = async ({
-  appPath,
-  buildEntryPath,
-  schema,
-}: GenerateClientRequest): Promise<AppWorkerResponse> => {
-  const buildModule: unknown = createRequire(buildEntryPath)(buildEntryPath);
-
-  if (!isGenerateClientApi(buildModule)) {
-    throw createMissingExportsError({
-      buildEntryPath,
-      exportNames: ['generateAppClient'],
-      purpose: 'generate the app client',
-    });
-  }
-
-  return {
-    type: 'result',
-    result: await buildModule.generateAppClient({
-      appPath,
-      schema,
-      signal: abortController.signal,
-    }),
+    release: await snapshotApi.releaseSourceSnapshot({ buildId }),
     isSnapshotHeld: false,
   };
 };
@@ -389,9 +247,9 @@ process.on('message', (message: unknown) => {
       .then(async ({ buildSourceSnapshot, releaseSourceSnapshot }) => {
         const run = () =>
           runSnapshotBuild({
-            buildModule: {
-              buildAppSnapshot: buildSourceSnapshot,
-              releaseAppSnapshot: releaseSourceSnapshot,
+            snapshotApi: {
+              buildSourceSnapshot,
+              releaseSourceSnapshot,
             },
             appPath: request.appPath,
             holdSnapshot: request.holdSnapshot,
@@ -484,20 +342,4 @@ process.on('message', (message: unknown) => {
 
     return;
   }
-
-  if (request.type === 'generateClient') {
-    generateClient(request).then(respond, (error: unknown) =>
-      respond(toFailure(error)),
-    );
-
-    return;
-  }
-
-  runOperation(request).then(
-    (response) =>
-      response.type === 'result' && response.isSnapshotHeld
-        ? sendHeldResult(response)
-        : respond(response),
-    (error: unknown) => respond(toFailure(error)),
-  );
 });

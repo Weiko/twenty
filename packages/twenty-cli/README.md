@@ -194,18 +194,10 @@ its files, upload roles, sizes, SHA-256 checksums, content hash and manifest, th
 deletes the snapshot. Nothing is uploaded or kept. `app typecheck` checks the
 project without writing files. Build and type errors exit 1 with diagnostics in
 `error.details.diagnostics`. Worker failures report the underlying code in
-`error.details.toolingErrorCode`; `--legacy-sdk` retains `sdkErrorCode` for
-existing scripts. Ctrl+C cancels the worker and exits 130; a worker
-that does not stop within a few seconds is killed. The existing JSON `sdk`
-object still identifies the app's installed SDK; its `protocolVersion` describes
-the CLI's build-result protocol, not a required SDK export.
-
-For one release, `--legacy-sdk` on build, typecheck, plan, apply and uninstall
-selects the old SDK build pipeline for migration comparisons. It is hidden from
-normal help and discovery. It requires the SDK's `./build` and
-`./build/descriptor.json` exports and checks their protocol and capabilities;
-published SDKs without those exports cannot use this fallback. There is no
-automatic fallback when the CLI build fails.
+`error.details.toolingErrorCode`. Worker process failures use
+`error.details.workerErrorCode`. Ctrl+C cancels the worker and exits 130; a
+worker that does not stop within a few seconds is killed. The JSON `sdk` object
+identifies the app's installed authoring SDK version.
 
 The CLI carries the current repository SDK's build rules. Older published SDKs
 can produce different manifests, including different derived permission
@@ -239,7 +231,7 @@ twenty app apply --no-delete
 - **Deletions.** Entities missing from source are deleted by default, as in `app plan`; `--no-delete` keeps them and is sent to both the preview and the sync. Object and field deletions permanently delete stored data, so they need `--yes` or a yes at the prompt. Otherwise the command stops with `CONFIRMATION_REQUIRED` (exit 2) before changing anything. `--yes` never changes which entities are deleted.
 - **Uploads.** File bytes go straight to the upload URLs the server returns, without the CLI's credentials. Each file is checked against the build's size and SHA-256 before anything is uploaded.
 - **Pull baseline.** After an acknowledged sync, the CLI fetches the workspace ID and fresh application export, then atomically records `.twenty/cli/pull-base.json`. It is bound to the normalized API URL, workspace UUID and app UUID. The legacy SDK base at `.twenty/pull-base.json` is untouched. JSON reports `pullBase: "recorded"`, `"failed"` or `"unsupported"`; only a recorded base adds `pullBase` to `completedPhases`. Invalid exports or file-write errors preserve the prior base, warn with `PULL_BASE_NOT_RECORDED`, and allow client generation to continue. A server without the export API reports `"unsupported"` without a warning on every apply. The export is recorded as the server sent it; collections it lacks are read as empty by pull. Cancellation before the base is committed exits 130 with `outcome: "applied"` and `phase: "pullBase"`. The baseline lets `app pull` distinguish workspace changes from local edits.
-- **Typed client.** After the sync, the CLI fetches the app's GraphQL schema from the workspace and the CLI calls the app's own `twenty-client-sdk/generate` to regenerate the client in the app's own `node_modules/twenty-client-sdk` (`clientGeneration: "generated"`). It is skipped with a `CLIENT_NOT_GENERATED` warning when the app has no `node_modules/twenty-client-sdk` of its own, as in a hoisted workspace. With `--legacy-sdk`, an SDK without client-generation capability also skips this step. A symlinked client package is followed and its target rewritten, so don't apply two apps that share one client package at the same time.
+- **Typed client.** After the sync, the CLI fetches the app's GraphQL schema from the workspace and the CLI calls the app's own `twenty-client-sdk/generate` to regenerate the client in the app's own `node_modules/twenty-client-sdk` (`clientGeneration: "generated"`). It is skipped with a `CLIENT_NOT_GENERATED` warning when the app has no `node_modules/twenty-client-sdk` of its own, as in a hoisted workspace. A symlinked client package is followed and its target rewritten, so don't apply two apps that share one client package at the same time.
 - **Failures.** A failed apply reports `details.phase`, `details.completedPhases` and `details.outcome`: `not-started` when the failing step changed nothing, `partial` when some files were uploaded, `unknown` when a request was sent but its effect is not known, such as a failed or interrupted sync, and `applied` when the sync succeeded but baseline recording was cancelled or client generation failed. Earlier steps, like a new registration, stay done. There is no rollback and no automatic retry: run `twenty app plan` to see where the workspace stands, then apply again. After `applied`, the workspace has the new version but the client files may be incomplete: fix the problem, then run `twenty app apply` again, which repeats the preview, upload and sync before regenerating the client. Ctrl+C exits with 130 and reports the step it interrupted.
 
 Remote changes made between the preview and the sync can change what the sync does. Remote changes between the acknowledged sync and the export can also enter the saved baseline without appearing in local source; this is not an atomic server snapshot of the sync. Planning, a failed sync, or a sync with an unknown outcome never advances the baseline.
@@ -301,7 +293,7 @@ with the interrupted remote phase when available. It does not roll back writes.
 An abnormal worker exit or a filesystem-watcher failure ends the session; fix
 the cause and restart `twenty app dev`. A killed process can leave temporary
 folders in `.twenty/cli/snapshots`. After stopping all dev/apply sessions for that
-app, abandoned snapshot folders can be removed. Dev has no `--legacy-sdk` mode.
+app, abandoned snapshot folders can be removed.
 
 ## Pull an app
 

@@ -6,8 +6,7 @@ The CLI owns application bundling and immutable snapshot lifecycle. The internal
 app's own TypeScript compiler. Build, plan, apply and uninstall use this pipeline.
 Worker requests are internal, not a public API or a way to bypass build checks.
 
-See the [app tooling overview](../README.md) for package ownership and the
-temporary legacy pipeline.
+See the [app tooling overview](../README.md) for package ownership.
 
 ## Preserved behavior
 
@@ -85,7 +84,6 @@ unchanged. Map contents and mappings are otherwise compared as-is.
 Additional tests cover optional covers, project SDK constants, baked translations
 and CSS, README selection, immutable symlink copies, concurrent snapshots,
 release ownership, failed/cancelled builds and failed snapshot consumers. The
-existing build/apply contract runs with both SDK and CLI snapshots against a
-local HTTP fixture, including uploads, sync, pull-base recording, release and
-client generation through the respective SDK or CLI wrapper. It does not contact
+build/apply contract runs CLI snapshots against a local HTTP fixture, including
+uploads, sync, pull-base recording, release and client generation. It does not contact
 a live Twenty workspace.

@@ -1,15 +1,17 @@
+import { buildTestAppWorker } from '@/app/__tests__/utils/build-test-app-worker';
+import { writeTestSourceSdk } from '@/app/__tests__/utils/write-test-source-sdk';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { rm, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { type ServerResponse } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { readGraphqlRequest } from '@/__tests__/utils/read-graphql-request';
 import { isString } from '@sniptt/guards';
 import { isDefined } from 'twenty-shared/utils';
 import {
   afterAll,
+  beforeAll,
   afterEach,
   beforeEach,
   describe,
@@ -29,17 +31,21 @@ import {
   startTestServer,
 } from '@/__tests__/utils/start-test-server';
 
+const worker = vi.hoisted(() => ({ modulePath: '', execArgv: [] as string[] }));
+
 vi.mock('@/app/get-app-worker-launch', () => ({
-  getAppWorkerLaunch: () => ({
-    modulePath: fileURLToPath(
-      new URL('../../../app/worker/app-worker.ts', import.meta.url),
-    ),
-    execArgv: [
-      '--disable-warning=ExperimentalWarning',
-      '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON',
-    ],
-  }),
+  getAppWorkerLaunch: () => worker,
 }));
+
+let workerDirectory: string;
+
+beforeAll(async () => {
+  workerDirectory = await mkdtemp(join(tmpdir(), 'twenty-command-worker-'));
+  await buildTestAppWorker(workerDirectory, { useToolingFixture: true });
+  worker.modulePath = join(workerDirectory, 'app-worker.cjs');
+}, 60_000);
+
+afterAll(() => rm(workerDirectory, { recursive: true, force: true }));
 
 const APPLICATION = {
   universalIdentifier: '0f3a1c52-7d6e-4b8a-9c21-5e4d3b2a1f00',
@@ -145,19 +151,11 @@ const server = await startTestServer((request, response) => {
   return sendJson(response, 400, { errors: [{ message: 'Unexpected' }] });
 });
 
-describe('app uninstall with the legacy SDK fallback', () => {
+describe('app uninstall', () => {
   let appPath: string;
-  let sdkPath: string;
 
   const run = (...args: string[]) =>
-    runCliForTest([
-      'app',
-      'uninstall',
-      '--legacy-sdk',
-      '--path',
-      appPath,
-      ...args,
-    ]);
+    runCliForTest(['app', 'uninstall', '--path', appPath, ...args]);
   const runJson = async (...args: string[]) => {
     const result = await run(...args, '--json');
 
@@ -167,8 +165,6 @@ describe('app uninstall with the legacy SDK fallback', () => {
 
   beforeEach(async () => {
     appPath = await mkdtemp(join(tmpdir(), 'twenty-cli-uninstall-'));
-    sdkPath = join(appPath, 'node_modules', 'twenty-sdk');
-    await mkdir(sdkPath, { recursive: true });
     await writeFile(
       join(appPath, 'package.json'),
       JSON.stringify({
@@ -176,31 +172,13 @@ describe('app uninstall with the legacy SDK fallback', () => {
         devDependencies: { 'twenty-sdk': '9.9.9' },
       }),
     );
+    await writeTestSourceSdk({ appPath });
     await writeFile(
-      join(sdkPath, 'package.json'),
-      JSON.stringify({
-        name: 'twenty-sdk',
-        version: '9.9.9',
-        exports: {
-          './build': './build.cjs',
-          './build/descriptor.json': './descriptor.json',
-        },
-      }),
-    );
-    await writeFile(
-      join(sdkPath, 'descriptor.json'),
-      JSON.stringify({
-        protocolVersion: 1,
-        requiredNode: '24',
-        capabilities: ['build', 'releaseSnapshot'],
-      }),
-    );
-    await writeFile(
-      join(sdkPath, 'build.cjs'),
+      join(appPath, 'test-tooling.cjs'),
       `
       const fs = require('node:fs');
       const path = require('node:path');
-      exports.buildAppSnapshot = async () => {
+      exports.buildSourceSnapshot = async () => {
         fs.writeFileSync(path.join(__dirname, 'built.txt'), 'built');
         return {
           success: true,
@@ -215,7 +193,7 @@ describe('app uninstall with the legacy SDK fallback', () => {
           diagnostics: [],
         };
       };
-      exports.releaseAppSnapshot = async ({ buildId }) => {
+      exports.releaseSourceSnapshot = async ({ buildId }) => {
         fs.writeFileSync(path.join(__dirname, 'released.txt'), buildId);
         return { success: true, data: null, diagnostics: [] };
       };
@@ -260,7 +238,7 @@ describe('app uninstall with the legacy SDK fallback', () => {
     expect(readGraphqlRequest(server.requests[1]).arguments).toEqual({
       universalIdentifier: APPLICATION.universalIdentifier,
     });
-    expect(await readFile(join(sdkPath, 'released.txt'), 'utf8')).toBe(
+    expect(await readFile(join(appPath, 'released.txt'), 'utf8')).toBe(
       'build-id',
     );
   });
@@ -274,7 +252,7 @@ describe('app uninstall with the legacy SDK fallback', () => {
 
     expect(exitCode).toBe(0);
     expect(envelope.data.completedPhases).toEqual(['check', 'uninstall']);
-    expect(existsSync(join(sdkPath, 'built.txt'))).toBe(false);
+    expect(existsSync(join(appPath, 'built.txt'))).toBe(false);
   });
 
   it('sends the canonical form of an uppercase universal identifier', async () => {

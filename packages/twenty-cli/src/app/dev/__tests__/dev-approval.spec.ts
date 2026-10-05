@@ -73,7 +73,6 @@ describe('dev apply approvals', () => {
     const applying = applyAppBuild({
       build,
       appPath: '/app',
-      sdkVersion: '2.44.0',
       context,
       inferDeletionFromMissingEntities: true,
       isCreationApproved: false,
@@ -103,7 +102,6 @@ describe('dev apply approvals', () => {
       applyAppBuild({
         build,
         appPath: '/app',
-        sdkVersion: '2.44.0',
         context,
         inferDeletionFromMissingEntities: true,
         isCreationApproved: true,
@@ -126,7 +124,6 @@ describe('dev apply approvals', () => {
       applyAppBuild({
         build,
         appPath: '/app',
-        sdkVersion: '2.44.0',
         context: cancelledContext,
         inferDeletionFromMissingEntities: true,
         isCreationApproved: true,

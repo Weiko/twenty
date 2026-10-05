@@ -1,20 +1,13 @@
 import { lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { type AppTooling } from '@/app/types/app-tooling.type';
 import { hasErrorCode } from '@/utils/has-error-code';
 
 export const getClientGenerationSkipReason = async ({
   appPath,
-  sdk,
 }: {
   appPath: string;
-  sdk: AppTooling;
 }) => {
-  if (sdk.pipeline === 'sdk' && !sdk.capabilities.includes('generateClient')) {
-    return `twenty-sdk ${sdk.version} cannot generate it. Upgrade twenty-sdk in this app to regenerate the client on apply.`;
-  }
-
   const isClientPackageMissing = await lstat(
     join(appPath, 'node_modules', 'twenty-client-sdk'),
   ).then(

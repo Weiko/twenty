@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runCliForTest } from '@/__tests__/utils/run-cli-for-test';
-import { applyAppBuild } from '@/app/apply-app-build';
+import { applyAppBuild } from '@/app/deployment/apply-app-build';
 import {
   buildDevSnapshot,
   type BuiltDevSnapshot,
@@ -15,9 +15,9 @@ import { CliError } from '@/output/cli-error';
 vi.mock('@/app/dev/build-dev-snapshot');
 vi.mock('@/app/dev/watch-app-inputs');
 vi.mock('@/app/dev/generate-dev-client');
-vi.mock('@/app/apply-app-build');
+vi.mock('@/app/deployment/apply-app-build');
 vi.mock('@/app/record-pull-base');
-vi.mock('@/app/resolve-app-project', () => ({
+vi.mock('@/app/project/resolve-app-project', () => ({
   resolveAppProject: async () => ({ path: '/test-app', name: 'test-app' }),
 }));
 vi.mock('@/program/resolve-command-target');

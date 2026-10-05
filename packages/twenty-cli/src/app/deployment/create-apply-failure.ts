@@ -1,9 +1,9 @@
 import {
   type AppApplyOutcome,
   type AppApplyPhase,
-} from '@/app/types/app-apply-phase.type';
-import { type AppUploadProgress } from '@/app/types/app-upload-progress.type';
-import { withPhaseDetails } from '@/app/with-phase-details';
+} from '@/app/deployment/types/app-apply-phase.type';
+import { type AppUploadProgress } from '@/app/deployment/types/app-upload-progress.type';
+import { withPhaseDetails } from '@/app/deployment/with-phase-details';
 import { toCliError } from '@/output/to-cli-error';
 import { type CliErrorCode } from '@/output/types/cli-error-code.type';
 

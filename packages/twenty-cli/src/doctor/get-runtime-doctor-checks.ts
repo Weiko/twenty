@@ -1,6 +1,6 @@
 import { engines } from '../../package.json';
 
-import { checkNodeRequirement } from '@/app/check-node-requirement';
+import { checkNodeRequirement } from '@/app/project/check-node-requirement';
 import { CLI_VERSION } from '@/constants/cli-version.constant';
 import { type DoctorCheck } from '@/doctor/types/doctor-check.type';
 

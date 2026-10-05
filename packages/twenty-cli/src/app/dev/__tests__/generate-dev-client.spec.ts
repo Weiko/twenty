@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { type AppApplyResult } from '@/app/apply-app-build';
+import { type AppApplyResult } from '@/app/deployment/apply-app-build';
 import { type BuiltDevSnapshot } from '@/app/dev/build-dev-snapshot';
 import { createDevClientGenerator } from '@/app/dev/generate-dev-client';
 import {

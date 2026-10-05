@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import { readSnapshotFile } from '@/app/read-snapshot-file';
-import { resolveSnapshotDirectory } from '@/app/resolve-snapshot-directory';
+import { readSnapshotFile } from '@/app/deployment/read-snapshot-file';
+import { resolveSnapshotDirectory } from '@/app/deployment/resolve-snapshot-directory';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
 
 export const retainDevSnapshot = async ({

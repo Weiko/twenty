@@ -2,11 +2,11 @@ import { isArray, isNonEmptyString } from '@sniptt/guards';
 import { APPLICATION_FILE_UPLOAD_BATCH_SIZE } from 'twenty-shared/application';
 import { isDefined, isNonEmptyArray, isPlainObject } from 'twenty-shared/utils';
 
-import { APP_APPLY } from '@/app/constants/app-apply.constant';
-import { UPLOAD_FILE_FOLDER_BY_ARTIFACT_ROLE } from '@/app/constants/upload-file-folder-by-artifact-role.constant';
-import { putUploadFile } from '@/app/put-upload-file';
-import { readSnapshotFile } from '@/app/read-snapshot-file';
-import { type AppUploadProgress } from '@/app/types/app-upload-progress.type';
+import { APP_APPLY } from '@/app/deployment/constants/app-apply.constant';
+import { UPLOAD_FILE_FOLDER_BY_ARTIFACT_ROLE } from '@/app/deployment/constants/upload-file-folder-by-artifact-role.constant';
+import { putUploadFile } from '@/app/deployment/put-upload-file';
+import { readSnapshotFile } from '@/app/deployment/read-snapshot-file';
+import { type AppUploadProgress } from '@/app/deployment/types/app-upload-progress.type';
 import {
   type ToolingArtifact,
   type ToolingBuild,

@@ -13,7 +13,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { resolveSourceSdk } from '@/app/resolve-source-sdk';
+import { resolveSourceSdk } from '@/app/project/resolve-source-sdk';
 import { createSourceTestApp } from '@/app/source/__tests__/utils/create-source-test-app';
 
 describe('source SDK compatibility', () => {

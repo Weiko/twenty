@@ -5,7 +5,7 @@ import { delimiter, dirname, join, resolve } from 'node:path';
 import { isString } from '@sniptt/guards';
 import { isDefined, isNonEmptyArray, isPlainObject } from 'twenty-shared/utils';
 
-import { listAncestorDirectories } from '@/app/list-ancestor-directories';
+import { listAncestorDirectories } from '@/app/project/list-ancestor-directories';
 import { readJsonObject } from '@/app/read-json-object';
 import { type DoctorCheck } from '@/doctor/types/doctor-check.type';
 

@@ -8,7 +8,7 @@ import { parseToolingResult } from '@/app/parse-tooling-result';
 import { formatPullReport } from '@/app/pull/format-pull-report';
 import { parsePullData } from '@/app/pull/parse-pull-data';
 import { readAppIdentity } from '@/app/read-app-identity';
-import { resolveAppProject } from '@/app/resolve-app-project';
+import { resolveAppProject } from '@/app/project/resolve-app-project';
 import { runAppWorker } from '@/app/run-app-worker';
 import { toWorkerOutputDiagnostics } from '@/app/to-worker-output-diagnostics';
 import {

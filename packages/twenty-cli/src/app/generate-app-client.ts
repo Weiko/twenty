@@ -5,7 +5,7 @@ import { formatToolingDiagnostic } from '@/app/format-tooling-diagnostic';
 import { parseNullData, parseToolingResult } from '@/app/parse-tooling-result';
 import { runAppWorker } from '@/app/run-app-worker';
 import { toWorkerOutputDiagnostics } from '@/app/to-worker-output-diagnostics';
-import { type ProjectSdk } from '@/app/types/project-sdk.type';
+import { type ProjectSdk } from '@/app/project/types/project-sdk.type';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';
 import { CliError } from '@/output/cli-error';
 import { createMetadataClient } from '@/transport/metadata/create-metadata-client';

@@ -1,8 +1,8 @@
 import {
   type AppUninstallOutcome,
   type AppUninstallPhase,
-} from '@/app/types/app-uninstall-phase.type';
-import { withPhaseDetails } from '@/app/with-phase-details';
+} from '@/app/deployment/types/app-uninstall-phase.type';
+import { withPhaseDetails } from '@/app/deployment/with-phase-details';
 import { toCliError } from '@/output/to-cli-error';
 import { type CliErrorCode } from '@/output/types/cli-error-code.type';
 

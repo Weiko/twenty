@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { applyAppBuild } from '@/app/apply-app-build';
-import { fetchAppPlan } from '@/app/fetch-app-plan';
-import { installDevelopmentApp } from '@/app/install-development-app';
-import { requireApproval } from '@/app/require-approval';
-import { syncAppManifest } from '@/app/sync-app-manifest';
+import { applyAppBuild } from '@/app/deployment/apply-app-build';
+import { fetchAppPlan } from '@/app/deployment/fetch-app-plan';
+import { installDevelopmentApp } from '@/app/deployment/install-development-app';
+import { requireApproval } from '@/app/deployment/require-approval';
+import { syncAppManifest } from '@/app/deployment/sync-app-manifest';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
-import { uploadAppFiles } from '@/app/upload-app-files';
+import { uploadAppFiles } from '@/app/deployment/upload-app-files';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';
 
-vi.mock('@/app/fetch-app-plan');
-vi.mock('@/app/install-development-app');
-vi.mock('@/app/require-approval');
-vi.mock('@/app/sync-app-manifest');
-vi.mock('@/app/upload-app-files');
+vi.mock('@/app/deployment/fetch-app-plan');
+vi.mock('@/app/deployment/install-development-app');
+vi.mock('@/app/deployment/require-approval');
+vi.mock('@/app/deployment/sync-app-manifest');
+vi.mock('@/app/deployment/upload-app-files');
 
 const build: ToolingBuild = {
   buildId: 'first',

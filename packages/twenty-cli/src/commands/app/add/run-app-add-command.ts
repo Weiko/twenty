@@ -4,7 +4,7 @@ import { prepareAppAddFile } from '@/app/add/prepare-app-add-file';
 import { writeAppAddFile } from '@/app/add/write-app-add-file';
 import { formatToolingDiagnostic } from '@/app/format-tooling-diagnostic';
 import { readAppIdentity } from '@/app/read-app-identity';
-import { resolveAppProject } from '@/app/resolve-app-project';
+import { resolveAppProject } from '@/app/project/resolve-app-project';
 import { readStringOption } from '@/catalog/read-command-values';
 import { type CommandRun } from '@/catalog/types/command-run.type';
 import { CliError } from '@/output/cli-error';

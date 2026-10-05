@@ -1,13 +1,13 @@
 import { isValidUniversalIdentifier } from 'twenty-shared/application';
 import { isDefined } from 'twenty-shared/utils';
 
-import { createUninstallFailure } from '@/app/create-uninstall-failure';
+import { createUninstallFailure } from '@/app/deployment/create-uninstall-failure';
 import { fetchInstalledApp } from '@/app/fetch-installed-app';
 import { parseBuildData } from '@/app/parse-tooling-result';
-import { requireApproval } from '@/app/require-approval';
+import { requireApproval } from '@/app/deployment/require-approval';
 import { runAppOperation } from '@/app/run-app-operation';
-import { type AppUninstallPhase } from '@/app/types/app-uninstall-phase.type';
-import { uninstallApp } from '@/app/uninstall-app';
+import { type AppUninstallPhase } from '@/app/deployment/types/app-uninstall-phase.type';
+import { uninstallApp } from '@/app/deployment/uninstall-app';
 import {
   readBooleanOption,
   readStringOption,

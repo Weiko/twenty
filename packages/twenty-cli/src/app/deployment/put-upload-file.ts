@@ -1,6 +1,6 @@
 import { isDefined } from 'twenty-shared/utils';
 
-import { APP_APPLY } from '@/app/constants/app-apply.constant';
+import { APP_APPLY } from '@/app/deployment/constants/app-apply.constant';
 import { CliError } from '@/output/cli-error';
 import { API_URL_PROTOCOLS } from '@/target/constants/api-url-protocols.constant';
 import { fetchWithProxy } from '@/transport/fetch-with-proxy';

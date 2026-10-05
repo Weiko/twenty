@@ -3,8 +3,8 @@ import { join } from 'node:path';
 
 import { isDefined } from 'twenty-shared/utils';
 
-import { hasYarnPlugAndPlay } from '@/app/has-yarn-plug-and-play';
-import { listAncestorDirectories } from '@/app/list-ancestor-directories';
+import { hasYarnPlugAndPlay } from '@/app/project/has-yarn-plug-and-play';
+import { listAncestorDirectories } from '@/app/project/list-ancestor-directories';
 import { readJsonObject } from '@/app/read-json-object';
 import { pathExists } from '@/app/fs-utils';
 import { CliError } from '@/output/cli-error';

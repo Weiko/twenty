@@ -2,7 +2,7 @@ import { isString } from '@sniptt/guards';
 import { isPlainObject } from 'twenty-shared/utils';
 
 import { isSameUniversalIdentifier } from '@/app/is-same-universal-identifier';
-import { parseAppPlan } from '@/app/parse-app-plan';
+import { parseAppPlan } from '@/app/deployment/parse-app-plan';
 import { type ToolingBuild } from '@/app/types/tooling-result.type';
 import { CliError } from '@/output/cli-error';
 import { type ResolvedTarget } from '@/target/types/resolved-target.type';

@@ -1,6 +1,6 @@
 # App source loading
 
-This CLI-owned source loader powers `twenty app pull` and the [manifest builder](../manifest/README.md) used by public build, plan and apply commands. The old SDK build API is used only with the temporary `--legacy-sdk` fallback.
+This CLI-owned source loader powers `twenty app pull` and the [manifest builder](../manifest/README.md) used by public build, plan and apply commands.
 
 Package ownership and temporary compatibility paths are documented in the
 [app tooling overview](../README.md).

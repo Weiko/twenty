@@ -6,7 +6,6 @@ export const createToolingFailure = ({
   error,
   diagnostics,
   sdkVersion,
-  pipeline = 'sdk',
   operation = 'build',
 }: {
   error: {
@@ -17,7 +16,6 @@ export const createToolingFailure = ({
   };
   diagnostics: ToolingDiagnostic[];
   sdkVersion: string;
-  pipeline?: 'cli' | 'sdk';
   operation?: 'build' | 'generateClient';
 }) => {
   if (error.code === 'CANCELLED') {
@@ -30,26 +28,22 @@ export const createToolingFailure = ({
   const errorLabel = errorCount === 1 ? 'error' : 'errors';
   const details = {
     ...error.details,
-    ...(pipeline === 'sdk'
-      ? { sdkErrorCode: error.code }
-      : { toolingErrorCode: error.code }),
+    toolingErrorCode: error.code,
     sdkVersion,
     diagnostics,
   };
 
-  if (pipeline === 'cli') {
-    switch (error.code) {
-      case 'SDK_SOURCE_UNSUPPORTED':
-      case 'TYPESCRIPT_NOT_INSTALLED':
-      case 'TOOLING_UNSUPPORTED':
-      case 'NODE_VERSION_UNSUPPORTED':
-        return new CliError({
-          code: error.code,
-          message: error.message,
-          hint: error.hint,
-          details,
-        });
-    }
+  switch (error.code) {
+    case 'SDK_SOURCE_UNSUPPORTED':
+    case 'TYPESCRIPT_NOT_INSTALLED':
+    case 'TOOLING_UNSUPPORTED':
+    case 'NODE_VERSION_UNSUPPORTED':
+      return new CliError({
+        code: error.code,
+        message: error.message,
+        hint: error.hint,
+        details,
+      });
   }
 
   if (error.code === 'TYPECHECK_FAILED') {

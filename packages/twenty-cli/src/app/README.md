@@ -27,17 +27,17 @@ Snapshots retain files until their consumers finish. Uploads verify containment,
 size and checksums. Pull and scaffolding stage writes before exposing them to
 file watchers. Keep these guarantees when simplifying implementation details.
 
-## Temporary migration code
+## SDK migration
 
 The SDK still ships its old tooling until the separate CLI is released. Copied
 algorithms are checked against SDK source by parity tests; SDK fixes affecting
 both implementations need assessment in both places during this transition.
-The default CLI pipeline does not import the SDK's tooling APIs.
+The CLI does not import the SDK's tooling APIs.
 
-Before public release, remove the hidden `--legacy-sdk` flag, SDK build-descriptor
-negotiation, the worker's legacy request path, legacy snapshot-path allowance,
-and compatibility-only diagnostics. Port their command coverage to the CLI
-pipeline first; SDK source may remain a test-only parity reference.
+The CLI has no SDK tooling fallback or build-descriptor negotiation. Command
+failure and cancellation tests inject tooling fixtures into a bundle of the
+production worker; real-app tests exercise its actual compiler and bundler.
+SDK source remains a test-only parity reference while old SDK tooling exists.
 
 SDK slimming and deprecating `create-twenty-app` require a coordinated release.
 The CLI template overlay already uses subprocess commands for its test harness;

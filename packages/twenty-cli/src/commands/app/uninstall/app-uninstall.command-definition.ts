@@ -1,4 +1,3 @@
-import { APP_LEGACY_SDK_OPTION } from '@/app/constants/app-legacy-sdk-option.constant';
 import { type TargetCommandDefinition } from '@/catalog/types/command-definition.type';
 
 export const APP_UNINSTALL_COMMAND_DEFINITION: TargetCommandDefinition = {
@@ -6,7 +5,6 @@ export const APP_UNINSTALL_COMMAND_DEFINITION: TargetCommandDefinition = {
   description:
     'Uninstall the app from the workspace, deleting its objects, fields and their data',
   options: [
-    APP_LEGACY_SDK_OPTION,
     {
       flags: '--path <directory>',
       description:

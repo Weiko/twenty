@@ -20,20 +20,20 @@ const build: ToolingBuild = {
 };
 
 describe('resolveSnapshotDirectory', () => {
+  it.each(['.twenty/cli/snapshots/build-cli/files'])(
+    'accepts the snapshot inside %s',
+    (path) => {
+      const directory = join(appPath, path);
+      expect(
+        resolveSnapshotDirectory({
+          build: { ...build, directory },
+          appPath,
+        }),
+      ).toBe(directory);
+    },
+  );
   it.each([
     '.twenty/snapshots/build-sdk/files',
-    '.twenty/cli/snapshots/build-cli/files',
-  ])('accepts the snapshot inside %s', (path) => {
-    const directory = join(appPath, path);
-    expect(
-      resolveSnapshotDirectory({
-        build: { ...build, directory },
-        appPath,
-        sdkVersion: '2.44.0',
-      }),
-    ).toBe(directory);
-  });
-  it.each([
     '.twenty/cli/pull-base.json',
     '.twenty/output',
     '.twenty/cli/snapshots',
@@ -41,12 +41,11 @@ describe('resolveSnapshotDirectory', () => {
     '.twenty/cli/snapshots-other/files',
     '.twenty/cli/snapshots/../../../outside',
     '../other/.twenty/cli/snapshots/build/files',
-  ])('rejects %s outside either snapshot directory', (path) => {
+  ])('rejects %s outside the CLI snapshot directory', (path) => {
     expect(() =>
       resolveSnapshotDirectory({
         build: { ...build, directory: join(appPath, path) },
         appPath,
-        sdkVersion: '2.44.0',
       }),
     ).toThrow(expect.objectContaining({ code: 'SNAPSHOT_INVALID' }));
   });

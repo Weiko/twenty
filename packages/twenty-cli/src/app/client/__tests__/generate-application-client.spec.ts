@@ -109,7 +109,7 @@ describe('CLI client generation uses the app generator', () => {
     sdkEntryPath = join(root, 'sdk-reference.cjs');
     await build({
       stdin: {
-        contents: `export { generateApplicationClient as generateAppClient } from './application-build/generate-application-client';`,
+        contents: `export { generateApplicationClient } from './application-build/generate-application-client';`,
         resolveDir: sdkSource,
       },
       outfile: sdkEntryPath,
@@ -119,6 +119,9 @@ describe('CLI client generation uses the app generator', () => {
       platform: 'node',
       format: 'cjs',
       target: 'node24',
+    });
+    await buildTestAppWorker(join(root, 'reference'), {
+      aliases: { '@/app/client/generate-application-client': sdkEntryPath },
     });
     await buildTestAppWorker(join(root, 'cli'));
     launch.modulePath = join(root, 'cli/app-worker.cjs');
@@ -144,16 +147,10 @@ describe('CLI client generation uses the app generator', () => {
   });
 
   it('matches SDK-generated source and bundles byte for byte without an application SDK', async () => {
-    const reference = await runAppWorker({
-      request: {
-        type: 'generateClient',
-        appPath,
-        buildEntryPath: sdkEntryPath,
-        schema: SCHEMA,
-      },
-      signal: new AbortController().signal,
-    });
-    expect(reference.result).toEqual({
+    launch.modulePath = join(root, 'reference/app-worker.cjs');
+    const result = await runGeneration();
+    launch.modulePath = join(root, 'cli/app-worker.cjs');
+    expect(result).toEqual({
       success: true,
       data: null,
       diagnostics: [],

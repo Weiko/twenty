@@ -9,25 +9,19 @@ import { isInsideDirectory } from '@/utils/is-inside-directory';
 export const resolveSnapshotDirectory = ({
   build,
   appPath,
-  sdkVersion,
 }: {
   build: ToolingBuild;
   appPath: string;
-  sdkVersion: string;
 }) => {
   if (!isDefined(build.directory)) {
     throw new CliError({
-      code: 'TOOLING_UNSUPPORTED',
-      message: `twenty-sdk ${sdkVersion} did not report where its build snapshot is, so the CLI cannot upload it.`,
-      hint: 'Upgrade twenty-sdk in this app, then install its dependencies again.',
+      code: 'SNAPSHOT_INVALID',
+      message:
+        'The build did not report its snapshot directory, so the CLI cannot upload it.',
     });
   }
 
   if (
-    !isInsideDirectory({
-      filePath: build.directory,
-      directory: join(appPath, '.twenty', 'snapshots'),
-    }) &&
     !isInsideDirectory({
       filePath: build.directory,
       directory: join(appPath, '.twenty', 'cli', 'snapshots'),
@@ -35,7 +29,7 @@ export const resolveSnapshotDirectory = ({
   ) {
     throw new CliError({
       code: 'SNAPSHOT_INVALID',
-      message: `The build snapshot ${build.directory} is outside the app's .twenty/snapshots and .twenty/cli/snapshots folders.`,
+      message: `The build snapshot ${build.directory} is outside the app's .twenty/cli/snapshots folder.`,
       details: { directory: build.directory },
     });
   }

@@ -4,18 +4,15 @@ import { createToolingFailure } from '@/app/create-tooling-failure';
 import { formatToolingDiagnostic } from '@/app/format-tooling-diagnostic';
 import { parseToolingResult } from '@/app/parse-tooling-result';
 import { resolveAppProject } from '@/app/resolve-app-project';
-import { resolveAppTooling } from '@/app/resolve-app-tooling';
+import { resolveSourceSdk } from '@/app/resolve-source-sdk';
 import { runAppWorker } from '@/app/run-app-worker';
 import { toWorkerOutputDiagnostics } from '@/app/to-worker-output-diagnostics';
 import { type AppOperation } from '@/app/types/app-operation.type';
 import { type AppProject } from '@/app/types/app-project.type';
 import { type AppWorkerOutput } from '@/app/types/app-worker-output.type';
-import { type AppTooling } from '@/app/types/app-tooling.type';
+import { type ProjectSdk } from '@/app/types/project-sdk.type';
 import { type ToolingDiagnostic } from '@/app/types/tooling-result.type';
-import {
-  readBooleanOption,
-  readStringOption,
-} from '@/catalog/read-command-values';
+import { readStringOption } from '@/catalog/read-command-values';
 import { type CommandContext } from '@/catalog/types/command-context.type';
 import { CLI_VERSION } from '@/constants/cli-version.constant';
 
@@ -50,21 +47,19 @@ export const runAppOperation = async <TData>({
   parseData: (data: unknown) => { data: TData } | undefined;
   context: CommandContext;
   useHeldBuild?: (
-    heldBuild: AppBuildResult<TData> & { project: AppProject; sdk: AppTooling },
+    heldBuild: AppBuildResult<TData> & { project: AppProject; sdk: ProjectSdk },
   ) => Promise<void>;
 }) => {
   const project = await resolveAppProject({
     explicitPath: readStringOption(options, 'path'),
     workingDirectory: process.cwd(),
   });
-  const sdk = await resolveAppTooling({
+  const sdk = await resolveSourceSdk({
     appPath: project.path,
-    operation,
-    legacySdk: readBooleanOption(options, 'legacySdk'),
   });
 
   output.progress(
-    `${PROGRESS_VERBS[operation]} ${project.name} with ${sdk.pipeline === 'cli' ? `twenty ${CLI_VERSION}` : `twenty-sdk ${sdk.version}`}…`,
+    `${PROGRESS_VERBS[operation]} ${project.name} with twenty ${CLI_VERSION}…`,
   );
 
   const startedAt = performance.now();
@@ -92,7 +87,6 @@ export const runAppOperation = async <TData>({
         error: toolingResult.error,
         diagnostics,
         sdkVersion: sdk.version,
-        pipeline: sdk.pipeline,
       });
     }
 
@@ -102,21 +96,13 @@ export const runAppOperation = async <TData>({
 
   const workerRun = await runAppWorker({
     request:
-      sdk.pipeline === 'sdk'
+      operation === 'build'
         ? {
-            type: 'run',
-            operation,
+            type: 'bundleSnapshot',
             appPath: project.path,
-            buildEntryPath: sdk.buildEntryPath,
             holdSnapshot: isDefined(useHeldBuild),
           }
-        : operation === 'build'
-          ? {
-              type: 'bundleSnapshot',
-              appPath: project.path,
-              holdSnapshot: isDefined(useHeldBuild),
-            }
-          : { type: 'typecheckSource', appPath: project.path },
+        : { type: 'typecheckSource', appPath: project.path },
     signal,
     ...(isDefined(useHeldBuild)
       ? {
@@ -139,7 +125,7 @@ export const runAppOperation = async <TData>({
     output.warn({
       code: 'SNAPSHOT_RELEASE_FAILED',
       message:
-        'The temporary build snapshot could not be removed. You can delete .twenty/snapshots and .twenty/cli/snapshots once no build is running.',
+        'The temporary build snapshot could not be removed. You can delete .twenty/cli/snapshots once no build is running.',
     });
   }
 

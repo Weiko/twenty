@@ -31,7 +31,6 @@ const isPlanUnavailable = (error: unknown) =>
 export const applyAppBuild = async ({
   build,
   appPath,
-  sdkVersion,
   context: { target, signal, output, outputMode, options },
   inferDeletionFromMissingEntities,
   isCreationApproved,
@@ -42,7 +41,6 @@ export const applyAppBuild = async ({
 }: {
   build: ToolingBuild;
   appPath: string;
-  sdkVersion: string;
   context: TargetCommandContext;
   inferDeletionFromMissingEntities: boolean;
   isCreationApproved: boolean;
@@ -161,7 +159,6 @@ export const applyAppBuild = async ({
   const snapshotDirectory = resolveSnapshotDirectory({
     build,
     appPath,
-    sdkVersion,
   });
 
   output.progress(`Requesting a fresh preview from ${target.apiUrl}…`);

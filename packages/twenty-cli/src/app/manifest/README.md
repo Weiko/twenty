@@ -6,8 +6,7 @@ for build, plan and apply. The worker evaluates definitions through
 [app/bundles](../bundles/README.md).
 
 The SDK implementation remains a test-only parity reference for the default
-pipeline. See the [app tooling overview](../README.md) for package ownership and
-the temporary legacy pipeline.
+pipeline. See the [app tooling overview](../README.md) for package ownership.
 
 ## Preserved behavior
 

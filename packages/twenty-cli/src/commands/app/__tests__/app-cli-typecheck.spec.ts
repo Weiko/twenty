@@ -103,12 +103,12 @@ describe('app typecheck with CLI tooling', () => {
     const result = await run();
     expect(result.exitCode, result.stdout).toBe(0);
     expect(result.envelope.data).toMatchObject({
-      sdk: { version: '2.42.0', protocolVersion: 1 },
+      sdk: { version: '2.42.0' },
       diagnostics: [],
     });
     const legacy = await run('--legacy-sdk');
-    expect(legacy.exitCode).toBe(1);
-    expect(legacy.envelope.error.code).toBe('TOOLING_UNSUPPORTED');
+    expect(legacy.exitCode).toBe(2);
+    expect(legacy.envelope.error.code).toBe('USAGE');
   });
 
   it('reports project diagnostics through the public command', async () => {

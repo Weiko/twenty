@@ -46,7 +46,6 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
       applyResult = await applyAppBuild({
         build: heldBuild.data,
         appPath: heldBuild.project.path,
-        sdkVersion: heldBuild.sdk.version,
         context,
         inferDeletionFromMissingEntities,
         isCreationApproved: readBooleanOption(context.options, 'create'),
@@ -100,7 +99,6 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
 
   const clientGenerationSkipReason = await getClientGenerationSkipReason({
     appPath: project.path,
-    sdk,
   });
   let clientGeneration: 'generated' | 'skipped' = 'skipped';
 
@@ -139,7 +137,7 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
   return {
     data: {
       app: { path: project.path, name: project.name },
-      sdk: { version: sdk.version, protocolVersion: sdk.protocolVersion },
+      sdk: { version: sdk.version },
       application: build.application,
       contentHash: build.contentHash,
       inferDeletionFromMissingEntities,

@@ -9,8 +9,7 @@ JSON gets the same clear expected-package diagnostic as a wrong package name.
 The remaining validation, generation and cancellation behavior follows the SDK.
 
 The internal `generateSourceClient` worker request needs no application SDK
-build entry or descriptor. Public `app apply` uses it by default. The temporary
-`--legacy-sdk` fallback selects the SDK wrapper instead.
+build entry or descriptor. Public `app apply` uses this worker request.
 
 ## Package and output ownership
 
@@ -60,6 +59,6 @@ its `CoreApiClient` export.
 Other cases cover a missing or hoisted-only package, invalid manifests and
 schemas, missing exports, a non-callable API, selection of the app's generator,
 pre-cancellation, in-flight cancellation and preserved failures/partial writes.
-The existing local HTTP apply contract exercises both SDK and CLI client
+The existing local HTTP apply contract exercises CLI client
 generation, along with snapshot upload, synchronization, pull-base recording
 and release. No live workspace is contacted.

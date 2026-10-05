@@ -14,7 +14,7 @@ export const runAppBuildCommand: CommandRun = async (context) => {
   return {
     data: {
       app: { path: project.path, name: project.name },
-      sdk: { version: sdk.version, protocolVersion: sdk.protocolVersion },
+      sdk: { version: sdk.version },
       application: data.application,
       contentHash: data.contentHash,
       files: data.files,
@@ -25,8 +25,6 @@ export const runAppBuildCommand: CommandRun = async (context) => {
     },
     human: formatBuildSummary({
       build: data,
-      sdkVersion: sdk.version,
-      pipeline: sdk.pipeline,
       durationMilliseconds,
     }),
   };

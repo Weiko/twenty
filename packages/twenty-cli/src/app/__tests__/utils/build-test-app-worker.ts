@@ -6,7 +6,13 @@ import { isDefined } from 'twenty-shared/utils';
 import { build, loadConfigFromFile } from 'vite';
 import { vi } from 'vitest';
 
-export const buildTestAppWorker = async (workerPath: string) => {
+export const buildTestAppWorker = async (
+  workerPath: string,
+  {
+    useToolingFixture = false,
+    aliases = {},
+  }: { useToolingFixture?: boolean; aliases?: Record<string, string> } = {},
+) => {
   const cliRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 
   const loaded = await loadConfigFromFile(
@@ -25,8 +31,42 @@ export const buildTestAppWorker = async (workerPath: string) => {
       ...loaded.config,
       configFile: false,
       plugins: [],
+      resolve: {
+        ...loaded.config.resolve,
+        alias: {
+          ...aliases,
+          ...(useToolingFixture
+            ? Object.fromEntries(
+                [
+                  '@/app/worker/build-source-snapshot',
+                  '@/app/typecheck/typecheck-application',
+                  '@/app/client/generate-application-client',
+                ].map((specifier) => [
+                  specifier,
+                  join(
+                    cliRoot,
+                    'src/app/__tests__/utils/worker-tooling-fixture.ts',
+                  ),
+                ]),
+              )
+            : {}),
+          ...loaded.config.resolve?.alias,
+        },
+      },
       build: {
         ...loaded.config.build,
+        rollupOptions: {
+          ...loaded.config.build?.rollupOptions,
+          external: (id, importer, isResolved) => {
+            const external = loaded.config.build?.rollupOptions?.external;
+
+            return (
+              Object.values(aliases).includes(id) ||
+              (typeof external === 'function' &&
+                external(id, importer, isResolved))
+            );
+          },
+        },
         outDir: workerPath,
         lib: {
           entry: {

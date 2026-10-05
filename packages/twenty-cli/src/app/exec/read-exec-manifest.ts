@@ -95,7 +95,6 @@ export const readExecManifest = async ({
       error: result.error,
       diagnostics,
       sdkVersion: sdk.version,
-      pipeline: 'cli',
     });
   }
 

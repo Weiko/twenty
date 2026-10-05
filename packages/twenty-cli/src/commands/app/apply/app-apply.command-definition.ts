@@ -1,4 +1,3 @@
-import { APP_LEGACY_SDK_OPTION } from '@/app/constants/app-legacy-sdk-option.constant';
 import { type TargetCommandDefinition } from '@/catalog/types/command-definition.type';
 
 export const APP_APPLY_COMMAND_DEFINITION: TargetCommandDefinition = {
@@ -6,7 +5,6 @@ export const APP_APPLY_COMMAND_DEFINITION: TargetCommandDefinition = {
   description:
     'Build the app, preview the changes, then upload and sync it to the workspace',
   options: [
-    APP_LEGACY_SDK_OPTION,
     {
       flags: '--path <directory>',
       description:

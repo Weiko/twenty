@@ -5,7 +5,7 @@ import { retainDevSnapshot } from '@/app/dev/retain-dev-snapshot';
 import { type WatchInputs } from '@/app/dev/types/watch-inputs.type';
 import { parseBuildData, parseToolingResult } from '@/app/parse-tooling-result';
 import { collectSourceFingerprints } from '@/app/pull/collect-source-fingerprints';
-import { resolveAppTooling } from '@/app/resolve-app-tooling';
+import { resolveSourceSdk } from '@/app/resolve-source-sdk';
 import { runAppWorker } from '@/app/run-app-worker';
 import { toWorkerOutputDiagnostics } from '@/app/to-worker-output-diagnostics';
 import { CliError } from '@/output/cli-error';
@@ -19,10 +19,8 @@ export const buildDevSnapshot = async ({
   signal: AbortSignal;
   updateWatchInputs: (inputs: WatchInputs, success: boolean) => Promise<void>;
 }) => {
-  const tooling = await resolveAppTooling({
+  const tooling = await resolveSourceSdk({
     appPath,
-    operation: 'build',
-    legacySdk: false,
   });
   const sourceFingerprints = await collectSourceFingerprints(appPath).catch(
     () => undefined,
@@ -48,7 +46,6 @@ export const buildDevSnapshot = async ({
           retained = await retainDevSnapshot({
             build: parsed.data,
             appPath,
-            sdkVersion: tooling.version,
             signal,
           });
         }
@@ -71,7 +68,6 @@ export const buildDevSnapshot = async ({
         error: result.error,
         diagnostics,
         sdkVersion: tooling.version,
-        pipeline: 'cli',
       });
     }
 

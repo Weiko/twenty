@@ -7,8 +7,7 @@ The SDK implementation is retained as a test-only parity reference; see the
 The internal `typecheckSource` worker request checks an app without loading SDK
 tooling. `bundleSnapshot` now runs this typecheck after bundling, in the SDK's
 existing order. A failed check discards that build's snapshot. Public build,
-typecheck, plan, apply and uninstall commands use this pipeline by default;
-`--legacy-sdk` temporarily selects the SDK pipeline for migration comparisons.
+typecheck, plan, apply and uninstall commands use this pipeline.
 
 ## Compiler ownership
 

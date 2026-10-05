@@ -52,7 +52,6 @@ export const createDevClientGenerator = ({ appPath }: { appPath: string }) => {
   }) => {
     const skipReason = await getClientGenerationSkipReason({
       appPath,
-      sdk: snapshot.tooling,
     });
 
     if (isDefined(skipReason)) {

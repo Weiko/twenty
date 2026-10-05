@@ -39,9 +39,7 @@ const makeSnapshot = (contentHash: string): BuiltDevSnapshot => ({
   },
   release: vi.fn(async () => {}),
   tooling: {
-    pipeline: 'cli',
     version: '2.44.0',
-    protocolVersion: 1,
     packagePath: '/test-app/node_modules/twenty-sdk',
   },
   diagnostics: [],

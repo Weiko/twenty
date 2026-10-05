@@ -36,9 +36,7 @@ const snapshot: BuiltDevSnapshot = {
   },
   diagnostics: [],
   tooling: {
-    pipeline: 'cli',
     version: '2.44.0',
-    protocolVersion: 1,
     packagePath: '/sdk',
   },
   sourceFingerprints: {},

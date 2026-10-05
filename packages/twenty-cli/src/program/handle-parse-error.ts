@@ -1,9 +1,8 @@
 import { type CommanderError } from 'commander';
 import { isNonEmptyString } from '@sniptt/guards';
-import { capitalize, isDefined, isNonEmptyArray } from 'twenty-shared/utils';
+import { capitalize, isNonEmptyArray } from 'twenty-shared/utils';
 
 import { VERSION_COMMAND_DEFINITION } from '@/commands/version/version.command-definition';
-import { createLegacyCommandError } from '@/legacy/create-legacy-command-error';
 import { CliError } from '@/output/cli-error';
 import { EXIT_CODE } from '@/output/constants/exit-code.constant';
 import { createOutput } from '@/output/create-output';
@@ -13,8 +12,6 @@ import { ROOT_COMMAND_NAME } from '@/program/constants/root-command-name.constan
 import { runCommand } from '@/program/run-command';
 
 const HELP_COMMAND_NAME = 'help';
-
-const LEGACY_COMMAND_WORD_COUNTS = [2, 1];
 
 const formatCommanderMessage = (message: string) => {
   const flattenedMessage = message
@@ -29,9 +26,6 @@ const getFullCommandName = (commandName: string) =>
   commandName === ROOT_COMMAND_NAME
     ? ROOT_COMMAND_NAME
     : `${ROOT_COMMAND_NAME} ${commandName}`;
-
-const getCommandPathPrefix = (commandName: string) =>
-  commandName === ROOT_COMMAND_NAME ? [] : [commandName];
 
 const createUsageError = ({
   message,
@@ -54,19 +48,6 @@ const isHelpDisplay = (commanderError: CommanderError, operands: string[]) =>
 
 const getUnknownHelpTarget = (operands: string[]) =>
   (operands[0] === HELP_COMMAND_NAME ? operands.slice(1) : operands).join(' ');
-
-const findLegacyCommandError = (commandName: string, operands: string[]) =>
-  LEGACY_COMMAND_WORD_COUNTS.filter((wordCount) => operands.length >= wordCount)
-    .map((wordCount) =>
-      createLegacyCommandError({
-        legacyCommand: [
-          ...getCommandPathPrefix(commandName),
-          ...operands.slice(0, wordCount),
-        ].join(' '),
-        remainingArguments: operands.slice(wordCount),
-      }),
-    )
-    .find(isDefined);
 
 export const handleParseError = async ({
   error,
@@ -113,16 +94,10 @@ export const handleParseError = async ({
     return;
   }
 
-  const legacyCommandError =
-    commanderError.code === 'commander.unknownCommand'
-      ? findLegacyCommandError(commandName, operands)
-      : undefined;
-
   output.fail(
-    legacyCommandError ??
-      createUsageError({
-        message: formatCommanderMessage(commanderError.message),
-        commandName,
-      }),
+    createUsageError({
+      message: formatCommanderMessage(commanderError.message),
+      commandName,
+    }),
   );
 };

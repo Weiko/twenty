@@ -1,8 +1,7 @@
 import { fetchAppPlan } from '@/app/fetch-app-plan';
 import { formatAppPlan } from '@/app/format-app-plan';
 import { getAppPlanSummary } from '@/app/get-app-plan-summary';
-import { parseBuildData } from '@/app/parse-tooling-result';
-import { runAppOperation } from '@/app/run-app-operation';
+import { runAppBuild } from '@/app/run-app-operation';
 import { type CommandRun } from '@/catalog/types/command-run.type';
 import { type TargetCommandContext } from '@/catalog/types/target-command-context.type';
 
@@ -15,11 +14,7 @@ export const runAppPlanCommand: CommandRun<TargetCommandContext> = async (
     sdk,
     data: build,
     diagnostics,
-  } = await runAppOperation({
-    operation: 'build',
-    parseData: parseBuildData,
-    context,
-  });
+  } = await runAppBuild({ context });
   const inferDeletionFromMissingEntities = context.options.delete !== false;
 
   context.output.progress(

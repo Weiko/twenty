@@ -572,6 +572,29 @@ describe('app build and typecheck', () => {
       expect(human.stderr).toContain('TS2322');
     });
 
+    it.each(['build', 'typecheck'])(
+      'rejects a %s response containing the other operation result',
+      async (operation) => {
+        const { appPath } = await createApp();
+
+        await writeFixture({
+          appPath,
+          build: SUCCESSFUL_TYPECHECK,
+          typecheck: SUCCESSFUL_BUILD,
+        });
+
+        const { envelope, exitCode } = await runJson([
+          'app',
+          operation,
+          '--path',
+          appPath,
+        ]);
+
+        expect(exitCode).toBe(1);
+        expect(envelope.error.code).toBe('WORKER_FAILED');
+      },
+    );
+
     it('rejects a result it cannot read', async () => {
       const { appPath } = await createApp();
 

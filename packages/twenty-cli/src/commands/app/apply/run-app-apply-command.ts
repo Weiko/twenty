@@ -6,11 +6,10 @@ import { formatApplySummary } from '@/app/format-apply-summary';
 import { generateAppClient } from '@/app/generate-app-client';
 import { getAppPlanSummary } from '@/app/get-app-plan-summary';
 import { getClientGenerationSkipReason } from '@/app/get-client-generation-skip-reason';
-import { parseBuildData } from '@/app/parse-tooling-result';
 import { collectSourceFingerprints } from '@/app/pull/collect-source-fingerprints';
 import { type PullBaseRecording, recordPullBase } from '@/app/record-pull-base';
 import { resolveAppProject } from '@/app/resolve-app-project';
-import { runAppOperation } from '@/app/run-app-operation';
+import { runAppBuild } from '@/app/run-app-operation';
 import {
   readBooleanOption,
   readStringOption,
@@ -38,9 +37,7 @@ export const runAppApplyCommand: CommandRun<TargetCommandContext> = async (
     sdk,
     data: build,
     diagnostics,
-  } = await runAppOperation({
-    operation: 'build',
-    parseData: parseBuildData,
+  } = await runAppBuild({
     context,
     useHeldBuild: async (heldBuild) => {
       applyResult = await applyAppBuild({

@@ -27,7 +27,7 @@ yarn exec vitest run --maxWorkers=2
 For a focused change, pass its test file or directory to `vitest run`. Command
 tests execute the public command runner with local HTTP fixtures. Worker tests
 exercise subprocess output, cancellation and snapshot lifetime. Parity suites
-compare generated source and artifacts against the existing SDK implementation;
+compare generated source and artifacts against the SDK implementation;
 the SDK is a test reference, not a runtime tooling dependency.
 
 Rebuild `twenty-shared` with `--skip-nx-cache` after switching branches or changing
@@ -52,7 +52,6 @@ changed server workflows against a disposable workspace when appropriate.
 | `src/doctor` | Read-only setup and connection diagnostics |
 | `src/app` | Project tooling and application lifecycle, see its [module map](src/app/README.md) |
 | `src/input`, `src/output` | Input parsing, human/JSON/NDJSON output and error contracts |
-| `src/legacy` | Migration hints for old command spellings, not command execution |
 | `app-template-overlay` | CLI-based test harness applied over the shared app template |
 
 Command definitions are the source for help and `twenty commands`. Keep handlers
@@ -83,11 +82,11 @@ Changes must preserve these contracts:
   buffering and emit a terminal result or error. Cancellation exits 130 unless
   the operation has already acknowledged its completed result.
 
-## Packaging and migration
+## Packaging
 
 Vite builds the CLI, its worker and lazy chunks into `dist`. It also copies the
 `create-twenty-app` template and the CLI test-harness overlay there. Chokidar,
-esbuild, tinyglobby and the CLI's TypeScript parser remain runtime dependencies;
+esbuild, tinyglobby and the CLI's TypeScript parser are runtime dependencies;
 other imported libraries are bundled. The parser is separate from the app's
 compiler used for typechecking.
 
@@ -104,13 +103,12 @@ yarn workspace twenty pack --dry-run
 Check both executable entry points, lazy chunks and templates in the packed
 package. Smoke-test help and app initialization from an extracted archive with
 its declared dependencies. This checks packaging without publishing anything.
-The implementation is not released on npm yet, and application publishing is
-not implemented by this CLI.
 
-Removing SDK tooling and deprecating `create-twenty-app` require a coordinated
-release. CLI-created apps already use subprocess commands in their test harness.
-Existing apps and the separate scaffolder can still import `twenty-sdk/cli`;
-migrate those callers before removing its exports. Apps should invoke the
-installed CLI rather than import it as a library or add it as a dependency.
-See the [typecheck migration notes](src/app/typecheck/README.md) for compiler and
-project-reference differences.
+## App integration tests
+
+`app-template-overlay` supplies the integration-test setup for CLI-created apps.
+It deploys the app before tests and uninstalls it afterward by invoking the
+installed CLI with `--json`. Apps invoke the executable rather than import the
+CLI as a library or add it as a dependency. See the
+[template contract](docs/commands.md#create-an-app) for executable selection and
+the [compiler requirements](src/app/typecheck/README.md) for project setup.

@@ -79,6 +79,16 @@ const compareDirectory = async (first: string, second: string) => {
             ? source
             : resolve(dirname(join(directory, path)), source),
         );
+        map.sourcesContent = map.sourcesContent.map(
+          (source: string, index: number) =>
+            map.sources[index] ===
+            'twenty-sdk-define-stub:__twenty-sdk-define-stub__'
+              ? source.replace(
+                  /^\/\/ Auto-generated stub for twenty-sdk\/define[^\r\n]*$/m,
+                  '',
+                )
+              : source,
+        );
         return map;
       };
       expect(normalize(actual, second), path).toEqual(

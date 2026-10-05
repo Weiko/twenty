@@ -8,15 +8,14 @@ Names can repeat within one app; name selection is a filter matching all of them
 
 ## Contract
 
-- `app logs` uses the existing CLI app-identity worker instead of a saved SDK
-  manifest. Only the app definition is needed; no function bundles, full
-  manifest build, generated client or SDK CLI/build export is required. Source
+- `app logs` uses the CLI app-identity worker. Only the app definition is needed;
+  no function bundles, full manifest build or generated client is required. Source
   diagnostics use CLI output, and target credentials stay outside the worker.
 - The CLI target supplies OAuth or API-key credentials, environment proxy
-  routing and cancellation. Server authorization is unchanged: `WORKFLOWS`,
+  routing and cancellation. Server authorization requires `WORKFLOWS`,
   workspace scoping and per-payload application access checks. There is no
   execution mutation, app registration or workspace audit-log query.
-- The selection adds nullable `name` and `universalIdentifier` fields. Older
+- The selection requests nullable `name` and `universalIdentifier` fields. Server
   schemas rejecting only these fields trigger one explicit, warned fallback to
   `{ logs }`, before any record has been emitted. Unrelated validation,
   authorization, network and execution errors are never retried. An explicit

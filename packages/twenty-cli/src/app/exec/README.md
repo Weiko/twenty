@@ -12,12 +12,11 @@ edits must be synced with apply or dev first.
 - Flags follow the space-separated command surface and kebab-case convention:
   `app exec --name`, `--universal-identifier`, `--post-install`, `--pre-install`
   or `--uninstall-hook`. Exactly one selector is required.
-- The CLI keeps no saved build manifest. It uses the existing `buildManifest`
+- The CLI keeps no saved build manifest. It uses the `buildManifest`
   worker to load definitions with the app's authoring SDK, without bundling or
-  typechecking. No SDK CLI/build export, descriptor or generated client is
-  required. Worker output becomes diagnostics; credentials are not passed to it.
+  typechecking. Worker output becomes diagnostics; credentials are not passed to it.
 - Function selection checks both the local manifest identifiers and the remote
-  installed application's ID. The extra `findOneApplication` lookup prevents
+  installed application's ID. The `findOneApplication` lookup prevents
   copied or stale identifiers from selecting another installed app's function.
   This needs `APPLICATIONS` in addition to execution's `WORKFLOWS` permission.
 - The current server requires a user-bound token for execution. Browser-login
@@ -25,7 +24,7 @@ edits must be synced with apply or dev first.
   The server still decides which functions that user can run: workspace custom
   app functions, functions exposed as workflow actions, or functions from an
   app registered by this workspace. The CLI does not bypass those checks.
-- Payloads use the existing JSON-object input reader: inline JSON, `@file` or
+- Payloads use the JSON-object input reader: inline JSON, `@file` or
   `-` for stdin, default `{}`. Non-object values are rejected.
 - Human output escapes terminal controls. JSON success includes function/app
   identity, status, `durationMilliseconds`, data, logs, error and diagnostics.
@@ -35,7 +34,7 @@ edits must be synced with apply or dev first.
 - The execution request deadline is the deployed function's `timeoutSeconds`
   plus the transport's 60-second allowance. Its HTTP dispatcher header/body
   deadlines use the same value, avoiding Node's default five-minute cutoff.
-  Other commands keep their existing deadlines and lazy transport loading.
+  Other commands use their own deadlines and lazy transport loading.
   Proxies and the server can still close a request earlier.
 - Execution is never retried. Acknowledged authentication, permission,
   not-found and input/validation rejections have `outcome: "not-started"`.

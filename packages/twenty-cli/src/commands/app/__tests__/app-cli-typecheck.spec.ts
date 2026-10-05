@@ -30,14 +30,13 @@ describe('app typecheck with CLI tooling', () => {
   let workerDirectory: string;
   let appPath: string;
 
-  const run = async (...options: string[]) => {
+  const run = async () => {
     const result = await runCliForTest([
       'app',
       'typecheck',
       '--path',
       appPath,
       '--json',
-      ...options,
     ]);
     return { ...result, envelope: parseSingleJsonLine(result.stdout) };
   };
@@ -106,9 +105,6 @@ describe('app typecheck with CLI tooling', () => {
       sdk: { version: '2.42.0' },
       diagnostics: [],
     });
-    const legacy = await run('--legacy-sdk');
-    expect(legacy.exitCode).toBe(2);
-    expect(legacy.envelope.error.code).toBe('USAGE');
   });
 
   it('reports project diagnostics through the public command', async () => {
@@ -146,14 +142,5 @@ describe('app typecheck with CLI tooling', () => {
       code: 'TYPECHECK_FAILED',
       details: { diagnostics: [expect.objectContaining({ code: 'TS5083' })] },
     });
-  });
-
-  it('keeps the migration fallback out of normal discovery', async () => {
-    const help = await runCliForTest(['app', 'typecheck', '--help']);
-    expect(help.exitCode).toBe(0);
-    expect(help.stdout).not.toContain('--legacy-sdk');
-    const commands = await runCliForTest(['commands', '--json']);
-    expect(commands.exitCode).toBe(0);
-    expect(commands.stdout).not.toContain('--legacy-sdk');
   });
 });

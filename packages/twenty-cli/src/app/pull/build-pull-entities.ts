@@ -22,12 +22,11 @@ import { kebabCase } from '@/app/pull/kebab-case';
 import { type Manifest } from 'twenty-shared/application';
 import { fromApplicationManifestToApplicationConfig } from '@/app/pull/from-application-manifest-to-application-config';
 import { fromRoleManifestToRoleConfig } from '@/app/pull/from-role-manifest-to-role-config';
-import {
-  getObjectName,
-  getPageLayoutName,
-  getNavigationMenuItemName,
-  getNavigationMenuItemFolderName,
-} from '@/app/pull/pull-entity-names';
+import { buildPullFieldFileName } from '@/app/pull/build-pull-field-file-name';
+import { buildPullNavigationMenuItemFileName } from '@/app/pull/build-pull-navigation-menu-item-file-name';
+import { getObjectNameForPullFile } from '@/app/pull/get-object-name-for-pull-file';
+import { getPageLayoutNameForPullFile } from '@/app/pull/get-page-layout-name-for-pull-file';
+import { getNavigationFolderNameForPullFile } from '@/app/pull/get-navigation-folder-name-for-pull-file';
 import { isDefined } from 'twenty-shared/utils';
 
 export const PULL_ENTITY_KINDS = [
@@ -112,7 +111,7 @@ export const buildPullEntities = (
   }
 
   for (const fieldManifest of manifest.fields ?? []) {
-    const objectName = getObjectName({
+    const objectName = getObjectNameForPullFile({
       objectUniversalIdentifier: fieldManifest.objectUniversalIdentifier,
       manifest,
     });
@@ -130,9 +129,10 @@ export const buildPullEntities = (
       enumBindings: FIELD_ENUM_BINDINGS,
       defaultFolder: 'src/fields',
       fileSuffix: '.field.ts',
-      fileBaseName: toFileBaseName({
-        segments: [objectName, fieldManifest.name],
-        universalIdentifier: fieldManifest.universalIdentifier,
+      fileBaseName: buildPullFieldFileName({
+        objectName,
+        fieldName: fieldManifest.name,
+        fieldUniversalIdentifier: fieldManifest.universalIdentifier,
       }),
       parentName: objectName,
     });
@@ -152,7 +152,7 @@ export const buildPullEntities = (
       continue;
     }
 
-    const objectName = getObjectName({
+    const objectName = getObjectNameForPullFile({
       objectUniversalIdentifier: indexManifest.objectUniversalIdentifier,
       manifest,
     });
@@ -228,7 +228,7 @@ export const buildPullEntities = (
         segments: [viewManifest.name],
         universalIdentifier: viewManifest.universalIdentifier,
       }),
-      parentName: getObjectName({
+      parentName: getObjectNameForPullFile({
         objectUniversalIdentifier: viewManifest.objectUniversalIdentifier,
         manifest,
       }),
@@ -266,7 +266,7 @@ export const buildPullEntities = (
         universalIdentifier: pageLayoutManifest.universalIdentifier,
       }),
       parentName: isDefined(pageLayoutManifest.objectUniversalIdentifier)
-        ? getObjectName({
+        ? getObjectNameForPullFile({
             objectUniversalIdentifier:
               pageLayoutManifest.objectUniversalIdentifier,
             manifest,
@@ -299,7 +299,7 @@ export const buildPullEntities = (
         segments: [pageLayoutTabManifest.title],
         universalIdentifier: pageLayoutTabManifest.universalIdentifier,
       }),
-      parentName: getPageLayoutName({
+      parentName: getPageLayoutNameForPullFile({
         pageLayoutUniversalIdentifier,
         manifest,
       }),
@@ -317,14 +317,12 @@ export const buildPullEntities = (
       enumBindings: NAVIGATION_MENU_ITEM_ENUM_BINDINGS,
       defaultFolder: 'src/navigation-menu-items',
       fileSuffix: '.navigation-menu-item.ts',
-      fileBaseName: toFileBaseName({
-        segments: [
-          getNavigationMenuItemName({ navigationMenuItemManifest, manifest }),
-        ],
-        universalIdentifier: navigationMenuItemManifest.universalIdentifier,
+      fileBaseName: buildPullNavigationMenuItemFileName({
+        navigationMenuItemManifest,
+        manifest,
       }),
       parentName: isDefined(folderUniversalIdentifier)
-        ? getNavigationMenuItemFolderName({
+        ? getNavigationFolderNameForPullFile({
             folderUniversalIdentifier,
             manifest,
           })
@@ -348,7 +346,7 @@ export const buildPullEntities = (
         universalIdentifier: pageLayoutWidgetManifest.universalIdentifier,
       }),
       parentName: isDefined(objectUniversalIdentifier)
-        ? getObjectName({ objectUniversalIdentifier, manifest })
+        ? getObjectNameForPullFile({ objectUniversalIdentifier, manifest })
         : null,
     });
   }

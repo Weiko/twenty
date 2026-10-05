@@ -91,6 +91,10 @@ esbuild, tinyglobby and the CLI's TypeScript parser remain runtime dependencies;
 other imported libraries are bundled. The parser is separate from the app's
 compiler used for typechecking.
 
+The archive includes the command reference, contributor guide and application
+module READMEs so their relative links also work outside a repository checkout.
+It does not include TypeScript source or tests.
+
 For packaging changes, build and inspect the archive before release:
 
 ```bash

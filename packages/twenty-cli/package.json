@@ -14,7 +14,10 @@
   "license": "AGPL-3.0",
   "bin": "dist/cli.cjs",
   "files": [
-    "dist"
+    "dist",
+    "docs/commands.md",
+    "CONTRIBUTING.md",
+    "src/app/**/README.md"
   ],
   "scripts": {
     "build": "npx rimraf dist && npx vite build"

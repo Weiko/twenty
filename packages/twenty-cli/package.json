@@ -15,7 +15,6 @@
   "bin": "dist/cli.cjs",
   "files": [
     "dist",
-    "LICENSE",
     "docs/commands.md",
     "CONTRIBUTING.md",
     "src/app/**/README.md"
